@@ -1,0 +1,551 @@
+#!/usr/bin/python
+#scriptdoc: title="Curses based Jira team backlog/sprint", tags="bt,work,jira"
+import curses
+import json
+import argparse
+import os
+from MyJira import MyJira
+from MyGit import MyGit
+from MyGithub import MyGithub
+from MyJiraConfig import MyJiraConfig
+from CursesTableView import CursesTableView
+import time
+import tempfile
+
+# Load the config
+config_file = MyJiraConfig()
+if not config_file.exists():
+    config_file.generate_template()
+    quit()
+config = config_file.load()
+
+# Global variables
+jira = MyJira(config.get('jira'))
+mygit = MyGit(config.get('git'))
+mygithub = MyGithub(config.get('github'))
+parser = argparse.ArgumentParser()
+parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
+parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
+parser.add_argument("-z", "--escalations", help="Start in escalations mode", action="store_true")
+parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
+args = parser.parse_args()
+
+def show_viewer(string):
+    with tempfile.NamedTemporaryFile(suffix=".json") as f:
+        f.write(string.encode('utf-8'))
+        f.flush()
+        os.system("less " + f.name)
+
+def get_string_from_editor():
+    filename = None
+    with tempfile.NamedTemporaryFile(mode='w+t', suffix=".txt") as f:
+        filename = f.name
+        f.write("")
+    os.system(f"vim -N --clean {filename}")
+    with open(filename, 'r+t') as f:
+        return f.read()
+
+def inspect_issue(issue):
+    show_viewer(json.dumps(issue.raw, indent=4, sort_keys=True))
+
+def view_description(issue):
+    show_viewer(jira.get_body(issue, include_comments=True))
+
+class ViewMode:
+    SPRINT = 1
+    BACKLOG = 2
+    ESCALATIONS = 3
+    WINDOWS_SHARED = 4
+    TASKVIEW = 5
+    SEARCH = 6
+    HELP = 7
+
+class JiraTableView:
+    def __init__(self, ui):
+        self.ui = ui
+        self.parent_issue = ()
+        self.mode = ViewMode.BACKLOG
+        self.__previous_issues = () 
+        self.__previous_mode = self.mode
+        self.__current_issues = ()
+        self.extra_columns = {}
+
+    # Rebuilds the view based, adding any extra columns
+    def rebuild(self, extra_columns={}):
+        self.extra_columns = extra_columns
+        self.__build(self.__current_issues)
+
+    # Rebuilds the view based on the previous mode, i.e. When going from task view back to the parent view
+    def previous(self):
+        self.mode = self.__previous_mode
+        self.__current_issues = self.__previous_issues
+        self.rebuild()
+
+    # Refresh the view with new Jira data, optionally with a new mode, a parent issue must be specified if mode is TASKVIEW
+    # params may be specified for SEARCH mode
+    def refresh(self, new_mode = None, params = None, parent_issue = None):
+        self.parent_issue = parent_issue if parent_issue != None or self.mode != ViewMode.TASKVIEW else self.parent_issue
+        self.__previous_mode = self.mode
+        self.mode = new_mode if new_mode != None else self.mode
+
+        self.ui.prompt("Fetching issues...")
+        if self.mode == ViewMode.BACKLOG:
+            self.__current_issues = self.__build(jira.get_backlog_issues())
+        elif self.mode == ViewMode.SPRINT:
+            self.__current_issues = self.__build(jira.get_sprint_issues())
+        elif self.mode == ViewMode.ESCALATIONS:
+            self.__current_issues = self.__build(jira.get_escalation_issues())
+        elif self.mode == ViewMode.WINDOWS_SHARED:
+            self.__current_issues = self.__build(jira.get_windows_backlog_issues())
+        elif self.mode == ViewMode.SEARCH:
+            self.__current_issues = self.__build(jira.search_for_issue(params))
+        elif self.mode == ViewMode.TASKVIEW:
+            self.__current_issues = self.__build(jira.get_sub_tasks(self.parent_issue))
+
+        self.__previous_issues = self.__current_issues if self.mode != ViewMode.TASKVIEW else self.__previous_issues
+
+    # Clear the UI and rebuild the view based on the specified issues list, can optionally enable extra columns
+    def __build(self, issues):
+        self.ui.clear()
+        optional_fields = jira.get_optional_fields()
+        extra_columns = self.extra_columns.copy()
+
+        header = ['Key', 'Summary', 'Status']
+        if self.mode == ViewMode.SPRINT and extra_columns.get('Points') == None:
+            extra_columns['Points'] = optional_fields['Points']
+        if self.mode == ViewMode.TASKVIEW and extra_columns.get('Assignee') == None:
+            extra_columns['Assignee'] = optional_fields['Assignee']
+        if len(extra_columns) > 0:
+            header.extend(extra_columns.keys())
+        self.ui.add_header(header)
+
+        for issue in issues:
+            added_fields = []
+            if len(extra_columns) > 0:
+                for col_lambda in extra_columns.values():
+                    added_fields.append(col_lambda(issue))
+            cells = [issue.key, issue.fields.summary, issue.fields.status.name]
+            cells.extend(added_fields)
+            subtasks = issue.fields.subtasks
+            subtask_list = []
+            for subtask in subtasks:
+                subcells = [subtask.key, subtask.fields.summary, subtask.fields.status.name]
+                subtask_list.append((subcells, subtask))
+            self.ui.add_row(cells, issue, subtask_list)
+
+        self.ui.draw()
+
+        return issues
+
+def main(stdscr):
+    ui = CursesTableView(stdscr)
+    ui.set_header_color(curses.COLOR_RED)
+    ui.set_column_colors([curses.COLOR_RED, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_BLUE, curses.COLOR_GREEN, curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_BLUE, curses.COLOR_GREEN, curses.COLOR_MAGENTA])
+    ui.enable_row_numbers()
+    view = JiraTableView(ui)
+
+    # Get the backlog issues
+    view.refresh(ViewMode.SPRINT if args.sprint
+                 else ViewMode.ESCALATIONS if args.escalations
+                 else ViewMode.WINDOWS_SHARED if args.windows_shared
+                 else ViewMode.BACKLOG)
+
+    # Column sort f-keys
+    possible_columns = jira.get_optional_fields()
+    fkey_to_column = {}
+    for i, possible_column in enumerate(possible_columns):
+        fkey_to_column[f"F{i+2}"] = possible_column
+    fkey_string = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
+
+    # Keyboard input loop
+    key_shortcuts = ('q', 's', 'l', 'z', 'e', 'w', 'i', 'b', 'k', 'p', 'S', 'c', 'd', 'a', 'P', 't', 'm', 'v', 'h', 'T', '?')
+    while True:
+        prompt = f"Commands F1:help, {fkey_string}\n"
+        prompt += "  q:quit, s:sprint, l:backlog, z:escalations, e:edit, w:winshared, i:inspect, b:browse, k:link, p:pr, S:support_folder, T:tasks\n"
+        prompt += "  c:create, d:delete, a:assign, P:points, t:status, m:move, v:view, h:branch, o/O:sort, /:search, |:filter, ?:glob_search\n"
+        prompt += "Type a number to see task details"
+        selection = ""
+        try:
+            selection = ui.prompt_get_string(prompt, key_shortcuts, '|', ('o', 'O'), '/')
+        except Exception as e:
+            ui.error("Add extra columns", e)
+            
+        if selection == "T":
+            ui.toggle_subrows()
+            ui.draw()
+
+        # Help
+        if selection == "KEY_F1":
+            ui.disable_row_numbers()
+            ui.clear()
+            ui.add_header(["", "Key", "Description"])
+            ui.add_row(["", "F1", "Show this help"])
+            ui.add_row(["", "F2-F12", "Toggle additional columns"])
+            ui.add_row(["", "Esc", "Go back"])
+            ui.add_row(["", "PgDn", "Next page"])
+            ui.add_row(["", "PgUp", "Previous page"])
+            ui.add_row(["", "/", "Search for issue in the current view"])
+            ui.add_row(["", "|", "Filter the current view based on keyword"])
+            ui.add_row(["", "?", "Global search (bug numbers or title keywords)"])
+            ui.add_row(["", "a", "Assign issue to user"])
+            ui.add_row(["", "b", "Browse issue in browser"])
+            ui.add_row(["", "c", "Create issue in current view"])
+            ui.add_row(["", "d", "Delete issue in current view"])
+            ui.add_row(["", "e", "Edit issue in editor"])
+            ui.add_row(["", "h", "Create branch to work on the issue"])
+            ui.add_row(["", "i", "Inspect issue"])
+            ui.add_row(["", "k", "Create spike issue on sprint which links to the selected issue"])
+            ui.add_row(["", "l", "Show backlog issues"])
+            ui.add_row(["", "m", "Move issue to sprint/backlog or change it's rank"])
+            ui.add_row(["", "o", "Sort by column"])
+            ui.add_row(["", "p", "Start a PR for issue on github"])
+            ui.add_row(["", "P", "Set story points for issue"])
+            ui.add_row(["", "q", "Quit Jira"])
+            ui.add_row(["", "S", "Open support folder for issue"])
+            ui.add_row(["", "s", "Show sprint issues"])
+            ui.add_row(["", "t", "Change issue status"])
+            ui.add_row(["", "v", "View issue in editor"])
+            ui.add_row(["", "T", "Toggle subtasks"])
+            ui.add_row(["", "w", "Show windows shared issues"])
+            ui.add_row(["", "z", "Show escalations"])
+            ui.draw()
+            ui.enable_row_numbers()
+
+        # Quit
+        if selection == "q":
+            ui.close()
+            return
+
+        # Enable/Disable extra columns
+        if selection in ("KEY_F2", "KEY_F3", "KEY_F4", "KEY_F5", "KEY_F6", "KEY_F7", "KEY_F8", "KEY_F9", "KEY_F10", "KEY_F11", "KEY_F12"):
+            fkey = selection[4:]
+            try:
+                if fkey_to_column.get(fkey):
+                    selected_column = fkey_to_column[fkey]
+                    ui.prompt(f"Sorting by {selected_column}...")
+                    extra_columns = view.extra_columns
+                    if selected_column != "" and selected_column in possible_columns:
+                        if selected_column not in extra_columns:
+                            extra_columns[selected_column] = possible_columns[selected_column]
+                        else:
+                            del extra_columns[selected_column]
+                    view.rebuild(extra_columns=extra_columns)
+            except Exception as e:
+                ui.error("Add extra columns", e)
+
+        # Edit issue
+        elif selection == "e":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    [i, typeofedit] = ui.prompt_with_choice_list("Edit Actions", ["Comment"], non_numeric_keypresses = True)
+                    if typeofedit == "Comment":
+                        comment = ui.prompt_get_string("(F1 for editor)\nEnter comment")
+                        if comment == "KEY_F1":
+                            stdscr.clear()
+                            comment = get_string_from_editor()
+                        if comment != "":
+                            jira.add_comment(issue, comment)
+                        view.rebuild()
+            except Exception as e:
+                ui.error("Edit issue", e)
+
+        # Show sprint
+        elif selection == "s":
+            try:
+                view.refresh(ViewMode.SPRINT)
+            except Exception as e:
+                ui.error("Refresh sprint view", e)
+
+        # Show backlog
+        elif selection == "l":
+            try:
+                view.refresh(ViewMode.BACKLOG)
+            except Exception as e:
+                ui.error("Refresh backlog view", e)
+
+        # Show escalations
+        elif selection == "z":
+            try:
+                view.refresh(ViewMode.ESCALATIONS)
+            except Exception as e:
+                ui.error("Refresh escalations view", e)
+
+        # Perform a global search
+        elif selection == "?":
+            try:
+                search_string = ui.prompt_get_string("Enter search term")
+                if search_string != "":
+                    view.refresh(ViewMode.SEARCH, params=search_string)
+            except Exception as e:
+                ui.error("Global search", e)
+
+        # Create linked issue on sprint
+        elif selection == "k":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    issue = jira.create_linked_issue_on_sprint(issue)
+                    ui.prompt(f"Created {issue.key}...")
+                    view.refresh()
+            except Exception as e:
+                ui.error("Create linked issue on sprint", e)
+
+        # Create a PR
+        elif selection == "p":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    [i, type_pr] = ui.prompt_with_choice_list("PR Type", ["fix", "feat", "chore", "refactor"])
+                    if type_pr != "":
+                        title = f"{type_pr}: {issue.fields.summary} [{issue.key}]"
+                        body = f"Jira Issue: {issue.permalink()}"
+                        yesno = ui.prompt_get_character(f"Do you want to include the description in the PR body? (y/n)")
+                        if yesno == "y":
+                            body += f"\n\nDescription: {issue.fields.description}"
+                        head = mygit.current_branch()
+                        base = "main"
+                        yesno = ui.prompt_get_character(f"Create the PR {title} from:\n{head} -> {base}? (y/n)")
+                        if yesno == "y":
+                            ui.prompt(f"Creating PR for {issue.key}...")
+                            mygithub.create_pull(title=title, body=body, base=base, head=head)
+                            ui.prompt(f"Created PR for {issue.key}...")
+                            time.sleep(2)
+                            view.refresh()
+            except Exception as e:
+                ui.error("Create PR", e)
+
+        # Create a support folder
+        elif selection == "S":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    folder_name = mygit.create_support_folder(issue.key, issue.fields.summary, issue.permalink())
+                    yesno = ui.prompt_get_character(f"Created support folder for {issue.key}...\nDo you want to download attachments? (y/n)")
+                    if yesno == "y":
+                        # Create a lambda function to prompt each time a file begins download
+                        callback = lambda filename: ui.prompt(f"Downloading {filename}...")
+                        jira.download_attachments(issue, os.path.join(folder_name, "attachments"), callback)
+            except Exception as e:
+                ui.error("Create support folder", e)
+
+        # Show windows shared backlog
+        elif selection == "w":
+            try:
+                view.refresh(ViewMode.WINDOWS_SHARED)
+            except Exception as e:
+                ui.error("Refresh windows shared view", e)
+            
+        # Toggle subrows
+        #if selection == "T":
+        #    ui.toggle_subrows()
+        #    ui.draw()
+
+        # Assign to user
+        elif selection == "a":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    shortnames = jira.get_user_shortnames()
+                    [index, shortname] = ui.prompt_with_choice_list("Select user", shortnames, non_numeric_keypresses = True)
+                    if shortname != "":
+                        yesno = ui.prompt_get_character(f"Are you sure you want to assign {issue.key} to {shortname}? (y/n)")
+                        if yesno == "y":
+                            jira.assign_to(issue, shortname)
+                            ui.prompt(f"Assigned {issue.key} to {shortname}...")
+                            view.refresh()
+            except Exception as e:
+                ui.error("Assign to user", e)
+
+        # Set the story points
+        elif selection == "P":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    [i, points] = ui.prompt_with_choice_list("Enter story points", (0.5, 1, 2, 3, 5, 8, 13))
+                    if points != "":
+                        yesno = ui.prompt_get_character(f"Are you sure you want to set {issue.key} to {points}? (y/n)")
+                        if yesno == "y":
+                            jira.set_story_points(issue, points)
+                            ui.prompt(f"Set {issue.key} to {points}...")
+                            view.refresh()
+            except Exception as e:
+                ui.error("Set story points", e)
+
+
+        # Change status
+        elif selection == "t":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    statuses = jira.get_statuses(issue)
+                    [index, status] = ui.prompt_with_choice_list("Select status", statuses)
+                    if status != "":
+                        yesno = ui.prompt_get_character(f"Are you sure you want to change {issue.key} to [{status}]? (y/n)")
+                        if yesno == "y":
+                            status = str(status).upper() # Unsure why this is required...
+                            jira.change_status(issue, status)
+                            ui.prompt(f"Changed {issue.key} to {status}...")
+                            view.refresh()
+            except Exception as e:
+                ui.error("Change status", e)
+
+        # Move command
+        elif selection == "m":
+            try:
+                selection = ui.prompt_get_string("Move which issue?")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    moveOptions = { 't': 'To top', 'b': 'To bottom', 'i': 'Below issue' }
+                    if view.mode == ViewMode.SPRINT:
+                        moveOptions['l'] = 'To backlog'
+                    elif view.mode == ViewMode.BACKLOG:
+                        moveOptions['s'] = 'To sprint'
+                    selection = ui.prompt_with_choice_dictionary("Move where?", moveOptions)
+                    if selection == 'To top':
+                        [row, topIssue] = ui.get_row(0)
+                        jira.set_rank_above(issue, topIssue)
+                        ui.prompt(f"Moved {issue.key} to top...")
+                        view.refresh()
+                    elif selection == 'To bottom':
+                        [row, bottomIssue] = ui.get_row(-1)
+                        jira.set_rank_below(issue, bottomIssue)
+                        ui.prompt(f"Moved {issue.key} to bottom...")
+                        view.refresh()
+                    elif selection == 'Below issue':
+                        selection = ui.prompt_get_string("Enter issue number")
+                        if selection.isdigit():
+                            [row, otherIssue] = ui.get_row(int(selection)-1)
+                            jira.set_rank_below(issue, otherIssue)
+                            ui.prompt(f"Moved {issue.key} below {otherIssue.key}...")
+                            view.refresh()
+                    elif selection == 'To backlog':
+                        jira.move_to_backlog(issue)
+                        ui.prompt(f"Moved {issue.key} to backlog...")
+                        view.refresh()
+                    elif selection == 'To sprint':
+                        jira.move_to_sprint(issue)
+                        ui.prompt(f"Moved {issue.key} to sprint...")
+                        view.refresh()
+            except Exception as e:
+                ui.error("Move issue", e)
+
+        # Create a branch
+        elif selection == "h":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    ui.prompt(f"Creating branch for {issue.key}...")
+                    branch = mygit.create_branch_for_issue(issue.key, issue.fields.summary)
+                    ui.prompt(f"Created {branch}...")
+                    time.sleep(2)
+            except Exception as e:
+                ui.error("Create branch", e)
+
+        #View issue
+        elif selection == "v":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    view_description(issue)
+            except Exception as e:
+                ui.error("View issue", e)
+
+        # Create issue
+        elif selection == "c":
+            try:
+                summary = ui.prompt_get_string("Enter summary")
+                if summary.strip() == "":
+                    continue
+                description = ui.prompt_get_string("(F1 for editor, F2 to use summary)\nEnter description")
+                if description == "KEY_F1":
+                    stdscr.clear()
+                    description = get_string_from_editor()
+                    view.rebuild()
+                elif description == "KEY_F2":
+                    description = summary
+                    view.rebuild()
+                elif description.strip() == "":
+                    continue
+                issue = None
+                if view.mode == ViewMode.TASKVIEW:
+                    issue = jira.create_sub_task(view.parent_issue, summary, description)
+                    yesno = ui.prompt_get_character(f"Assign {view.parent_issue.key} to me? (y/n)")
+                    if yesno == "y":
+                        jira.assign_to_me(issue)
+                else:
+                    [index, type] = ui.prompt_with_choice_list("Enter issue type", jira.get_possible_types(), non_numeric_keypresses=True)
+                    if type == "":
+                        continue
+                    issue = jira.create_sprint_issue(summary, description, type) if view.mode == ViewMode.SPRINT else jira.create_backlog_issue(summary, description, type)
+                ui.prompt(f"Created {issue.key}...")
+                view.refresh()
+            except Exception as e:
+                ui.error("Create issue", e)
+
+        # Delete issue
+        elif selection == "d":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    yesno = ui.prompt_get_character(f"Are you sure you want to delete {issue.key}? (y/n)")
+                    if yesno == "y":
+                        ui.prompt(f"Deleting {issue.key}...")
+                        issue.delete(deleteSubtasks=True)
+                        view.refresh()
+            except Exception as e:
+                ui.error("Delete issue", e)
+
+        # Inspect issue
+        elif selection == "i":
+            try:
+                selection = ui.prompt_get_string("Enter issue number")
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    inspect_issue(issue)
+            except Exception as e:
+                ui.error("Inspect issue", e)
+
+        # Browse issue
+        elif selection == "b":
+            try:
+                keystrokes = ('s', 'l', 'k')
+                selection = ui.prompt_get_string("(s:sprintboard, l:backlog, k:kanban)\nEnter issue number", keystrokes)
+                if selection == "s":
+                    jira.browse_sprint_board()
+                if selection == "l":
+                    jira.browse_backlog_board()
+                if selection == "k":
+                    jira.browse_kanban_board()
+                if selection.isdigit():
+                    [row, issue] = ui.get_row(int(selection)-1)
+                    jira.browse_to(issue)
+            except Exception as e:
+                ui.error("Browse issue", e)
+
+        # Show task view
+        elif selection.isdigit():
+            try:
+                [row, issue] = ui.get_row(int(selection)-1)
+                view.refresh(ViewMode.TASKVIEW, parent_issue=issue)
+            except Exception as e:
+                ui.error("Show task view", e)
+
+        # Escape or enter will return to previous, cached view
+        elif selection == "":
+            if view.mode == ViewMode.TASKVIEW:
+                view.previous()
+
+if __name__ == "__main__":
+    curses.initscr()
+    curses.wrapper(main)
