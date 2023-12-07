@@ -2,9 +2,10 @@
 A command line Jira client
 
 ## How to install jira command line on windows
-1. Install the latest 3.x Python from:
+1. Install the latest 3.11 Python from:
 * https://www.python.org/downloads/
 * Remember to click the "Add python to path" checkbox during the install
+* Note: Python 3.12 doesn't seem to work at the moment because one of the pip modules doesn't support it properly and crashes
 2. Open a git4win bash terminal and check the version of python available is the native windows one you just installed:
 ```
 $ python --version
