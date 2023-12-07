@@ -15,10 +15,13 @@ Python 3.11.7
 `pip install jira gitpython PyGithub windows-curses`
 
 4. Clone the jira command line repo:
-`git clone https://github.com/benstaniford/jira-command-line.git`
+```
+cd ~
+git clone https://github.com/benstaniford/jira-command-line.git
+```
 
 5. Add the jira command to your .bashrc file:
-`alias jira='python ~/dot-files/scripts/jira'`
+`alias jira='python ~/jira-command-line/jira'`
 
 6. Restart bash and run 'jira' to generate the template configuration
 
