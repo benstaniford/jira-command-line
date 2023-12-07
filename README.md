@@ -34,3 +34,5 @@ Configuration file saved to: C:\Users\bstaniford\.jira-config\config.json
 
 7. Generate PAT tokens for Jira/Github and customise the configuration with the pat tokens and your settings
 
+Jira: https://id.atlassian.com/manage-profile/security/api-tokens
+Github: https://github.com/settings/tokens
