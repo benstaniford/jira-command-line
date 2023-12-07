@@ -31,5 +31,5 @@ Please edit the configuration file and generate required PAT tokens for jira and
 Configuration file saved to: C:\Users\bstaniford\.jira-config\config.json
 ```
 
-7. Generate PAT tokens for [Jira]{https://id.atlassian.com/manage-profile/security/api-tokens} and [Github]{https://github.com/settings/tokens}. Customise the configuration with the PAT tokens and your settings.
+7. Generate PAT tokens for [Jira](https://id.atlassian.com/manage-profile/security/api-tokens) and [Github](https://github.com/settings/tokens). Customise the configuration with the PAT tokens and your settings.
 
