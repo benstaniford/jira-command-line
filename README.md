@@ -28,5 +28,5 @@ Configuration file not found, generating template...
 Please edit the configuration file and generate required PAT tokens for jira and github
 Configuration file saved to: C:\Users\bstaniford\.jira-config\config.json
 ```
-7. Generate PAT tokens for [Jira](https://id.atlassian.com/manage-profile/security/api-tokens) and [Github](https://github.com/settings/tokens) (Select github classic token). Customise the configuration with the PAT tokens and your settings.
+7. Generate PAT tokens for [Jira](https://id.atlassian.com/manage-profile/security/api-tokens) and [Github](https://github.com/settings/tokens) (Select github classic token and give it repo scope). Customise the configuration with the PAT tokens and your settings.
 8. Re-run `jira` and you should now be able to use the command line tool.  Initial commands to try are 's' to see the current sprint and 'l' to see the backlog.
