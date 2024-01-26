@@ -80,23 +80,20 @@ class MyJira:
     def get_subtask_count(self, issue):
         return len(issue.fields.subtasks)
 
-    def get_backlog_issues(self):
-        issues = self.jira.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint is EMPTY AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+    def search_issues(self, search_text):
+        issues = self.jira.search_issues(search_text, startAt=0, maxResults=400)
         if (len(issues) > 0):
             self.reference_issue = issues[0]
         return issues
+
+    def get_backlog_issues(self):
+        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint is EMPTY AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
     def get_windows_backlog_issues(self):
-        issues = self.jira.search_issues(f'project = {self.project_name} AND "Team[Team]" is EMPTY AND issuetype in {self.issue_filter} AND sprint is EMPTY AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
-        if (len(issues) > 0):
-            self.reference_issue = issues[0]
-        return issues
+        return self.search_issues(f'project = {self.project_name} AND "Team[Team]" is EMPTY AND issuetype in {self.issue_filter} AND sprint is EMPTY AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
     def get_sprint_issues(self):
-        issues = self.jira.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
-        if (len(issues) > 0):
-            self.reference_issue = issues[0]
-        return issues
+        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
     def add_comment(self, issue, comment):
         self.jira.add_comment(issue, comment)
