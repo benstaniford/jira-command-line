@@ -1,0 +1,17 @@
+#!/usr/bin/python
+
+from MyJira import MyJira
+from MyJiraConfig import MyJiraConfig
+
+config_file = MyJiraConfig()
+if not config_file.exists():
+    config_file.generate_template()
+    quit()
+config = config_file.load()
+
+jira = MyJira(config.get('jira'))
+
+issue = jira.get_backlog_issues()
+issue = jira.create_backlog_issue('Test issue', 'This is a test issue', 'Test')
+
+print(f"Created {issue.key}")
