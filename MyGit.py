@@ -4,7 +4,6 @@
 from git import Repo
 import os
 import re
-import webbrowser
 
 class MyGit:
     def __init__(self, config):
@@ -69,7 +68,6 @@ class MyGit:
             attachments = os.path.join(folder_name, "attachments")
             os.makedirs(attachments)
 
-            webbrowser.open(folder_name)
             return folder_name
         else:
-            raise Exception("Folder already exists")
+            raise Exception(folder_name)

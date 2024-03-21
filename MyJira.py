@@ -254,10 +254,12 @@ class MyJira:
         attachments = issue.fields.attachment
         for attachment in attachments:
             filename = attachment.filename
-            if (callback != None):
-                callback(filename)
-            with open(os.path.join(path, filename), "wb") as f:
-                f.write(attachment.get())
+            local_filename = os.path.join(path, filename)
+            if not os.path.exists(local_filename):
+                if (callback != None):
+                    callback(filename)
+                with open(local_filename, "wb") as f:
+                    f.write(attachment.get())
 
     #
     # Builds an issue dictionary from the reference issue
