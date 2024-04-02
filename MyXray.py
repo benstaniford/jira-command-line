@@ -51,7 +51,16 @@ class MyXray:
     def create_test_template(self):
         self.initialize()
         wrapped_issue = MyJiraIssue(self._sprint_item)
-        wrapped_issue.test_results = 'Category:'
+        wrapped_issue.test_results = """Category:
+
+Name: PMfW - <Feature> - <Summary Text>
+Description: <Description>
+Steps:
+Given <Preconditions>
+And <Step 1>
+When <Step 2>
+Then <Step 3>
+"""
         self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
     def create_test_case(self, title, description):
