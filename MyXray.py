@@ -127,7 +127,7 @@ Then <Step 3>
         definitions = self.parse_test_results(issue.test_results)
         for definition in definitions._definitions:
             print(definition)
-            #self.create_test_case(name, description)
+            self.create_test_case(definition._name, definition._description)
 
     def create_test_case(self, title, description):
         self.initialize()
