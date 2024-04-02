@@ -22,7 +22,6 @@ class MyJiraIssue:
                 "sprint": "customfield_10020",
                 "story_points": "customfield_10028",
                 "product": "customfield_10108",
-                "team": "customfield_10001",
             }
 
         for key in self.translations:
@@ -74,11 +73,20 @@ class MyJira:
                 "Points": lambda issue: self.get_story_points(issue),
                 "Issue Type": lambda issue: str(issue.fields.issuetype),
                 "Sub-Tasks": lambda issue: str(self.get_subtask_count(issue)),
+                "Parent Desc": lambda issue: self.get_parent_description(issue),
             }
         return optional_fields
 
     def get_subtask_count(self, issue):
         return len(issue.fields.subtasks)
+
+    def get_parent_description(self, issue):
+        issue_dict = issue.raw
+        parent = issue_dict.get("fields", {}).get("parent", None)
+        summary = parent.get("fields", {}).get("summary", "") if parent != None else ""
+        if len(summary) > 30:
+            summary = summary[0:30] + "..."
+        return summary
 
     def search_issues(self, search_text):
         issues = self.jira.search_issues(search_text, startAt=0, maxResults=400)
