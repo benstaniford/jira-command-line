@@ -112,12 +112,12 @@ Then <Step 3>
                         break
                 definition = MyTestDefinition(name, description, steps)
                 definitions.add(definition)
+        return definitions
 
     def create_tests_from_test_results(self):
         self.initialize()
         issue = MyJiraIssue(self._sprint_item)
-        test_results = issue.test_results
-        definitions = self.parse_test_results(test_results)
+        definitions = self.parse_test_results(issue.test_results)
         for definition in definitions._definitions:
             print(definition)
             #self.create_test_case(name, description)
