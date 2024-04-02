@@ -88,30 +88,37 @@ Then <Step 3>
         self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
     def parse_test_results(self, test_results):
-        definitions = None
-        definition = MyTestDefinition('Test', 'This is a test', ['Given', 'When', 'Then'])
+        all_definitions = []
         lines = test_results.split('\n')
         category = None
-        for line in lines:
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             if line.startswith('Category:'):
                 category = line.split(':')[1].strip()
-                definitions = MyTestDefinitions(category)
             elif line.startswith('Name:'):
                 name = line.split(':')[1].strip()
                 description = ''
                 steps = []
-                for i in range(lines.index(line), len(lines)):
-                    if lines[i].startswith('Description:'):
-                        description = lines[i].split(':')[1].strip()
-                    elif lines[i].startswith('Steps:'):
-                        for j in range(i+1, len(lines)):
-                            if lines[j].startswith('Given') or lines[j].startswith('And') or lines[j].startswith('When') or lines[j].startswith('Then'):
-                                steps.append(lines[j])
+                for j in range(i + 1, len(lines)):
+                    if lines[j].startswith('Name:'):
+                        break
+                    elif lines[j].startswith('Description:'):
+                        description = lines[j].split(':')[1].strip()
+                    elif lines[j].startswith('Steps:'):
+                        for k in range(j + 1, len(lines)):
+                            if lines[k].startswith(('Given', 'And', 'When', 'Then')):
+                                steps.append(lines[k])
                             else:
                                 break
                         break
-                definition = MyTestDefinition(name, description, steps)
-                definitions.add(definition)
+                all_definitions.append(MyTestDefinition(name, description, steps))
+            i += 1
+
+        definitions = MyTestDefinitions(category)
+        for definition in all_definitions:
+            definitions.add(definition)
+
         return definitions
 
     def create_tests_from_test_results(self):
