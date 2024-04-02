@@ -35,6 +35,6 @@ class MyXray:
 
     def create_test_case(self, title, description):
         issue = self._jira.create_backlog_issue(title, description, 'Test')
-        _jira.set_test_type(issue, 'Manual (Gherkin)')
+        #self._jira.jira.set_test_type(issue, 'Manual (Gherkin)')
         return issue
 
