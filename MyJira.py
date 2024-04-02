@@ -22,6 +22,7 @@ class MyJiraIssue:
                 "sprint": "customfield_10020",
                 "story_points": "customfield_10028",
                 "product": "customfield_10108",
+                "team": "customfield_10001",
             }
 
         for key in self.translations:
