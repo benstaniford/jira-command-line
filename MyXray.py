@@ -13,6 +13,7 @@ from MyJiraConfig import MyJiraConfig
 
 class MyXray:
     _jira = None
+    _sprint_item = None
 
     def __init__(self):
         config_file = MyJiraConfig()
@@ -30,11 +31,18 @@ class MyXray:
         #    'Authorization': 'Bearer ' + self.jira.get_token()
         #}
 
-    def initialize(self):
-        self._jira.get_sprint_issues()
+    def initialize(self, issueid):
+        issues = self._jira.get_sprint_issues()
+        for issue in issues:
+            if issue.key == issueid:
+                self._sprint_item = issue
+                return
 
     def create_test_case(self, title, description):
         issue = self._jira.create_backlog_issue(title, description, 'Test')
         #self._jira.jira.set_test_type(issue, 'Manual (Gherkin)')
         return issue
+
+    def link_test_case(self, test_case):
+        self._jira.jira.create_issue_link('Test', test_case, self._sprint_item)
 
