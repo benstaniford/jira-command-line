@@ -7,6 +7,9 @@ from MyXray import MyXray
 # https://beyondtrust.atlassian.net/browse/EPM-16217
 # Execution record: https://beyondtrust.atlassian.net/browse/EPM-21113
 
+def prompt(message):
+    return input(f"{message} (y/n): ")
+
 # Parse --pbi argument
 parser = argparse.ArgumentParser()
 parser.add_argument("--pbi", help="Create a test issue for the given PBI")
@@ -18,14 +21,20 @@ if args.pbi is None:
 
 # Create an instance of MyXray pointing at this PBI
 xray = MyXray(args.pbi)
+issue = xray.get_sprint_item()
+
+if (not xray.sprint_item_has_valid_tests()):
+    yesno = prompt(f"Warning: {issue.key} does not have valid tests. Create test template?")
+    if yesno != "y":
+        quit()
+    xray.create_test_template()
 
 # Create a test case linked to this PBI
 test_case = xray.create_test_case('Test issue', 'This is a test issue')
 
-print(f"Created {test_case.key}")
+print(f"Created test:{test_case.key} linked to issue:{issue.key}")
 
 # Ask the user if they want to delete the issue
-print(f"Delete {test_case.key}?")
-delete = input("y/n: ")
+delete = prompt(f"Delete {test_case.key}?")
 if delete == "y":
     test_case.delete(deleteSubtasks=True)

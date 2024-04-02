@@ -10,6 +10,7 @@ import MyJira
 
 from MyJira import MyJira
 from MyJiraConfig import MyJiraConfig
+from MyJira import MyJiraIssue
 
 class MyXray:
     _jira = None
@@ -36,6 +37,22 @@ class MyXray:
                 self._sprint_item = issue
                 self._initiated = True
                 return
+
+    def sprint_item_has_valid_tests(self):
+        self.initialize()
+        issue = MyJiraIssue(self._sprint_item)
+        test_results = issue.test_results
+        return True if test_results.startswith('Category:') else False
+
+    def get_sprint_item(self):
+        self.initialize()
+        return self._sprint_item
+
+    def create_test_template(self):
+        self.initialize()
+        wrapped_issue = MyJiraIssue(self._sprint_item)
+        wrapped_issue.test_results = 'Category:'
+        self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
     def create_test_case(self, title, description):
         self.initialize()
