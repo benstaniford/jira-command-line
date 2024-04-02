@@ -28,6 +28,8 @@ if (not xray.sprint_item_has_valid_tests()):
     if yesno != "y":
         quit()
     xray.create_test_template()
+    print(f"Created test template for {issue.key}, please fill in the details and run this script again.")
+    quit()
 
 # Create a test case linked to this PBI
 test_case = xray.create_test_case('Test issue', 'This is a test issue')
