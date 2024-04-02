@@ -87,10 +87,7 @@ Then <Step 3>
 """
         self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
-    def create_tests_from_test_results(self):
-        self.initialize()
-        issue = MyJiraIssue(self._sprint_item)
-        test_results = issue.test_results
+    def parse_test_results(self, test_results):
         definitions = None
         definition = MyTestDefinition('Test', 'This is a test', ['Given', 'When', 'Then'])
         lines = test_results.split('\n')
@@ -116,10 +113,14 @@ Then <Step 3>
                 definition = MyTestDefinition(name, description, steps)
                 definitions.add(definition)
 
+    def create_tests_from_test_results(self):
+        self.initialize()
+        issue = MyJiraIssue(self._sprint_item)
+        test_results = issue.test_results
+        definitions = self.parse_test_results(test_results)
         for definition in definitions._definitions:
             print(definition)
-
-                #self.create_test_case(name, description)
+            #self.create_test_case(name, description)
 
     def create_test_case(self, title, description):
         self.initialize()
