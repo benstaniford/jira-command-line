@@ -16,9 +16,11 @@ args = parser.parse_args()
 if args.pbi is None:
     throw("Please provide a PBI --pbi")
 
+# Create an instance of MyXray pointing at this PBI
 xray = MyXray(args.pbi)
+
+# Create a test case linked to this PBI
 test_case = xray.create_test_case('Test issue', 'This is a test issue')
-xray.link_test_case(test_case)
 
 print(f"Created {test_case.key}")
 

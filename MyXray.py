@@ -40,9 +40,7 @@ class MyXray:
     def create_test_case(self, title, description):
         self.initialize()
         issue = self._jira.create_backlog_issue(title, description, 'Test')
+        self._jira.jira.create_issue_link('Test', issue, self._sprint_item)
         #self._jira.jira.set_test_type(issue, 'Manual (Gherkin)')
         return issue
-
-    def link_test_case(self, test_case):
-        self._jira.jira.create_issue_link('Test', test_case, self._sprint_item)
 
