@@ -32,12 +32,10 @@ if (not xray.sprint_item_has_valid_tests()):
     quit()
 
 # Create a test case linked to this PBI
-#test_case = xray.create_test_case('Test issue', 'This is a test issue')
-xray.create_tests_from_test_results()
+tests = xray.create_tests_from_test_results()
 
-#print(f"Created test:{test_case.key} linked to issue:{issue.key}")
-
-# Ask the user if they want to delete the issue
-#delete = prompt(f"Delete {test_case.key}?")
-#if delete == "y":
-    #test_case.delete(deleteSubtasks=True)
+for test in tests:
+    yesno = prompt(f"Created test:{test.key} linked to issue:{issue.key}, delete?")
+    if yesno == "y":
+        test.delete(deleteSubtasks=True)
+        print(f"Deleted test:{test.key}")

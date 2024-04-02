@@ -125,9 +125,12 @@ Then <Step 3>
         self.initialize()
         issue = MyJiraIssue(self._sprint_item)
         definitions = self.parse_test_results(issue.test_results)
+        tests = []
         for definition in definitions._definitions:
-            print(definition)
-            self.create_test_case(definition._name, definition._description)
+            test = self.create_test_case(definition._name, definition._description)
+            print(f'Created test: {definition}')
+            tests.append(test)
+        return tests
 
     def create_test_case(self, title, description):
         self.initialize()
