@@ -1,0 +1,3 @@
+https://docs.getxray.app/display/ProductKB/%5BXray+Cloud%5D+How+to+use+REST+API+with+Xray+for+Jira+Cloud
+
+https://docs.getxray.app/display/XRAYCLOUD/Version+2

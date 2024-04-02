@@ -1,25 +1,12 @@
 #!/usr/bin/python
 
-from MyJira import MyJira
-from MyJiraConfig import MyJiraConfig
-
-# Initialize Jira
-config_file = MyJiraConfig()
-if not config_file.exists():
-    config_file.generate_template()
-    quit()
-config = config_file.load()
-jira = MyJira(config.get('jira'))
+from MyXray import MyXray
+xray = MyXray()
 
 # Create the issue
-issue = jira.get_backlog_issues()
-issue = jira.create_backlog_issue('Test issue', 'This is a test issue', 'Test')
+xray.initialize()
+issue = xray.create_test_case('Test issue', 'This is a test issue')
 print(f"Created {issue.key}")
-
-# An example test: https://beyondtrust.atlassian.net/browse/EPM-16636
-
-# Set the test type to be Manual (Gherkin)
-jira.set_test_type(issue, 'Manual (Gherkin)')
 
 # Ask the user if they want to delete the issue
 print(f"Delete {issue.key}?")
