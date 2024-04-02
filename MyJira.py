@@ -22,6 +22,7 @@ class MyJiraIssue:
                 "sprint": "customfield_10020",
                 "story_points": "customfield_10028",
                 "product": "customfield_10108",
+                "test_results": "customfield_10097",
                 "team": "customfield_10001",
             }
 

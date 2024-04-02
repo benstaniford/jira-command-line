@@ -14,31 +14,31 @@ from MyJiraConfig import MyJiraConfig
 class MyXray:
     _jira = None
     _sprint_item = None
+    _issueid = None
+    _initiated = False
 
-    def __init__(self):
+    def __init__(self, issueid):
         config_file = MyJiraConfig()
         if not config_file.exists():
             config_file.generate_template()
             quit()
         config = config_file.load()
         self._jira = MyJira(config.get('jira'))
-        #self._base_url = self.config['xray']['base_url']
-        #self._client_id = self.config['xray']['client_id']
-        #self._client_secret = self.config['xray']['client_secret']
-        #self._auth = (self.client_id, self.client_secret)
-        #self._headers = {
-        #    'Content-Type': 'application/json',
-        #    'Authorization': 'Bearer ' + self.jira.get_token()
-        #}
+        self._issueid = issueid
 
-    def initialize(self, issueid):
+    def initialize(self):
+        if self._initiated:
+            return
+
         issues = self._jira.get_sprint_issues()
         for issue in issues:
-            if issue.key == issueid:
+            if issue.key == self._issueid:
                 self._sprint_item = issue
+                self._initiated = True
                 return
 
     def create_test_case(self, title, description):
+        self.initialize()
         issue = self._jira.create_backlog_issue(title, description, 'Test')
         #self._jira.jira.set_test_type(issue, 'Manual (Gherkin)')
         return issue

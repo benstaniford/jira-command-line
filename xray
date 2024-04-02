@@ -2,7 +2,6 @@
 
 import argparse
 from MyXray import MyXray
-xray = MyXray()
 
 # Here's a reference PBI that shows the structure
 # https://beyondtrust.atlassian.net/browse/EPM-16217
@@ -17,7 +16,7 @@ args = parser.parse_args()
 if args.pbi is None:
     throw("Please provide a PBI --pbi")
 
-xray.initialize(args.pbi)
+xray = MyXray(args.pbi)
 test_case = xray.create_test_case('Test issue', 'This is a test issue')
 xray.link_test_case(test_case)
 
