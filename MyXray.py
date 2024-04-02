@@ -12,6 +12,30 @@ from MyJira import MyJira
 from MyJiraConfig import MyJiraConfig
 from MyJira import MyJiraIssue
 
+class MyTestDefinitions:
+    _definitions = []
+    _category = None
+
+    def __init__(self, category):
+        self._definitions = []
+        self._category = category
+
+    def add(self, definition):
+        self._definitions.append(definition)
+
+class MyTestDefinition:
+    _name = None
+    _description = None
+    _steps = []
+
+    def __init__(self, name, description, steps):
+        self._name = name
+        self._description = description
+        self._steps = steps
+
+    def __str__(self):
+        return f"Name: {self._name}, Description: {self._description}, Steps: {self._steps}"
+
 class MyXray:
     _jira = None
     _sprint_item = None
@@ -51,7 +75,7 @@ class MyXray:
     def create_test_template(self):
         self.initialize()
         wrapped_issue = MyJiraIssue(self._sprint_item)
-        wrapped_issue.test_results = """Category:
+        wrapped_issue.test_results = """Category: <Category>
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -62,6 +86,40 @@ When <Step 2>
 Then <Step 3>
 """
         self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
+
+    def create_tests_from_test_results(self):
+        self.initialize()
+        issue = MyJiraIssue(self._sprint_item)
+        test_results = issue.test_results
+        definitions = None
+        definition = MyTestDefinition('Test', 'This is a test', ['Given', 'When', 'Then'])
+        lines = test_results.split('\n')
+        category = None
+        for line in lines:
+            if line.startswith('Category:'):
+                category = line.split(':')[1].strip()
+                definitions = MyTestDefinitions(category)
+            elif line.startswith('Name:'):
+                name = line.split(':')[1].strip()
+                description = ''
+                steps = []
+                for i in range(lines.index(line), len(lines)):
+                    if lines[i].startswith('Description:'):
+                        description = lines[i].split(':')[1].strip()
+                    elif lines[i].startswith('Steps:'):
+                        for j in range(i+1, len(lines)):
+                            if lines[j].startswith('Given') or lines[j].startswith('And') or lines[j].startswith('When') or lines[j].startswith('Then'):
+                                steps.append(lines[j])
+                            else:
+                                break
+                        break
+                definition = MyTestDefinition(name, description, steps)
+                definitions.add(definition)
+
+        for definition in definitions._definitions:
+            print(definition)
+
+                #self.create_test_case(name, description)
 
     def create_test_case(self, title, description):
         self.initialize()
