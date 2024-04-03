@@ -32,10 +32,20 @@ if (not xray.sprint_item_has_valid_tests()):
     quit()
 
 # Create a test case linked to this PBI
-tests = xray.create_tests_from_test_results()
+definitions = xray.parse_test_definitions()
+print (f"Found {len(definitions)} test definitions\n")
+for definition in definitions:
+    print(definition)
+yesno = prompt(f"Create tests for {issue.key} with the above definitions?")
+if yesno != "y":
+    quit()
 
+tests = xray.create_test_cases(definitions)
 for test in tests:
-    yesno = prompt(f"Created test:{test.key} linked to issue:{issue.key}, delete?")
-    if yesno == "y":
+    print(f"Created test:{test.key}")
+
+yesno = prompt(f"Created {len(tests)} tests for {issue.key}, delete?")
+if yesno == "y":
+    for test in tests:
         test.delete(deleteSubtasks=True)
         print(f"Deleted test:{test.key}")

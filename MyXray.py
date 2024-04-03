@@ -23,6 +23,12 @@ class MyTestDefinitions:
     def add(self, definition):
         self._definitions.append(definition)
 
+    def __iter__(self):
+        return iter(self._definitions)
+
+    def __len__(self):
+        return len(self._definitions)
+
 class MyTestDefinition:
     _name = None
     _description = None
@@ -87,9 +93,11 @@ Then <Step 3>
 """
         self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
-    def parse_test_results(self, test_results):
+    def parse_test_definitions(self):
+        self.initialize()
+        issue = MyJiraIssue(self._sprint_item)
         all_definitions = []
-        lines = test_results.split('\n')
+        lines = issue.test_results.split('\n')
         category = None
         i = 0
         while i < len(lines):
@@ -121,14 +129,10 @@ Then <Step 3>
 
         return definitions
 
-    def create_tests_from_test_results(self):
-        self.initialize()
-        issue = MyJiraIssue(self._sprint_item)
-        definitions = self.parse_test_results(issue.test_results)
+    def create_test_cases(self, definitions):
         tests = []
-        for definition in definitions._definitions:
+        for definition in definitions:
             test = self.create_test_case(definition._name, definition._description)
-            print(f'Created test: {definition}')
             tests.append(test)
         return tests
 
