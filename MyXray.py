@@ -29,6 +29,9 @@ class MyTestDefinitions:
     def __len__(self):
         return len(self._definitions)
 
+    def get_category(self):
+        return self._category
+
 class MyTestDefinition:
     _name = None
     _description = None
