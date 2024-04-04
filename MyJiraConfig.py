@@ -39,6 +39,10 @@ class MyJiraConfig:
             },
             "git": {
                 "initials": "bs"
+            },
+            "xray": {
+                "client_id": "",
+                "client_secret": ""
             }
         }
 

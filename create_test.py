@@ -1,70 +1,51 @@
 #!/usr/bin/python
 
-import requests
-import json
-import sys
+import argparse
+from MyXray import MyXray
 
+# Here's a reference PBI that shows the structure
+# https://beyondtrust.atlassian.net/browse/EPM-16217
+# Execution record: https://beyondtrust.atlassian.net/browse/EPM-21113
 
-def create_tickets(feature_file_path, label):
-    body = {
-        "client_id": "bstaniford@beyondtrust.com",
-        "client_secret": "ATATT3xFfGF0tuq7Cw-PEngTONZAHLo1D4lcQ1d2vEC-jz87W2CR40pTpmIgdbuYpOailudyUateOyhi2V67PvE1ye4hG5O730ZofMcWlcJhAiSaQCelJ0nkHWBSnrrStO9iF7WbzwyBdIev9Zq2BJLQplngYX4Dd9A5DripgnesE4wnXFGWfhI=C79DF34B",
-    }
+def prompt(message):
+    return input(f"{message} (y/n): ")
 
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
+# Parse --pbi argument
+parser = argparse.ArgumentParser()
+parser.add_argument("--pbi", help="Create a test issue for the given PBI")
+args = parser.parse_args()
 
-    response = requests.post(
-        "https://xray.cloud.getxray.app/api/v1/authenticate", headers=headers, json=body
-    )
+# Create the issue
+if args.pbi is None:
+    throw("Please provide a PBI --pbi")
 
-    if response.status_code != 200:
-        print(f"Auth error {response.status_code}.")
-        sys.exit()
+# Create an instance of MyXray pointing at this PBI
+xray = MyXray(args.pbi)
+issue = xray.get_sprint_item()
 
-    access_token = response.text.strip("'\"")
+if (not xray.sprint_item_has_valid_tests()):
+    yesno = prompt(f"Warning: {issue.key} does not have valid tests. Create test template?")
+    if yesno != "y":
+        quit()
+    xray.create_test_template()
+    print(f"Created template in \"Test Result and Evidence\" for {issue.key}, please fill in the details and run this script again.")
+    quit()
 
-    headers_with_token = {
-        "Authorization": f"Bearer {access_token}",
-    }
+# Create a test case linked to this PBI
+definitions = xray.parse_test_definitions()
+print (f"Found {len(definitions)} test definitions under category \"{definitions.get_category()}\"")
+for definition in definitions:
+    print(definition)
+yesno = prompt(f"Create tests for [{issue.key}] with the above definitions for category \"{definitions.get_category()}\"")
+if yesno != "y":
+    quit()
 
-    custom_fields = {
-        "fields": {
-            "customfield_10001": "e4e9e450-7523-478b-bccd-06ce6f7419ec-14",
-            "customfield_10108": {"value": "PM Mac"},
-            "components": [{"name": label}],
-        }
-    }
+tests = xray.create_test_cases(definitions)
+for test in tests:
+    print(f"Created test:{test.key}")
 
-    # Prepare the files for the feature import request
-    files = {
-        "file": ("feature_file.feature", open(feature_file_path, "rb")),
-        "testInfo": ("testInfo.json", json.dumps(custom_fields), "application/json"),
-    }
-
-    # Make the feature import request
-    feature_import_url = (
-        "https://xray.cloud.getxray.app/api/v2/import/feature?projectKey=EPM"
-    )
-
-    feature_import_response = requests.post(
-        feature_import_url, headers=headers_with_token, files=files
-    )
-
-    if feature_import_response.status_code != 200:
-        print(f"Error on {feature_file_path}.")
-        sys.exit()
-
-    print(f"Successfully generated events for {feature_file_path}.")
-
-
-#csv_file_path = "C:\\Users\\jmunro\\OneDrive - BeyondTrust Corporation\\Documents\\Scripts\\Python\\FeatureFiles.csv"
-#df = pd.read_csv(csv_file_path)
-
-#file_label_mapping = dict(zip(df["Name"], df["Label"]))
-
-#for file_name, label in file_label_mapping.items():
-create_tickets("", "Test")
-
+yesno = prompt(f"\nCreated {len(tests)} tests for {issue.key}, delete?")
+if yesno == "y":
+    for test in tests:
+        test.delete(deleteSubtasks=True)
+        print(f"Deleted test:{test.key}")

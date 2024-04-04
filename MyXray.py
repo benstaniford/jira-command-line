@@ -11,6 +11,7 @@ import MyJira
 from MyJira import MyJira
 from MyJiraConfig import MyJiraConfig
 from MyJira import MyJiraIssue
+from XrayApi import XrayApi
 
 class MyTestDefinitions:
     _definitions = []
@@ -50,6 +51,7 @@ class MyXray:
     _sprint_item = None
     _issueid = None
     _initiated = False
+    _api = None
 
     def __init__(self, issueid):
         config_file = MyJiraConfig()
@@ -60,6 +62,7 @@ class MyXray:
         jira_config = config.get('jira')
         self._jira = MyJira(jira_config)
         self._issueid = issueid
+        self._api = XrayApi(config.get('xray'))
 
     def initialize(self):
         if self._initiated:
