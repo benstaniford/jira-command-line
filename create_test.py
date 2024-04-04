@@ -1,13 +1,14 @@
+#!/usr/bin/python
+
 import requests
 import json
-import pandas as pd
 import sys
 
 
 def create_tickets(feature_file_path, label):
     body = {
-        "client_id": "TODO",
-        "client_secret": "TODO",
+        "client_id": "bstaniford@beyondtrust.com",
+        "client_secret": "ATATT3xFfGF0tuq7Cw-PEngTONZAHLo1D4lcQ1d2vEC-jz87W2CR40pTpmIgdbuYpOailudyUateOyhi2V67PvE1ye4hG5O730ZofMcWlcJhAiSaQCelJ0nkHWBSnrrStO9iF7WbzwyBdIev9Zq2BJLQplngYX4Dd9A5DripgnesE4wnXFGWfhI=C79DF34B",
     }
 
     headers = {
@@ -20,7 +21,7 @@ def create_tickets(feature_file_path, label):
     )
 
     if response.status_code != 200:
-        print(f"Error on {feature_file_path}.")
+        print(f"Auth error {response.status_code}.")
         sys.exit()
 
     access_token = response.text.strip("'\"")
@@ -59,11 +60,11 @@ def create_tickets(feature_file_path, label):
     print(f"Successfully generated events for {feature_file_path}.")
 
 
-csv_file_path = "C:\\Users\\jmunro\\OneDrive - BeyondTrust Corporation\\Documents\\Scripts\\Python\\FeatureFiles.csv"
-df = pd.read_csv(csv_file_path)
+#csv_file_path = "C:\\Users\\jmunro\\OneDrive - BeyondTrust Corporation\\Documents\\Scripts\\Python\\FeatureFiles.csv"
+#df = pd.read_csv(csv_file_path)
 
-file_label_mapping = dict(zip(df["Name"], df["Label"]))
+#file_label_mapping = dict(zip(df["Name"], df["Label"]))
 
-for file_name, label in file_label_mapping.items():
-    create_tickets(file_name, label)
+#for file_name, label in file_label_mapping.items():
+create_tickets("", "Test")
 

@@ -119,18 +119,18 @@ Then <Step 3>
             if processing:
                 if line.startswith('Category:'):
                     category = line.split(':')[1].strip()
-                elif line.startswith('Name:'):
+                elif line.lower().startswith('name:'):
                     name = line.split(':')[1].strip()
                     description = ''
                     steps = []
                     for j in range(i + 1, len(lines)):
-                        if lines[j].startswith('Name:'):
+                        if lines[j].lower().startswith('name:'):
                             break
-                        elif lines[j].startswith('Description:'):
+                        elif lines[j].lower().startswith('description:'):
                             description = lines[j].split(':')[1].strip()
-                        elif lines[j].startswith('Steps:'):
+                        elif lines[j].lower().startswith('steps:'):
                             for k in range(j + 1, len(lines)):
-                                if lines[k].startswith(('Given', 'And', 'When', 'Then')):
+                                if lines[k].lower().startswith(('given', 'and', 'when', 'then')):
                                     steps.append(lines[k])
                                 else:
                                     break
