@@ -184,12 +184,3 @@ Then <Step 3>
 
         return issue
 
-    def create_test_case_old(self, definition):
-        self.initialize()
-        wrapped_issue = MyJiraIssue(self._jira.create_backlog_issue(definition._name, definition._description, 'Test'))
-        self._jira.jira.create_issue_link('Test', wrapped_issue.issue, self._sprint_item)
-        steps_str = '\n'.join(definition._steps)
-        wrapped_issue.test_steps = steps_str
-        wrapped_issue.issue.update(fields={wrapped_issue.test_steps_fieldname: wrapped_issue.test_steps})
-        return wrapped_issue.issue
-
