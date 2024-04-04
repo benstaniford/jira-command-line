@@ -101,7 +101,7 @@ class XrayApi:
                     {content},
                     folderPath: "{folder}"
                     jira: {{
-                        fields: {{ summary: "{summary}", project: {{ id: "{projectId}" }} }}
+                        fields: {{ summary: "{summary}", description: "{description}", project: {{ id: "{projectId}" }} }}
                     }}
                 ) {{
                     test {{
