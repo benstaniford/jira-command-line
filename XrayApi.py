@@ -4,35 +4,40 @@ import json
 import logging
 log = logging.getLogger(__name__)
 
-XRAY_Api = 'https://xray.cloud.getxray.app/api/v2'
+XRAY_API = 'https://xray.cloud.getxray.app/api/v2'
 
 class XrayApi:
     def __init__(self, config):
         self.token = ''
         self.client_id = config['client_id']
         self.client_secret = config['client_secret']
+        self.project_id = config['project_id']
 
     def authenticate(self):
         log.debug('Authenticating with Xray Api...')
 
         json_data = json.dumps({"client_id": self.client_id, "client_secret": self.client_secret})
         
-        resp = requests.post(f'{XRAY_Api}/authenticate', data=json_data, headers={'Content-Type':'application/json'})
+        resp = requests.post(f'{XRAY_API}/authenticate', data=json_data, headers={'Content-Type':'application/json'})
         resp.raise_for_status()
         
         self.token = 'Bearer ' + resp.text.replace("\"","")
 
-    def createFolder(self, path, projectId = None, testPlanId = None):
+    def create_folder(self, path, projectId = None, testPlanId = None):
+        if (projectId == None):
+            projectId = self.project_id
+
         if (testPlanId == None):
             log.debug(f'Creating Folder "{path}" in project "{projectId}"...')
 
-            json_data = f'mutation {{ createFolder( projectId: "{projectId}", path: "{path}") {{ warnings }} }}'
+            json_data = f'mutation {{ create_folder( projectId: "{projectId}", path: "{path}") {{ warnings }} }}'
+            print(json_data)
         else:
             log.debug(f'Creating Folder "{path}" in Test Plan "{testPlanId}"...')
 
-            json_data = f'mutation {{ createFolder( testPlanId: "{testPlanId}", path: "{path}") {{ warnings }} }}'
+            json_data = f'mutation {{ create_folder( testPlanId: "{testPlanId}", path: "{path}") {{ warnings }} }}'
 
-        resp = requests.post(f'{XRAY_Api}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
     
         return resp.json()
@@ -49,7 +54,7 @@ class XrayApi:
 
             json_data = f'mutation {{ addTestsToFolder( testPlanId: "{testPlanId}", path: "{path}", testIssueIds: {testIssueIds_json}) {{ warnings }} }}'
 
-        resp = requests.post(f'{XRAY_Api}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
     
         return resp.json()
@@ -89,7 +94,7 @@ class XrayApi:
             }}
         '''
 
-        resp = requests.post(f'{XRAY_Api}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
     
         return resp.json()
@@ -122,7 +127,7 @@ class XrayApi:
             }}
         '''
 
-        resp = requests.post(f'{XRAY_Api}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
     
         return resp.json()
@@ -152,7 +157,7 @@ class XrayApi:
             }}
         '''
 
-        resp = requests.post(f'{XRAY_Api}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
     
         return resp.json()
@@ -185,7 +190,7 @@ class XrayApi:
             }}
         '''
 
-        resp = requests.post(f'{XRAY_Api}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
     
         return resp.json()
@@ -193,37 +198,37 @@ class XrayApi:
     def importXrayJsonResults(self, results):
         json_data = json.dumps(results)
         
-        resp = requests.post(f'{XRAY_Api}/import/execution', data=json_data, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution', data=json_data, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
     def importCucumberResults(self, results, info):
-        resp = requests.post(f'{XRAY_Api}/import/execution/cucumber/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/cucumber/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
     def importRobotResults(self, results, info):
-        resp = requests.post(f'{XRAY_Api}/import/execution/robot/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/robot/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
     def importNUnitResults(self, results, info):
-        resp = requests.post(f'{XRAY_Api}/import/execution/nunit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/nunit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
     def importTestNGResults(self, results, info):
-        resp = requests.post(f'{XRAY_Api}/import/execution/testng/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/testng/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
     def importJUnitResults(self, results, info):
-        resp = requests.post(f'{XRAY_Api}/import/execution/junit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/junit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()

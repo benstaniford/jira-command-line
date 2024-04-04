@@ -147,6 +147,13 @@ Then <Step 3>
 
         return definitions
 
+    def create_test_via_api(self, definitions):
+        api = self._api
+        api.authenticate()
+        print('Authenticated')
+        api.create_folder('BenTest')
+        print('Folder created')
+
     def create_test_cases(self, definitions):
         tests = []
         for definition in definitions:
