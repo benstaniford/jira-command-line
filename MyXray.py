@@ -178,11 +178,9 @@ Then <Step 3>
         # Update some important fields to match the PBI
         sprint_issue = MyJiraIssue(self._sprint_item)
         test_issue = MyJiraIssue(issue)
-        print (f"Setting {test_issue.team_fieldname} to {sprint_issue.team.id}")
-        test_issue.issue.update(fields={test_issue.team_fieldname: sprint_issue.team.id})
         product_name = sprint_issue.product.value
-        print (f"Setting {test_issue.product_fieldname} to {product_name}")
-        test_issue.issue.update(fields={test_issue.product_fieldname: {"value": product_name}})
+        test_issue.issue.update(fields={test_issue.product_fieldname: {"value": product_name},
+            test_issue.team_fieldname: sprint_issue.team.id})
 
         return issue
 
