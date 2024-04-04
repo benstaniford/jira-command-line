@@ -23,26 +23,29 @@ class XrayApi:
         
         self.token = 'Bearer ' + resp.text.replace("\"","")
 
-    def create_folder(self, path, projectId = None, testPlanId = None):
-        if (projectId == None):
-            projectId = self.project_id
+    def create_folder(self, path, testPlanId = None):
+        """
+        Create a folder in a project or test plan
+        """
+        projectId = self.project_id
 
         if (testPlanId == None):
             log.debug(f'Creating Folder "{path}" in project "{projectId}"...')
 
-            json_data = f'mutation {{ create_folder( projectId: "{projectId}", path: "{path}") {{ warnings }} }}'
+            json_data = f'mutation {{ createFolder( projectId: "{projectId}", path: "{path}") {{ warnings }} }}'
             print(json_data)
         else:
             log.debug(f'Creating Folder "{path}" in Test Plan "{testPlanId}"...')
 
-            json_data = f'mutation {{ create_folder( testPlanId: "{testPlanId}", path: "{path}") {{ warnings }} }}'
+            json_data = f'mutation {{ createFolder( testPlanId: "{testPlanId}", path: "{path}") {{ warnings }} }}'
 
         resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
     
         return resp.json()
 
-    def addTestsToFolder(self, path, testIssueIds, projectId = None, testPlanId = None):
+    def add_tests_to_folder(self, path, testIssueIds, testPlanId = None):
+        projectId = self.project_id
         testIssueIds_json = json.dumps(testIssueIds)
 
         if (testPlanId == None):
@@ -60,7 +63,8 @@ class XrayApi:
         return resp.json()
 
 
-    def createTest(self, summary, description, projectId, testType, folder, gherkin, definition, steps):
+    def create_test(self, summary, description, testType, folder, gherkin, definition, steps):
+        projectId = self.project_id
         log.debug(f'Creating Test "{summary}"...')
 
         summary = summary.replace('"', '\\"')
@@ -99,7 +103,8 @@ class XrayApi:
     
         return resp.json()
 
-    def createPrecondition(self, summary, description, projectId, preconditionType, steps, testIssueIds):
+    def create_precondition(self, summary, description, preconditionType, steps, testIssueIds):
+        projectId = self.project_id
         log.debug(f'Creating Precondition "{summary}"...')
 
         summary = summary.replace('"', '\\"')
@@ -132,7 +137,8 @@ class XrayApi:
     
         return resp.json()
 
-    def createTestSet(self, summary, description, projectId, testIssueIds):
+    def create_test_set(self, summary, description, testIssueIds):
+        projectId = self.project_id
         log.debug(f'Creating Test Set "{summary}"...')
 
         summary = summary.replace('"', '\\"')
@@ -162,7 +168,8 @@ class XrayApi:
     
         return resp.json()
 
-    def createTestPlan(self, summary, description, projectId, fixVersions, testIssueIds):
+    def create_test_plan(self, summary, description, fixVersions, testIssueIds):
+        projectId = self.project_id
         log.debug(f'Creating Test Plan "{summary}"...')
 
         summary = summary.replace('"', '\\"')
@@ -195,7 +202,7 @@ class XrayApi:
     
         return resp.json()
 
-    def importXrayJsonResults(self, results):
+    def import_xray_json_results(self, results):
         json_data = json.dumps(results)
         
         resp = requests.post(f'{XRAY_API}/import/execution', data=json_data, headers={'Content-Type':'application/json', 'Authorization': self.token})
@@ -203,31 +210,31 @@ class XrayApi:
         
         return resp.json()
 
-    def importCucumberResults(self, results, info):
+    def import_cucumber_results(self, results, info):
         resp = requests.post(f'{XRAY_API}/import/execution/cucumber/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
-    def importRobotResults(self, results, info):
+    def import_robot_results(self, results, info):
         resp = requests.post(f'{XRAY_API}/import/execution/robot/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
-    def importNUnitResults(self, results, info):
+    def import_nunit_results(self, results, info):
         resp = requests.post(f'{XRAY_API}/import/execution/nunit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
-    def importTestNGResults(self, results, info):
+    def import_testng_results(self, results, info):
         resp = requests.post(f'{XRAY_API}/import/execution/testng/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         
         return resp.json()
 
-    def importJUnitResults(self, results, info):
+    def import_junit_results(self, results, info):
         resp = requests.post(f'{XRAY_API}/import/execution/junit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
         resp.raise_for_status()
         

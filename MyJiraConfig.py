@@ -42,7 +42,8 @@ class MyJiraConfig:
             },
             "xray": {
                 "client_id": "",
-                "client_secret": ""
+                "client_secret": "",
+                "project_id": "10027"
             }
         }
 
