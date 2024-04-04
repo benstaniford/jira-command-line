@@ -174,6 +174,16 @@ Then <Step 3>
             raise ValueError(f'Expected 1 test case created, but found {len(issues)}')
         issue = issues[0]
         self._jira.jira.create_issue_link('Test', issue, self._sprint_item)
+
+        # Update some important fields to match the PBI
+        sprint_issue = MyJiraIssue(self._sprint_item)
+        test_issue = MyJiraIssue(issue)
+        print (f"Setting {test_issue.team_fieldname} to {sprint_issue.team.id}")
+        test_issue.issue.update(fields={test_issue.team_fieldname: sprint_issue.team.id})
+        product_name = sprint_issue.product.value
+        print (f"Setting {test_issue.product_fieldname} to {product_name}")
+        test_issue.issue.update(fields={test_issue.product_fieldname: {"value": product_name}})
+
         return issue
 
     def create_test_case_old(self, definition):
