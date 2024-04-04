@@ -33,13 +33,17 @@ class XrayApi:
             log.debug(f'Creating Folder "{path}" in project "{projectId}"...')
 
             json_data = f'mutation {{ createFolder( projectId: "{projectId}", path: "{path}") {{ warnings }} }}'
-            print(json_data)
         else:
             log.debug(f'Creating Folder "{path}" in Test Plan "{testPlanId}"...')
 
             json_data = f'mutation {{ createFolder( testPlanId: "{testPlanId}", path: "{path}") {{ warnings }} }}'
 
         resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+
+        # If it's a 401 print the response
+        if (resp.status_code == 401):
+            print(resp.text)
+
         resp.raise_for_status()
     
         return resp.json()
@@ -63,7 +67,19 @@ class XrayApi:
         return resp.json()
 
 
-    def create_test(self, summary, description, testType, folder, gherkin, definition, steps):
+    def create_test(self, summary, description, testType, folder, steps):
+        """
+        Create a test in a project
+
+        Parameters: 
+        summary (str): The summary of the test
+        description (str): The description of the test
+        testType (str): The type of test (Cucumber, Manual, Manual (Gherkin))
+        folder (str): The folder path in which the test will be created
+        steps (str): The steps of the test (which can be in different formats depending on the testType)
+
+        Returns: The created test issue, e.g. "EPM-1234"
+        """
         projectId = self.project_id
         log.debug(f'Creating Test "{summary}"...')
 
@@ -71,12 +87,15 @@ class XrayApi:
         description = description.replace('"', '\\"')
 
         if (testType == 'Cucumber'):
-            ctn = gherkin.replace('"', '\\"')
+            ctn = steps.replace('"', '\\"')
             content = f'gherkin: "{ctn}"'.replace('\n', '\\n')
         elif (testType == 'Manual'):
             content = 'steps: ' + json.dumps(steps).replace('"action"', 'action').replace('"data"', 'data').replace('"result"', 'result')
+        elif (testType == 'Manual (Gherkin)'):
+            ctn = steps.replace('"', '\\"')
+            content = f'gherkin: "{ctn}"'.replace('\n', '\\n')
         else:
-            ctn = definition.replace('"', '\\"')
+            ctn = steps.replace('"', '\\"')
             content = f'unstructured: "{ctn}"'
 
         json_data = f'''
@@ -98,10 +117,14 @@ class XrayApi:
             }}
         '''
 
+        print(json_data)
         resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
-    
-        return resp.json()
+
+        if (resp.json().get('errors') != None):
+            raise Exception(resp.json().get('errors'))
+        
+        return resp.json()['data']['createTest']['test']['jira']['key']
 
     def create_precondition(self, summary, description, preconditionType, steps, testIssueIds):
         projectId = self.project_id

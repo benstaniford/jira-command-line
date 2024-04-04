@@ -67,7 +67,7 @@ class MyXray:
     def initialize(self):
         if self._initiated:
             return
-
+        self._api.authenticate()
         issues = self._jira.get_sprint_issues()
         for issue in issues:
             if issue.key == self._issueid:
@@ -92,7 +92,7 @@ class MyXray:
         wrapped_issue.test_results = """
 
 <begin>
-Category: <Category>
+Category: /Windows/MyTestFeature
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -147,31 +147,42 @@ Then <Step 3>
 
         return definitions
 
-    def create_test_via_api(self, definitions):
-        api = self._api
-        api.authenticate()
-        api.create_folder('/BenTest')
-
     def create_test_cases(self, definitions):
+        self.initialize()
+
+        category = definitions.get_category()
+        if not category.startswith('/'):
+            raise ValueError(f'Category {category} must be a folder within the test respository and must start with a /')
+        self._api.create_folder(category)
+
         tests = []
         for definition in definitions:
-            test = self.create_test_case(definition)
+            test = self.create_test_case(definition, category)
             tests.append(test)
         return tests
 
-    def create_test_case(self, definition):
+    def create_test_case(self, definition, category):
+        self.initialize()
+        api = self._api
+        api.authenticate()
+        steps_str = '\n'.join(definition._steps)
+        issue_id = api.create_test(definition._name, definition._description, 'Manual (Gherkin)', category, "Given something")
+
+        # Xray creates an issue in Jira, but we need to link it to the sprint item
+        issues = self._jira.search_for_issue(issue_id)
+        if (len(issues) != 1):
+            raise ValueError(f'Expected 1 test case created, but found {len(issues)}')
+        issue = issues[0]
+        print(f'Found Issue: {issue.key}')
+        self._jira.jira.create_issue_link('Test', issue, self._sprint_item)
+        return issue
+
+    def create_test_case_old(self, definition):
         self.initialize()
         wrapped_issue = MyJiraIssue(self._jira.create_backlog_issue(definition._name, definition._description, 'Test'))
         self._jira.jira.create_issue_link('Test', wrapped_issue.issue, self._sprint_item)
-        steps_str = '\r\n'.join(definition._steps)
+        steps_str = '\n'.join(definition._steps)
         wrapped_issue.test_steps = steps_str
         wrapped_issue.issue.update(fields={wrapped_issue.test_steps_fieldname: wrapped_issue.test_steps})
-        
-        # Set the type to be a Gherkin test
-        #print(self._xray.get_test_steps(wrapped_issue.issue))
-        #self._xray.set_test_type(wrapped_issue.issue, 'Manual (Gherkin)')
-
-        # self._xray.update_test_step(wrapped_issue.issue, definition._steps[0])
-        #self._jira.jira.set_test_type(issue, 'Manual (Gherkin)')
         return wrapped_issue.issue
 

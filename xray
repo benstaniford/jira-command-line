@@ -13,7 +13,6 @@ def prompt(message):
 # Parse --pbi argument
 parser = argparse.ArgumentParser()
 parser.add_argument("--pbi", help="Create a test issue for the given PBI")
-parser.add_argument("--test", help="Just create dummy data")
 args = parser.parse_args()
 
 # Create the issue
@@ -37,9 +36,6 @@ definitions = xray.parse_test_definitions()
 print (f"Found {len(definitions)} test definitions under category \"{definitions.get_category()}\"")
 for definition in definitions:
     print(definition)
-
-if (args.test):
-    xray.create_test_via_api(definitions)
 
 yesno = prompt(f"Create tests for [{issue.key}] with the above definitions for category \"{definitions.get_category()}\"")
 if yesno != "y":
