@@ -40,10 +40,6 @@ class XrayApi:
 
         resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
 
-        # If it's a 401 print the response
-        if (resp.status_code == 401):
-            print(resp.text)
-
         resp.raise_for_status()
     
         return resp.json()
@@ -117,7 +113,6 @@ class XrayApi:
             }}
         '''
 
-        print(json_data)
         resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
 

@@ -134,7 +134,7 @@ Then <Step 3>
                         elif lines[j].lower().startswith('steps:'):
                             for k in range(j + 1, len(lines)):
                                 if lines[k].lower().startswith(('given', 'and', 'when', 'then')):
-                                    steps.append(lines[k])
+                                    steps.append(lines[k].strip())
                                 else:
                                     break
                             break
@@ -166,14 +166,13 @@ Then <Step 3>
         api = self._api
         api.authenticate()
         steps_str = '\n'.join(definition._steps)
-        issue_id = api.create_test(definition._name, definition._description, 'Manual (Gherkin)', category, "Given something")
+        issue_id = api.create_test(definition._name, definition._description, 'Manual (Gherkin)', category, steps_str)
 
         # Xray creates an issue in Jira, but we need to link it to the sprint item
         issues = self._jira.search_for_issue(issue_id)
         if (len(issues) != 1):
             raise ValueError(f'Expected 1 test case created, but found {len(issues)}')
         issue = issues[0]
-        print(f'Found Issue: {issue.key}')
         self._jira.jira.create_issue_link('Test', issue, self._sprint_item)
         return issue
 
