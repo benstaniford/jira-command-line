@@ -76,7 +76,8 @@ class MyXray:
         self.initialize()
         issue = MyJiraIssue(self._sprint_item)
         test_results = issue.test_results
-        return True if test_results.startswith('Category:') else False
+        definitions = self.parse_test_definitions()
+        return len(definitions) > 0 and definitions.get_category() is not None
 
     def get_sprint_item(self):
         self.initialize()
@@ -85,7 +86,10 @@ class MyXray:
     def create_test_template(self):
         self.initialize()
         wrapped_issue = MyJiraIssue(self._sprint_item)
-        wrapped_issue.test_results = """Category: <Category>
+        wrapped_issue.test_results = """
+
+<begin>
+Category: <Category>
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -94,6 +98,7 @@ Given <Preconditions>
 And <Step 1>
 When <Step 2>
 Then <Step 3>
+<end>
 """
         self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
@@ -104,27 +109,33 @@ Then <Step 3>
         lines = issue.test_results.split('\n')
         category = None
         i = 0
+        processing = False
         while i < len(lines):
             line = lines[i]
-            if line.startswith('Category:'):
-                category = line.split(':')[1].strip()
-            elif line.startswith('Name:'):
-                name = line.split(':')[1].strip()
-                description = ''
-                steps = []
-                for j in range(i + 1, len(lines)):
-                    if lines[j].startswith('Name:'):
-                        break
-                    elif lines[j].startswith('Description:'):
-                        description = lines[j].split(':')[1].strip()
-                    elif lines[j].startswith('Steps:'):
-                        for k in range(j + 1, len(lines)):
-                            if lines[k].startswith(('Given', 'And', 'When', 'Then')):
-                                steps.append(lines[k])
-                            else:
-                                break
-                        break
-                all_definitions.append(MyTestDefinition(name, description, steps))
+            if line.lower().startswith('<begin>'):
+                processing = True
+            elif line.lower().startswith('<end>'):
+                processing = False
+            if processing:
+                if line.startswith('Category:'):
+                    category = line.split(':')[1].strip()
+                elif line.startswith('Name:'):
+                    name = line.split(':')[1].strip()
+                    description = ''
+                    steps = []
+                    for j in range(i + 1, len(lines)):
+                        if lines[j].startswith('Name:'):
+                            break
+                        elif lines[j].startswith('Description:'):
+                            description = lines[j].split(':')[1].strip()
+                        elif lines[j].startswith('Steps:'):
+                            for k in range(j + 1, len(lines)):
+                                if lines[k].startswith(('Given', 'And', 'When', 'Then')):
+                                    steps.append(lines[k])
+                                else:
+                                    break
+                            break
+                    all_definitions.append(MyTestDefinition(name, description, steps))
             i += 1
 
         definitions = MyTestDefinitions(category)
