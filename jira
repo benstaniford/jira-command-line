@@ -35,7 +35,7 @@ def show_viewer(string):
     with tempfile.NamedTemporaryFile(suffix=".json") as f:
         f.write(string.encode('utf-8'))
         f.flush()
-        os.system("less " + f.name)
+        os.system("vim " + f.name)
 
 def get_string_from_editor():
     filename = None

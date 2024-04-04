@@ -24,6 +24,7 @@ class MyJiraIssue:
                 "product": "customfield_10108",
                 "test_results": "customfield_10097",
                 "team": "customfield_10001",
+                "test_steps": "customfield_10039",
             }
 
         for key in self.translations:

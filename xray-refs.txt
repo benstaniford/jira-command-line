@@ -1,3 +1,22 @@
 https://docs.getxray.app/display/ProductKB/%5BXray+Cloud%5D+How+to+use+REST+API+with+Xray+for+Jira+Cloud
 
 https://docs.getxray.app/display/XRAYCLOUD/Version+2
+https://docs.getxray.app/display/XRAY/v2.0#/Test%20Step/post_test__testKey__steps
+
+https://atlassian-python-api.readthedocs.io/xray.html
+
+pip install atlassian-python-api
+from atlassian import Xray
+
+
+
+Interesting comment here: https://docs.getxray.app/display/XRAY/Tests+-+REST
+
+The custom field IDs can be obtained using the Jira REST API Browser tool included in Jira. Each ID is of the form "customfield_ID".
+Another option, which does not require Jira administration rights, is to invoke the "Get edit issue meta" in an existing issue (e.g., in a Test issue) as mentioned here.
+Example: GET http://yourserver/rest/api/2/issue/CALC-1/editmeta 
+Example: GET https://beyondtrust.atlassian.net/rest/api/2/issue/CALC-1/editmeta  (Doesn't work)
+
+Potentiall useful demo of how to use the API:
+
+https://github.com/Xray-App/xray-cloud-demo-project/blob/master/xray.py

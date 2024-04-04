@@ -57,7 +57,8 @@ class MyXray:
             config_file.generate_template()
             quit()
         config = config_file.load()
-        self._jira = MyJira(config.get('jira'))
+        jira_config = config.get('jira')
+        self._jira = MyJira(jira_config)
         self._issueid = issueid
 
     def initialize(self):
@@ -135,14 +136,23 @@ Then <Step 3>
     def create_test_cases(self, definitions):
         tests = []
         for definition in definitions:
-            test = self.create_test_case(definition._name, definition._description)
+            test = self.create_test_case(definition)
             tests.append(test)
         return tests
 
-    def create_test_case(self, title, description):
+    def create_test_case(self, definition):
         self.initialize()
-        issue = self._jira.create_backlog_issue(title, description, 'Test')
-        self._jira.jira.create_issue_link('Test', issue, self._sprint_item)
+        wrapped_issue = MyJiraIssue(self._jira.create_backlog_issue(definition._name, definition._description, 'Test'))
+        self._jira.jira.create_issue_link('Test', wrapped_issue.issue, self._sprint_item)
+        steps_str = '\r\n'.join(definition._steps)
+        wrapped_issue.test_steps = steps_str
+        wrapped_issue.issue.update(fields={wrapped_issue.test_steps_fieldname: wrapped_issue.test_steps})
+        
+        # Set the type to be a Gherkin test
+        #print(self._xray.get_test_steps(wrapped_issue.issue))
+        #self._xray.set_test_type(wrapped_issue.issue, 'Manual (Gherkin)')
+
+        # self._xray.update_test_step(wrapped_issue.issue, definition._steps[0])
         #self._jira.jira.set_test_type(issue, 'Manual (Gherkin)')
-        return issue
+        return wrapped_issue.issue
 
