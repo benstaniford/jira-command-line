@@ -12,10 +12,12 @@ from XrayApi import XrayApi
 class MyTestDefinitions:
     _definitions = []
     _folder = None
+    _test_plan = None
 
-    def __init__(self, folder):
+    def __init__(self, folder, test_plan=None):
         self._definitions = []
         self._folder = folder
+        self._test_plan = test_plan
 
     def add(self, definition):
         self._definitions.append(definition)
@@ -86,9 +88,9 @@ class JiraXrayIssue:
         self.initialize()
         wrapped_issue = MyJiraIssue(self._sprint_item)
         wrapped_issue.test_results = """
-
 <begin>
 Folder: /Windows/MyTestFeature
+Test Plan: 24.3 EPM Solution Release Plan
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -107,6 +109,7 @@ Then <Step 3>
         all_definitions = []
         lines = issue.test_results.split('\n')
         folder = None
+        test_plan = None
         i = 0
         processing = False
         while i < len(lines):
@@ -116,20 +119,25 @@ Then <Step 3>
             elif line.lower().startswith('<end>'):
                 processing = False
             if processing:
-                if line.startswith('Folder:'):
+                lwrline = line.lower().strip()
+                if lwrline.startswith('folder:'):
                     folder = line.split(':')[1].strip()
-                elif line.lower().startswith('name:'):
+                elif lwrline.startswith('testplan:'):
+                    test_plan = line.split(':')[1].strip()
+                elif lwrline.startswith('name:'):
                     name = line.split(':')[1].strip()
                     description = ''
                     steps = []
                     for j in range(i + 1, len(lines)):
-                        if lines[j].lower().startswith('name:'):
+                        line_lwr_j = lines[j].lower().strip()
+                        if line_lwr_j.startswith('name:'):
                             break
-                        elif lines[j].lower().startswith('description:'):
+                        elif line_lwr_j.startswith('description:'):
                             description = lines[j].split(':')[1].strip()
-                        elif lines[j].lower().startswith('steps:'):
+                        elif line_lwr_j.startswith('steps:'):
                             for k in range(j + 1, len(lines)):
-                                if lines[k].lower().startswith(('given', 'and', 'when', 'then')):
+                                line_lwr_k = lines[k].lower().strip()
+                                if line_lwr_k.startswith(('given', 'and', 'when', 'then')):
                                     steps.append(lines[k].strip())
                                 else:
                                     break
@@ -137,7 +145,7 @@ Then <Step 3>
                     all_definitions.append(MyTestDefinition(name, description, steps))
             i += 1
 
-        definitions = MyTestDefinitions(folder)
+        definitions = MyTestDefinitions(folder, test_plan)
         for definition in all_definitions:
             definitions.add(definition)
 
