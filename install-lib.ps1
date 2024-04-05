@@ -11,6 +11,10 @@ function UpdatePath {
     Write-Host "System PATH variable has been updated."
 }
 
+# For the script to run, scripts must be allowed to run on the system
+# If scripts are not allowed to run, run the following command in an elevated PowerShell session:
+# Set-ExecutionPolicy Bypass -Scope Process
+
 function PressAnyKeyToExit {
     Write-Host "Press any key to exit..."
     $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -37,8 +41,12 @@ if (-not $wingetPath) {
 
 UpdatePath
 
-#Run this as the administrator: 
-winget settings --enable BypassCertificatePinningForMicrosoftStore
+# If the machine is having cert issues...  (Doesn't work on Win 11)
+# Write-Host "Enabling BypassCertificatePinningForMicrosoftStore setting..."
+# winget settings --enable BypassCertificatePinningForMicrosoftStore
+
+# Fix an odd source error with win 11
+Add-AppxPackage -Path https://cdn.winget.microsoft.com/cache/source.msix
 
 Write-Host "Checking if Python 3.11 or higher is installed..."
 winget install --id Python.Python.3.11 --source=winget --silent
