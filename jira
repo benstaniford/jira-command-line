@@ -364,7 +364,7 @@ def main(stdscr):
                         xray_issue.create_test_template()
                 else:
                     definitions = xray_issue.parse_test_definitions()
-                    yesno = ui.prompt_get_character(f"Create tests for [{issue.key}] with the {len(definitions)} definitions for category \"{definitions.get_category()}\" (y/n)")
+                    yesno = ui.prompt_get_character(f"Create {len(definitions)} tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\" (y/n)")
                     if yesno == "y":
                         ui.prompt("Creating tests...", "")
                         tests = xray_issue.create_test_cases(definitions)

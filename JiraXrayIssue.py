@@ -11,11 +11,11 @@ from XrayApi import XrayApi
 
 class MyTestDefinitions:
     _definitions = []
-    _category = None
+    _folder = None
 
-    def __init__(self, category):
+    def __init__(self, folder):
         self._definitions = []
-        self._category = category
+        self._folder = folder
 
     def add(self, definition):
         self._definitions.append(definition)
@@ -26,8 +26,8 @@ class MyTestDefinitions:
     def __len__(self):
         return len(self._definitions)
 
-    def get_category(self):
-        return self._category
+    def get_folder(self):
+        return self._folder
 
 class MyTestDefinition:
     _name = None
@@ -76,7 +76,7 @@ class JiraXrayIssue:
         issue = MyJiraIssue(self._sprint_item)
         test_results = issue.test_results
         definitions = self.parse_test_definitions()
-        return len(definitions) > 0 and definitions.get_category() is not None
+        return len(definitions) > 0 and definitions.get_folder() is not None
 
     def get_sprint_item(self):
         self.initialize()
@@ -88,7 +88,7 @@ class JiraXrayIssue:
         wrapped_issue.test_results = """
 
 <begin>
-Category: /Windows/MyTestFeature
+Folder: /Windows/MyTestFeature
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -106,7 +106,7 @@ Then <Step 3>
         issue = MyJiraIssue(self._sprint_item)
         all_definitions = []
         lines = issue.test_results.split('\n')
-        category = None
+        folder = None
         i = 0
         processing = False
         while i < len(lines):
@@ -116,8 +116,8 @@ Then <Step 3>
             elif line.lower().startswith('<end>'):
                 processing = False
             if processing:
-                if line.startswith('Category:'):
-                    category = line.split(':')[1].strip()
+                if line.startswith('Folder:'):
+                    folder = line.split(':')[1].strip()
                 elif line.lower().startswith('name:'):
                     name = line.split(':')[1].strip()
                     description = ''
@@ -137,7 +137,7 @@ Then <Step 3>
                     all_definitions.append(MyTestDefinition(name, description, steps))
             i += 1
 
-        definitions = MyTestDefinitions(category)
+        definitions = MyTestDefinitions(folder)
         for definition in all_definitions:
             definitions.add(definition)
 
@@ -146,23 +146,23 @@ Then <Step 3>
     def create_test_cases(self, definitions):
         self.initialize()
 
-        category = definitions.get_category()
-        if not category.startswith('/'):
-            raise ValueError(f'Category {category} must be a folder within the test respository and must start with a /')
-        self._api.create_folder(category)
+        folder = definitions.get_folder()
+        if not folder.startswith('/'):
+            raise ValueError(f'Folder {folder} must be a folder within the test respository and must start with a /')
+        self._api.create_folder(folder)
 
         tests = []
         for definition in definitions:
-            test = self.create_test_case(definition, category)
+            test = self.create_test_case(definition, folder)
             tests.append(test)
         return tests
 
-    def create_test_case(self, definition, category):
+    def create_test_case(self, definition, folder):
         self.initialize()
         api = self._api
         api.authenticate()
         steps_str = '\n'.join(definition._steps)
-        issue_id = api.create_test(definition._name, definition._description, 'Manual (Gherkin)', category, steps_str)
+        issue_id = api.create_test(definition._name, definition._description, 'Manual (Gherkin)', folder, steps_str)
 
         # Xray creates an issue in Jira, but we need to link it to the sprint item
         issues = self._jira.search_for_issue(issue_id)
