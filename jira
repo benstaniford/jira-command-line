@@ -159,11 +159,11 @@ def main(stdscr):
     fkey_string = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
 
     # Keyboard input loop
-    key_shortcuts = ('q', 's', 'l', 'z', 'e', 'w', 'i', 'b', 'k', 'p', 'S', 'c', 'd', 'a', 'P', 't', 'm', 'v', 'h', 'T', '?')
+    key_shortcuts = ('a', 'b', 'c', 'd', 'e', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'w', 'x', 'z', '?')
     while True:
         prompt = f"Commands F1:help, {fkey_string}\n"
-        prompt += "  q:quit, s:sprint, l:backlog, z:escalations, e:edit, w:winshared, i:inspect, b:browse, k:link, p:pr, S:support_folder, T:tasks\n"
-        prompt += "  c:create, d:delete, a:assign, P:points, t:status, m:move, v:view, h:branch, o/O:sort, /:search, |:filter, ?:glob_search\n"
+        prompt += """  a:assign, b:browse, c:create, d:delete, e:edit, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points, q:quit
+  s:sprint, S:support_folder, t:status, T:tasks, v:view, w:winshared, x:xray, z:escalations, ?:glob_search, |:filter, /:search\n"""
         prompt += "Type a number to see task details"
         selection = ""
         try:
