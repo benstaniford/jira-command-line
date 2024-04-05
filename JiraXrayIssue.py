@@ -36,6 +36,9 @@ class MyTestDefinitions:
     def get_test_plan(self):
         return self._test_plan
 
+    def is_existing_test_plan(self):
+        return self._test_plan is not None and self._test_plan.startswith('EPM-')
+
     def get_fix_versions(self):
         return self._fix_versions
 
@@ -98,7 +101,7 @@ class JiraXrayIssue:
         wrapped_issue.test_results = """
 <begin>
 Folder: /Windows/MyTestFeature
-Test Plan: 24.3 EPM Solution Release Plan
+Test Plan: EPM-XXX (add to existing) || 24.X My Awesome Plan (create new)
 Fix Versions: PMfW 24.3
 
 Name: PMfW - <Feature> - <Summary Text>
@@ -167,6 +170,7 @@ Then <Step 3>
         self.initialize()
 
         folder = definitions.get_folder()
+
         if not folder.startswith('/'):
             raise ValueError(f'Folder {folder} must be a folder within the test respository and must start with a /')
         self._api.create_folder(folder)
