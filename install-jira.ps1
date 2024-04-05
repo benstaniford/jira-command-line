@@ -1,0 +1,114 @@
+function UpdatePath {
+    # Update the system PATH variable
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+    $env:Path += ";"
+    $env:Path += [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+
+    # Re-import the updated environment variables into the PowerShell session
+    [Environment]::SetEnvironmentVariable("Path", $env:Path, [System.EnvironmentVariableTarget]::Process)
+
+    # Verify if the PATH variable is updated
+    Write-Host "System PATH variable has been updated."
+}
+
+function PressAnyKeyToExit {
+    Write-Host "Press any key to exit..."
+    $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit
+}
+
+# If we're not running as an administrator, restart as an administrator
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    PressAnyKeyToExit
+}
+
+Write-Host "Checking if winget is available..." -NoNewline
+
+$wingetPath = Get-Command -Name winget -ErrorAction SilentlyContinue
+if (-not $wingetPath) {
+    Write-Host "[Please install winget/App Installer and re-run]" -ForegroundColor Red
+    $url = "https://www.microsoft.com/en-us/p/app-installer/9nblggh4nns1"
+    Start-Process $url
+    PressAnyKeyToExit
+} else {
+    Write-Host "[Ok]" -ForegroundColor Green
+}
+
+UpdatePath
+
+#Run this as the administrator: 
+winget settings --enable BypassCertificatePinningForMicrosoftStore
+
+Write-Host "Checking if Python 3.11 or higher is installed..."
+winget install --id Python.Python.3.11 --source=winget --silent
+if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) {
+    write-host "last exit code: $LASTEXITCODE"
+    Write-Host "[Please install Python 3.11 or higher and re-run]" -ForegroundColor Red
+    $url = "https://www.python.org/downloads/"
+    Start-Process $url
+    PressAnyKeyToExit
+}
+
+Write-Host "Installing git for Windows..."
+winget install --id Git.Git --source=winget --silent
+if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) {
+    Write-Host "[Please install Git for Windows and re-run]" -ForegroundColor Red
+    $url = "https://git-scm.com/download/win"
+    Start-Process $url
+    PressAnyKeyToExit
+}
+$gitPath = "$env:PROGRAMFILES\Git\bin\git.exe"
+
+UpdatePath
+
+# Add %LOCALAPPDATA%\Programs\Python\Python311 to PATH of the current process
+$pythonPath = "$env:LOCALAPPDATA\Programs\Python\Python311\PYTHON.EXE"
+$pipPath = "$env:LOCALAPPDATA\Programs\Python\Python311\Scripts\PIP.EXE"
+
+# Upgrade pip
+Write-Host "Upgrading pip..."
+& $pipPath install --upgrade pip
+
+# Install the pip packages jira, github, pygit 
+Write-Host "Installing Python packages..."
+& $pipPath install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org jira windows-curses gitpython pygithub 
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[Failed to install Python packages]" -ForegroundColor Red
+    PressAnyKeyToExit
+}
+
+Write-Host "Cloning Jira repository..."
+$repoPath = "$env:USERPROFILE\jira-command-line"
+if (Test-Path $repoPath) {
+    Write-Host "[Jira repository already exists]" -ForegroundColor Yellow
+    Remove-Item -Recurse -Force $repoPath
+}
+Set-Location $env:USERPROFILE
+& $gitPath clone -c http.sslVerify=false https://github.com/benstaniford/jira-command-line
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[Failed to clone Jira repository]" -ForegroundColor Red
+    PressAnyKeyToExit
+}
+
+# Create a shortcut to the Jira script in the user's desktop
+Write-Host "Creating a shortcut to the Jira script..."
+$shortcutPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "Jira.lnk")
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = "$pythonPath"
+$shortcut.Arguments = "$repoPath\jira"
+$shortcut.Save()
+
+# Create a shortcut to %USERPROFILE%\.jira\config.json in the user's desktop
+Write-Host "Creating a shortcut to the Jira configuration file..."
+$shortcutPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "Jira Configuration.lnk")
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = "$env:SYSTEMROOT\System32\notepad.exe"
+$shortcut.Arguments = "$env:USERPROFILE\.jira-config\config.json"
+$shortcut.Save()
+
+Write-Host "Jira has been installed successfully" -ForegroundColor Green
+Write-Host "Please now run the Jira shortcut to generate a config template, and add API keys to the config file via the desktop shortcut" -ForegroundColor Yellow
+
+PressAnyKeyToExit
