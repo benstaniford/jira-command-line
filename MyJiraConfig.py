@@ -54,6 +54,7 @@ class MyJiraConfig:
         with open(self.config_file_path, "w") as config_file:
             json.dump(config_data, config_file, indent=4)
         print(f"Configuration file saved to: {self.config_file_path}")
+        input("Press any key to exit...")
 
     def exists(self):
         return os.path.exists(self.config_file_path)
