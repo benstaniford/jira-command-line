@@ -3,10 +3,6 @@
 import argparse
 from JiraXrayIssue import JiraXrayIssue
 
-# Here's a reference PBI that shows the structure
-# https://beyondtrust.atlassian.net/browse/EPM-16217
-# Execution record: https://beyondtrust.atlassian.net/browse/EPM-21113
-
 def prompt(message):
     return input(f"{message} (y/n): ")
 

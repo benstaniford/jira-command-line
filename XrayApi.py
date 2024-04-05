@@ -4,6 +4,10 @@ import json
 import logging
 log = logging.getLogger(__name__)
 
+# Docs & examples
+# https://docs.getxray.app/display/ProductKB/%5BXray+Cloud%5D+How+to+use+REST+API+with+Xray+for+Jira+Cloud
+# https://docs.getxray.app/display/XRAYCLOUD/Version+2
+# https://github.com/Xray-App/xray-cloud-demo-project/blob/master/xray.py
 XRAY_API = 'https://xray.cloud.getxray.app/api/v2'
 
 class XrayApi:
