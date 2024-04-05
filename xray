@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import argparse
-from MyXray import MyXray
+from JiraXrayIssue import JiraXrayIssue
 
 # Here's a reference PBI that shows the structure
 # https://beyondtrust.atlassian.net/browse/EPM-16217
@@ -19,8 +19,8 @@ args = parser.parse_args()
 if args.pbi is None:
     throw("Please provide a PBI --pbi")
 
-# Create an instance of MyXray pointing at this PBI
-xray = MyXray(args.pbi)
+# Create an instance of JiraXrayIssue pointing at this PBI
+xray = JiraXrayIssue(args.pbi)
 issue = xray.get_sprint_item()
 
 if (not xray.sprint_item_has_valid_tests()):
