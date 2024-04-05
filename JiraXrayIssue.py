@@ -13,11 +13,13 @@ class MyTestDefinitions:
     _definitions = []
     _folder = None
     _test_plan = None
+    _fix_versions = []
 
-    def __init__(self, folder, test_plan=None):
+    def __init__(self, folder, test_plan=None, fix_versions=[]):
         self._definitions = []
         self._folder = folder
         self._test_plan = test_plan
+        self._fix_versions = fix_versions
 
     def add(self, definition):
         self._definitions.append(definition)
@@ -30,6 +32,12 @@ class MyTestDefinitions:
 
     def get_folder(self):
         return self._folder
+
+    def get_test_plan(self):
+        return self._test_plan
+
+    def get_fix_versions(self):
+        return self._fix_versions
 
 class MyTestDefinition:
     _name = None
@@ -91,6 +99,7 @@ class JiraXrayIssue:
 <begin>
 Folder: /Windows/MyTestFeature
 Test Plan: 24.3 EPM Solution Release Plan
+Fix Versions: PMfW 24.3
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -110,6 +119,7 @@ Then <Step 3>
         lines = issue.test_results.split('\n')
         folder = None
         test_plan = None
+        fix_versions = []
         i = 0
         processing = False
         while i < len(lines):
@@ -122,8 +132,10 @@ Then <Step 3>
                 lwrline = line.lower().strip()
                 if lwrline.startswith('folder:'):
                     folder = line.split(':')[1].strip()
-                elif lwrline.startswith('testplan:'):
+                elif lwrline.startswith('test plan:'):
                     test_plan = line.split(':')[1].strip()
+                elif lwrline.startswith('fix versions:'):
+                    fix_versions = line.split(':')[1].strip().split(',')
                 elif lwrline.startswith('name:'):
                     name = line.split(':')[1].strip()
                     description = ''
@@ -145,7 +157,7 @@ Then <Step 3>
                     all_definitions.append(MyTestDefinition(name, description, steps))
             i += 1
 
-        definitions = MyTestDefinitions(folder, test_plan)
+        definitions = MyTestDefinitions(folder, test_plan, fix_versions)
         for definition in all_definitions:
             definitions.add(definition)
 
@@ -168,7 +180,6 @@ Then <Step 3>
     def create_test_case(self, definition, folder):
         self.initialize()
         api = self._api
-        api.authenticate()
         steps_str = '\n'.join(definition._steps)
         issue_id = api.create_test(definition._name, definition._description, 'Manual (Gherkin)', folder, steps_str)
 
@@ -187,4 +198,11 @@ Then <Step 3>
             test_issue.team_fieldname: sprint_issue.team.id})
 
         return issue
+
+    def create_test_plan(self, definitions, test_ids):
+        self.initialize()
+        api = self._api
+        test_plan = definitions.get_test_plan()
+        fix_versions = definitions.get_fix_versions()
+        api.create_test_plan(test_plan, "Test Plan Description", fix_versions, test_ids)
 

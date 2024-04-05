@@ -221,6 +221,9 @@ class XrayApi:
 
         resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
+
+        if (resp.json().get('errors') != None):
+            raise Exception(resp.json().get('errors'))
     
         return resp.json()
 
