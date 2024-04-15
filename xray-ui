@@ -19,7 +19,7 @@ class XrayUi:
         self.jira = MyJira(jira_config)
         team_name = jira_config.get('team_name')
         self.ui = TkTableUi("Current Sprint for " + team_name)
-        self.ui.add_headers(('PBI', 'Summary'))
+        self.ui.add_headers(('Issue', 'Summary'))
 
     def add_issues(self):
         issues = self.jira.get_sprint_issues() if not self.backlog_mode else self.jira.get_backlog_issues()
