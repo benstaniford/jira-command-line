@@ -1,0 +1,16 @@
+#!/usr/bin/python3
+
+import os
+from MyJira import MyJira
+from MyJiraConfig import MyJiraConfig
+from JiraXrayIssue import JiraXrayIssue
+from TkTableUi import TkTableUi
+import webbrowser
+import json
+import os
+
+if __name__ == "__main__":
+    # Create a TkTableUi object
+    table_ui = TkTableUi()
+    table_ui.display()
+
