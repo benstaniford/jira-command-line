@@ -73,6 +73,15 @@ class TkTableUi:
 
         self.tree.bind("<Button-3>", popup)
 
+    def show_yesno_dialog(self, title, message):
+        return messagebox.askyesno(title, message)
+
+    def show_error_dialog(self, title, message):
+        messagebox.showerror(title, message)
+
+    def show_info_dialog(self, title, message):
+        messagebox.showinfo(title, message)
+
     def show_dialog(self, window_title, message):
         dialog_window = tk.Toplevel()
         dialog_window.title(window_title)

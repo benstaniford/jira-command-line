@@ -62,14 +62,17 @@ class JiraXrayIssue:
     _initiated = False
     _api = None
 
-    def __init__(self, issueid):
+    def __init__(self, issueid, jira=None):
         config_file = MyJiraConfig()
         if not config_file.exists():
             config_file.generate_template()
             quit()
         config = config_file.load()
         jira_config = config.get('jira')
-        self._jira = MyJira(jira_config)
+        if jira is not None:
+            self._jira = jira
+        else:
+            self._jira = MyJira(jira_config)
         self._issueid = issueid
         self._api = XrayApi(config.get('xray'))
 
