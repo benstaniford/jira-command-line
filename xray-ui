@@ -9,8 +9,24 @@ import webbrowser
 import json
 import os
 
+class XrayUi:
+    config_file = MyJiraConfig()
+
+    def __init__(self):
+        config = self.config_file.load()
+        jira_config = config.get('jira')
+        self.jira = MyJira(jira_config)
+        team_name = jira_config.get('team_name')
+        self.ui = TkTableUi("Current Sprint for " + team_name)
+        self.ui.add_headers(('PBI', 'Summary'))
+
+    def display(self):
+        issues = self.jira.get_sprint_issues()
+        for issue in issues:
+            self.ui.add_row((issue.key, issue.fields.summary))
+        self.ui.display()
+
 if __name__ == "__main__":
-    # Create a TkTableUi object
-    table_ui = TkTableUi()
-    table_ui.display()
+    xray_ui = XrayUi()
+    xray_ui.display()
 
