@@ -108,6 +108,14 @@ $shortcut.TargetPath = "$pythonPath"
 $shortcut.Arguments = "$repoPath\jira"
 $shortcut.Save()
 
+# Create a shortcut to the xray-ui script in the user's desktop
+Write-Host "Creating a shortcut to the Xray UI script..."
+$shortcutPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "Xray UI.lnk")
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = "$pythonPath"
+$shortcut.Arguments = "$repoPath\xray-ui"
+$shortcut.Save()
+
 # Create a shortcut to %USERPROFILE%\.jira\config.json in the user's desktop
 Write-Host "Creating a shortcut to the Jira configuration file..."
 $shortcutPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "Jira Configuration.lnk")
