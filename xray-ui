@@ -11,6 +11,7 @@ import os
 
 class XrayUi:
     config_file = MyJiraConfig()
+    backlog_mode = False
 
     def __init__(self):
         config = self.config_file.load()
@@ -20,11 +21,40 @@ class XrayUi:
         self.ui = TkTableUi("Current Sprint for " + team_name)
         self.ui.add_headers(('PBI', 'Summary'))
 
-    def display(self):
-        issues = self.jira.get_sprint_issues()
+    def add_issues(self):
+        issues = self.jira.get_sprint_issues() if not self.backlog_mode else self.jira.get_backlog_issues()
         for issue in issues:
-            self.ui.add_row((issue.key, issue.fields.summary))
-        self.ui.display()
+            self.ui.add_row((issue.key, issue.fields.summary), issue)
+
+    def on_refresh(self):
+        self.ui.clear()
+        self.add_issues()
+        self.ui.refresh()
+
+    def on_close(self):
+        self.ui.close()
+
+    def on_show_details(self, issue):
+        self.ui.show_dialog("Details", f"Details for {issue.key}")
+
+    def on_open_browser(self, issue):
+        self.jira.browse_to(issue)
+
+    def on_toggle_backlog(self):
+        self.backlog_mode = not self.backlog_mode
+        self.ui.set_window_title(("Backlog" if self.backlog_mode else "Current Sprint") + " for " + self.jira.team_name)
+        self.show_backlog_buggon.config(text="Show Current Sprint" if self.backlog_mode else "Show Backlog")
+        self.on_refresh()
+
+    def initialize_controls(self):
+        self.ui.add_button(label="Refresh", right=False, callback=self.on_refresh)
+        self.show_backlog_buggon = self.ui.add_button(label="Show Backlog", right=False, callback=self.on_toggle_backlog)
+        self.ui.add_button(label="Close", right=True, callback=self.on_close)
+        self.ui.add_right_click_menu([("Details", self.on_show_details), ("Open in Browser", self.on_open_browser)])
+
+    def display(self):
+        self.add_issues()
+        self.ui.display(self.initialize_controls)
 
 if __name__ == "__main__":
     xray_ui = XrayUi()

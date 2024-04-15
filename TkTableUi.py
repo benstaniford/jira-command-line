@@ -5,7 +5,8 @@ from tkinter import messagebox
 class TkTableUi:
     def __init__(self, title):
         self.headers = ()
-        self.data = []    # List of tuples
+        self.data = []    # List of tuples, last item is an caller provided object to be used in the callbacks
+        self.callback_objects = {}
         self.root = None
         self.tree = None
         self.title = title
@@ -16,8 +17,15 @@ class TkTableUi:
     def add_headers(self, headers):
         self.headers = headers
 
-    def add_row(self, row):
+    def add_row(self, row, obj=None):
         self.data.append(row)
+        self.callback_objects[row[0]] = obj  # First column is the key
+
+    def clear(self):
+        self.data.clear()
+
+    def set_window_title(self, title):
+        self.root.title(title)
 
     def refresh(self):
         for row in self.tree.get_children():
@@ -30,10 +38,10 @@ class TkTableUi:
     def close(self):
         self.root.destroy()
 
-    def show_details(self):
+    def get_selected_item(self):
         item = self.tree.selection()[0]
-        item_name = self.tree.item(item, "values")[0]
-        self.display_details(item_name)
+        callback_object = self.callback_objects[self.tree.item(item, "values")[0]]
+        return callback_object
 
     def sort_column(self, col, reverse):
         data = [(self.tree.set(child, col), child) for child in self.tree.get_children('')]
@@ -51,9 +59,13 @@ class TkTableUi:
         hscrollbar.pack(side="bottom", fill="x")
         self.tree.configure(yscrollcommand=vscrollbar.set, xscrollcommand=hscrollbar.set)
 
-    def add_right_click_menu(self):
+    def build_callback_labmda(self, callback):
+        return lambda: callback(self.get_selected_item())
+
+    def add_right_click_menu(self, callback_list):
         menu = tk.Menu(self.root, tearoff=0)
-        menu.add_command(label="Details", command=self.show_details)
+        for callback in callback_list:
+            menu.add_command(label=callback[0], command=self.build_callback_labmda(callback[1]))
 
         def popup(event):
             if self.tree.identify_region(event.x, event.y) == "cell":
@@ -61,27 +73,31 @@ class TkTableUi:
 
         self.tree.bind("<Button-3>", popup)
 
-    def display_details(self, item_name):
-        details_window = tk.Toplevel()
-        details_window.title("Item Details")
-        label = ttk.Label(details_window, text="Item Details: " + item_name)
+    def show_dialog(self, window_title, message):
+        dialog_window = tk.Toplevel()
+        dialog_window.title(window_title)
+        label = ttk.Label(dialog_window, text=message)
         label.pack(padx=10, pady=10)
-        close_button = ttk.Button(details_window, text="Close", command=details_window.destroy)
+        close_button = ttk.Button(dialog_window, text="Close", command=dialog_window.destroy)
         close_button.pack(pady=5)
+        width = self.root.winfo_width() / 2 - dialog_window.winfo_reqwidth() / 2
+        height = self.root.winfo_height() / 2 - dialog_window.winfo_reqheight() / 2
+        dialog_window.geometry("+%d+%d" % (self.root.winfo_x() + width, self.root.winfo_y() + height))
 
-    def display(self):
+    def add_button(self, label, right, callback):
+        button = ttk.Button(self.root, text=label, command=callback)
+        if (right):
+            button.pack(side=tk.RIGHT, padx=5, pady=5)
+        else:
+            button.pack(side=tk.LEFT, padx=5, pady=5)
+        return button
+
+    def display(self, init_callback):
         self.tree = ttk.Treeview(self.root, columns=self.headers, show="headings")
         self.tree.pack(expand=True, fill=tk.BOTH)
         self.add_scrollbar()
-
-        # Add the data
         self.refresh()
+        init_callback()
 
-        # Add buttons and right-click menu
-        refresh_button = ttk.Button(self.root, text="Refresh", command=self.refresh)
-        refresh_button.pack(side=tk.LEFT, padx=5, pady=5)
-        close_button = ttk.Button(self.root, text="Close", command=self.close)
-        close_button.pack(side=tk.RIGHT, padx=5, pady=5)
-        self.add_right_click_menu()
-
+        # Start the UI loop
         self.root.mainloop()
