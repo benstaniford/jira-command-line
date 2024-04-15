@@ -88,11 +88,14 @@ class JiraXrayIssue:
                 return
 
     def sprint_item_has_valid_tests(self):
-        self.initialize()
-        issue = MyJiraIssue(self._sprint_item)
-        test_results = issue.test_results
-        definitions = self.parse_test_definitions()
-        return len(definitions) > 0 and definitions.get_folder() is not None
+        try:
+            self.initialize()
+            issue = MyJiraIssue(self._sprint_item)
+            test_results = issue.test_results
+            definitions = self.parse_test_definitions()
+            return len(definitions) > 0 and definitions.get_folder() is not None
+        except Exception as e:
+            return False
 
     def get_sprint_item(self):
         self.initialize()
