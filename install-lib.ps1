@@ -21,10 +21,19 @@ function PressAnyKeyToExit {
     exit
 }
 
+# If our parent folder is called "jira-command-line", copy the script to %TEM% and run it from there, otherwise we'll get locking issues
+if ($PSScriptRoot -eq "$env:USERPROFILE\jira-command-line") {
+    Write-Host "Copying the script to %TEMP%..."
+    $tempPath = [System.IO.Path]::Combine($env:TEMP, "install-lib.ps1")
+    Copy-Item -Path $PSScriptRoot\install-lib.ps1 -Destination $tempPath -Force
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempPath`"" -Verb RunAs
+    Exit
+}
+
 # If we're not running as an administrator, restart as an administrator
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
-    PressAnyKeyToExit
+    Exit
 }
 
 Write-Host "Checking if winget is available..." -NoNewline
