@@ -15,7 +15,7 @@ class TkTableUi:
         style = ttk.Style()
         sv_ttk.set_theme("dark")
         self.root.title(self.title)
-        self.root.geometry("1024x768")
+        self.root.geometry("1024x500")
         self.rightclick_menu = None
 
     def add_headers(self, headers):
@@ -114,6 +114,8 @@ class TkTableUi:
     def display(self, init_callback):
         self.tree = ttk.Treeview(self.root, columns=self.headers, show="headings")
         self.tree.pack(expand=True, fill=tk.BOTH)
+        # Adust the size of the first column to fit the content
+        self.tree.column(self.headers[0], width=100, minwidth=100, stretch=tk.NO)
         self.add_scrollbar()
         self.refresh()
         init_callback()
