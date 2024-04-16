@@ -13,6 +13,7 @@ class TkTableUi:
         self.root = tk.Tk()
         self.root.title(self.title)
         self.root.geometry("1024x768")
+        self.rightclick_menu = None
 
     def add_headers(self, headers):
         self.headers = headers
@@ -34,6 +35,16 @@ class TkTableUi:
             self.tree.heading(header, text=header, anchor=tk.W, command=lambda: self.sort_column(header, False))
         for row in self.data:
             self.tree.insert("", tk.END, values=row)
+
+    def show_progress_bar(self, message, max_value):
+        self.progress = ttk.Progressbar(self.root, orient="horizontal", length=200, mode="determinate", maximum=max_value)
+        self.progress.pack(side=tk.LEFT, padx=5, pady=5)
+
+    def update_progress(self, message = None):
+        self.progress.step(1)
+
+    def hide_progress_bar(self):
+        self.progress.pack_forget()
             
     def close(self):
         self.root.destroy()
@@ -62,16 +73,23 @@ class TkTableUi:
     def build_callback_labmda(self, callback):
         return lambda: callback(self.get_selected_item())
 
-    def add_right_click_menu(self, callback_list):
-        menu = tk.Menu(self.root, tearoff=0)
+    def add_right_click_menu(self, callback_list, on_right_click_callback = None):
+        self.rightclick_menu = tk.Menu(self.root, tearoff=0)
         for callback in callback_list:
-            menu.add_command(label=callback[0], command=self.build_callback_labmda(callback[1]))
+            self.rightclick_menu.add_command(label=callback[0], command=self.build_callback_labmda(callback[1]))
 
         def popup(event):
             if self.tree.identify_region(event.x, event.y) == "cell":
-                menu.post(event.x_root, event.y_root)
+                if on_right_click_callback:
+                    on_right_click_callback(self.get_selected_item())
+                self.rightclick_menu.post(event.x_root, event.y_root)
 
         self.tree.bind("<Button-3>", popup)
+
+    def set_rightclick_item_enabled_by_name(self, item_name, enabled):
+        for index in range(len(self.rightclick_menu._tclCommands)):
+            if self.rightclick_menu.entrycget(index, "label") == item_name:
+                self.rightclick_menu.entryconfig(index, state="normal" if enabled else "disabled")
 
     def show_yesno_dialog(self, title, message):
         return messagebox.askyesno(title, message)

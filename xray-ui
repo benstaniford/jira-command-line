@@ -8,10 +8,12 @@ from TkTableUi import TkTableUi
 import webbrowser
 import json
 import os
+import threading
 
 class XrayUi:
     config_file = MyJiraConfig()
     backlog_mode = False
+    issue = None
 
     def __init__(self):
         config = self.config_file.load()
@@ -22,8 +24,8 @@ class XrayUi:
         self.ui.add_headers(('Issue', 'Summary'))
 
     def add_issues(self):
-        issues = self.jira.get_sprint_issues() if not self.backlog_mode else self.jira.get_backlog_issues()
-        for issue in issues:
+        self.issues = self.jira.get_sprint_issues() if not self.backlog_mode else self.jira.get_backlog_issues()
+        for issue in self.issues:
             self.ui.add_row((issue.key, issue.fields.summary), issue)
 
     def on_refresh(self):
@@ -34,27 +36,53 @@ class XrayUi:
     def on_close(self):
         self.ui.close()
 
-    def on_edit_xray(self, issue):
-        xray_issue = JiraXrayIssue(issue.key, self.jira)
-        if (not xray_issue.sprint_item_has_valid_tests()):
-            yes = self.ui.show_yesno_dialog("Test template", f"{issue.key} doesn't yet have any tests defined. Create test template?")
-            if yes:
-                try:
-                    xray_issue.create_test_template()
-                    self.ui.show_info_dialog("Test template created", f"Test template created for {issue.key}")
-                except Exception as e:
-                    print(e)
-                    self.ui.show_error_dialog("Error", f"Error creating test template for {issue.key}: {e}")
+    def are_tests_created(self, thread, issue):
+        if not thread.is_alive():
+            self.ui.hide_progress_bar()
+            self.ui.show_info_dialog("Tests created", f"Tests created for {issue._issueid}")
         else:
-            definitions = xray_issue.parse_test_definitions()
-            yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
-            if yes:
-                try:
-                    xray_issue.create_test_cases(definitions)
-                    self.ui.show_info_dialog("Tests created", f"Tests created for {issue.key}")
-                except Exception as e:
-                    print(e)
-                    self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
+            self.ui.root.after(100, self.are_tests_created, thread, issue)
+
+    def create_test_worker(self, issue, definitions, on_test_created):
+        self.ui.show_progress_bar("Creating tests", len(definitions))
+        thread = threading.Thread(target=issue.create_test_cases, args=(definitions, on_test_created))
+        thread.start()
+        self.ui.root.after(100, self.are_tests_created, thread, issue)
+
+    def on_test_created(self, message):
+        self.ui.update_progress(message)
+
+    def on_create_tests(self, issue):
+        xray_issue = JiraXrayIssue(issue.key, self.jira)
+        definitions = xray_issue.parse_test_definitions()
+        yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
+        if yes:
+            try:
+                self.create_test_worker(xray_issue, definitions, self.on_test_created)
+            except Exception as e:
+                print(e)
+                self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
+
+    def on_create_test_template(self, issue):
+        xray_issue = JiraXrayIssue(issue.key, self.jira)
+        yes = self.ui.show_yesno_dialog("Test template", f"{issue.key} doesn't yet have any tests defined. Create test template?")
+        if yes:
+            try:
+                xray_issue.create_test_template()
+                self.ui.show_info_dialog("Test template created", f"Test template created for {issue.key}")
+            except Exception as e:
+                print(e)
+                self.ui.show_error_dialog("Error", f"Error creating test template for {issue.key}: {e}")
+
+    def on_right_click(self, issue):
+        issue = next((x for x in self.issues if x.key == issue.key), None)
+        xray_issue = JiraXrayIssue(issue, self.jira)
+        if (not xray_issue.sprint_item_has_valid_tests()):
+            self.ui.set_rightclick_item_enabled_by_name("Create testing template", True)
+            self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
+        else:
+            self.ui.set_rightclick_item_enabled_by_name("Create testing template", False)
+            self.ui.set_rightclick_item_enabled_by_name("Create tests", True)
 
     def on_open_browser(self, issue):
         self.jira.browse_to(issue)
@@ -69,7 +97,7 @@ class XrayUi:
         self.ui.add_button(label="Refresh", right=False, callback=self.on_refresh)
         self.show_backlog_buggon = self.ui.add_button(label="Show Backlog", right=False, callback=self.on_toggle_backlog)
         self.ui.add_button(label="Close", right=True, callback=self.on_close)
-        self.ui.add_right_click_menu([("Edit in X-Ray", self.on_edit_xray), ("Open in Browser", self.on_open_browser)])
+        self.ui.add_right_click_menu([("Create testing template", self.on_create_test_template), ("Create tests", self.on_create_tests), ("Open in Browser", self.on_open_browser)], self.on_right_click)
 
     def display(self):
         self.add_issues()

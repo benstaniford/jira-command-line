@@ -57,24 +57,33 @@ class MyTestDefinition:
 
 class JiraXrayIssue:
     _jira = None
-    _sprint_item = None
+    _jira_issue = None
     _issueid = None
     _initiated = False
     _api = None
 
-    def __init__(self, issueid, jira=None):
+    def __init_shared__(self, issueid):
         config_file = MyJiraConfig()
         if not config_file.exists():
             config_file.generate_template()
             quit()
         config = config_file.load()
-        jira_config = config.get('jira')
-        if jira is not None:
-            self._jira = jira
-        else:
+        if self._jira is None:
+            jira_config = config.get('jira')
             self._jira = MyJira(jira_config)
         self._issueid = issueid
         self._api = XrayApi(config.get('xray'))
+
+    def __init__(self, issueid):
+        self.__init_shared__(issueid)
+
+    def __init__(self, issue, jira):
+        if issue is None:
+            raise ValueError('Issue cannot be None')
+        if jira is None:
+            raise ValueError('Jira cannot be None')
+        self._jira_issue = issue
+        self.__init_shared__(issue.key)
 
     def initialize(self):
         if self._initiated:
@@ -83,27 +92,26 @@ class JiraXrayIssue:
         issues = self._jira.get_sprint_issues()
         for issue in issues:
             if issue.key == self._issueid:
-                self._sprint_item = issue
+                self._jira_issue = issue
                 self._initiated = True
                 return
 
     def sprint_item_has_valid_tests(self):
         try:
-            self.initialize()
-            issue = MyJiraIssue(self._sprint_item)
+            issue = MyJiraIssue(self._jira_issue)
             test_results = issue.test_results
             definitions = self.parse_test_definitions()
             return len(definitions) > 0 and definitions.get_folder() is not None
         except Exception as e:
             return False
 
-    def get_sprint_item(self):
+    def get_jira_issue(self):
         self.initialize()
-        return self._sprint_item
+        return self._jira_issue
 
     def create_test_template(self):
         self.initialize()
-        wrapped_issue = MyJiraIssue(self._sprint_item)
+        wrapped_issue = MyJiraIssue(self._jira_issue)
         wrapped_issue.test_results = """
 <begin>
 Folder: /Windows/MyTestFeature
@@ -119,11 +127,10 @@ When <Step 2>
 Then <Step 3>
 <end>
 """
-        self._sprint_item.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
+        self._jira_issue.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
     def parse_test_definitions(self):
-        self.initialize()
-        issue = MyJiraIssue(self._sprint_item)
+        issue = MyJiraIssue(self._jira_issue)
         all_definitions = []
         lines = issue.test_results.split('\n')
         folder = None
@@ -172,7 +179,7 @@ Then <Step 3>
 
         return definitions
 
-    def create_test_cases(self, definitions):
+    def create_test_cases(self, definitions, step_callback=None):
         self.initialize()
 
         folder = definitions.get_folder()
@@ -184,6 +191,8 @@ Then <Step 3>
         tests = []
         for definition in definitions:
             test = self.create_test_case(definition, folder)
+            if step_callback is not None:
+                step_callback(f"Created test case {test.key}")
             tests.append(test)
         return tests
 
@@ -198,10 +207,10 @@ Then <Step 3>
         if (len(issues) != 1):
             raise ValueError(f'Expected 1 test case created, but found {len(issues)}')
         issue = issues[0]
-        self._jira.jira.create_issue_link('Test', issue, self._sprint_item)
+        self._jira.jira.create_issue_link('Test', issue, self._jira_issue)
 
         # Update some important fields to match the PBI
-        sprint_issue = MyJiraIssue(self._sprint_item)
+        sprint_issue = MyJiraIssue(self._jira_issue)
         test_issue = MyJiraIssue(issue)
         product_name = sprint_issue.product.value
         test_issue.issue.update(fields={test_issue.product_fieldname: {"value": product_name},
