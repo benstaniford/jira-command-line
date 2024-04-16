@@ -53,7 +53,8 @@ class XrayUi:
         self.ui.update_progress(message)
 
     def on_create_tests(self, issue):
-        xray_issue = JiraXrayIssue(issue.key, self.jira)
+        issue = next((x for x in self.issues if x.key == issue.key), None)
+        xray_issue = JiraXrayIssue(issue, self.jira)
         definitions = xray_issue.parse_test_definitions()
         yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
         if yes:
@@ -64,7 +65,8 @@ class XrayUi:
                 self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
 
     def on_create_test_template(self, issue):
-        xray_issue = JiraXrayIssue(issue.key, self.jira)
+        issue = next((x for x in self.issues if x.key == issue.key), None)
+        xray_issue = JiraXrayIssue(issue, self.jira)
         yes = self.ui.show_yesno_dialog("Test template", f"{issue.key} doesn't yet have any tests defined. Create test template?")
         if yes:
             try:
