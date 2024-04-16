@@ -1,3 +1,4 @@
+import sv_ttk
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -13,7 +14,9 @@ class TkTableUi:
         self.root = tk.Tk()
         style = ttk.Style()
         # Built-in ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
-        style.theme_use("winnative")
+        #print(style.theme_names())
+        #style.theme_use("winnative")
+        sv_ttk.set_theme("dark")
         self.root.title(self.title)
         self.root.geometry("1024x768")
         self.rightclick_menu = None
