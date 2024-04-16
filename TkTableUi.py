@@ -11,6 +11,9 @@ class TkTableUi:
         self.tree = None
         self.title = title
         self.root = tk.Tk()
+        style = ttk.Style()
+        # Built-in ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
+        style.theme_use("winnative")
         self.root.title(self.title)
         self.root.geometry("1024x768")
         self.rightclick_menu = None

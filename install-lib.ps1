@@ -80,7 +80,7 @@ Write-Host "Upgrading pip..."
 
 # Install the pip packages jira, github, pygit 
 Write-Host "Installing Python packages..."
-& $pipPath install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org jira windows-curses gitpython pygithub 
+& $pipPath install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org jira windows-curses gitpython pygithub ttkthemes
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[Failed to install Python packages]" -ForegroundColor Red
     PressAnyKeyToExit
