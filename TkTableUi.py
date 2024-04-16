@@ -13,9 +13,6 @@ class TkTableUi:
         self.title = title
         self.root = tk.Tk()
         style = ttk.Style()
-        # Built-in ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
-        #print(style.theme_names())
-        #style.theme_use("winnative")
         sv_ttk.set_theme("dark")
         self.root.title(self.title)
         self.root.geometry("1024x768")
@@ -105,17 +102,6 @@ class TkTableUi:
 
     def show_info_dialog(self, title, message):
         messagebox.showinfo(title, message)
-
-    def show_dialog(self, window_title, message):
-        dialog_window = tk.Toplevel()
-        dialog_window.title(window_title)
-        label = ttk.Label(dialog_window, text=message)
-        label.pack(padx=10, pady=10)
-        close_button = ttk.Button(dialog_window, text="Close", command=dialog_window.destroy)
-        close_button.pack(pady=5)
-        width = self.root.winfo_width() / 2 - dialog_window.winfo_reqwidth() / 2
-        height = self.root.winfo_height() / 2 - dialog_window.winfo_reqheight() / 2
-        dialog_window.geometry("+%d+%d" % (self.root.winfo_x() + width, self.root.winfo_y() + height))
 
     def add_button(self, label, right, callback):
         button = ttk.Button(self.root, text=label, command=callback)
