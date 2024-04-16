@@ -111,11 +111,13 @@ class TkTableUi:
             button.pack(side=tk.LEFT, padx=5, pady=5)
         return button
 
+    def set_column_widths(self, widths):
+        for index, width in enumerate(widths):
+            self.tree.column(self.headers[index], width=width, minwidth=width, stretch=tk.NO)
+
     def display(self, init_callback):
         self.tree = ttk.Treeview(self.root, columns=self.headers, show="headings")
         self.tree.pack(expand=True, fill=tk.BOTH)
-        # Adust the size of the first column to fit the content
-        self.tree.column(self.headers[0], width=100, minwidth=100, stretch=tk.NO)
         self.add_scrollbar()
         self.refresh()
         init_callback()

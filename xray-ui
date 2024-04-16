@@ -100,6 +100,7 @@ class XrayUi:
         self.show_backlog_buggon = self.ui.add_button(label="Show Backlog", right=False, callback=self.on_toggle_backlog)
         self.ui.add_button(label="Close", right=True, callback=self.on_close)
         self.ui.add_right_click_menu([("Create testing template", self.on_create_test_template), ("Create tests", self.on_create_tests), ("Open in Browser", self.on_open_browser)], self.on_right_click)
+        self.ui.set_column_widths([100, 800])
 
     def display(self):
         self.add_issues()
