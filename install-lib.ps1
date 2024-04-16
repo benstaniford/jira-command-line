@@ -124,6 +124,7 @@ $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = "$pythonPath"
 $shortcut.Arguments = "$repoPath\xray-ui"
 $shortcut.IconLocation = "$repoPath\xray.ico"
+$shortcut.WindowStyle = 7
 $shortcut.Save()
 
 # Create a shortcut to %USERPROFILE%\.jira\config.json in the user's desktop
