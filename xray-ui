@@ -27,7 +27,8 @@ class XrayUi:
         jira_config = config.get('jira')
         self.jira = MyJira(jira_config)
         self.team_name = jira_config.get('default_team')
-        self.ui = TkTableUi("Current Sprint for " + self.team_name)
+        self.toolname = "Xray Test Creator - "
+        self.ui = TkTableUi(self.toolname + "Current Sprint for " + self.team_name)
         self.ui.add_headers(('Issue', 'Summary'))
 
     def add_issues(self):
@@ -108,7 +109,7 @@ class XrayUi:
 
     def on_right_click(self, issue):
         if issue is None:
-            self.ui.set_rightclick_item_enabled_by_name("Create testing template", False)
+            self.ui.set_rightclick_item_enabled_by_name("Add testing template", False)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
             self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
             self.ui.set_rightclick_item_enabled_by_name("Open in Browser", False)
@@ -118,11 +119,11 @@ class XrayUi:
         xray_issue = JiraXrayIssue(issue, self.jira)
         self.ui.set_rightclick_item_enabled_by_name("Open in Browser", True)
         if (not xray_issue.sprint_item_has_valid_tests()):
-            self.ui.set_rightclick_item_enabled_by_name("Create testing template", True)
+            self.ui.set_rightclick_item_enabled_by_name("Add testing template", True)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
             self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
         else:
-            self.ui.set_rightclick_item_enabled_by_name("Create testing template", False)
+            self.ui.set_rightclick_item_enabled_by_name("Add testing template", False)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", True)
             self.ui.set_rightclick_item_enabled_by_name("Show test info", True)
 
@@ -131,14 +132,14 @@ class XrayUi:
 
     def on_toggle_backlog(self):
         self.backlog_mode = not self.backlog_mode
-        self.ui.set_window_title(("Backlog" if self.backlog_mode else "Current Sprint") + " for " + self.team_name)
+        self.ui.set_window_title(self.toolname + ("Backlog" if self.backlog_mode else "Current Sprint") + " for " + self.team_name)
         self.show_backlog_buggon.config(text="Show Sprint" if self.backlog_mode else "Show Backlog")
         self.on_refresh()
 
     def on_team_switched(self, team_name):
         self.jira.set_team(team_name)
         self.team_name = team_name
-        self.ui.set_window_title(("Backlog" if self.backlog_mode else "Current Sprint") + " for " + team_name)
+        self.ui.set_window_title(self.toolname + ("Backlog" if self.backlog_mode else "Current Sprint") + " for " + team_name)
         self.on_refresh()
 
     def initialize_controls(self):
@@ -146,7 +147,7 @@ class XrayUi:
         self.ui.add_button(label="Refresh", right=False, callback=self.on_refresh)
         self.show_backlog_buggon = self.ui.add_button(label="Show Backlog", right=False, callback=self.on_toggle_backlog)
         self.ui.add_button(label="Close", right=True, callback=self.on_close)
-        self.ui.add_right_click_menu([("Create testing template", self.on_create_test_template),
+        self.ui.add_right_click_menu([("Add testing template", self.on_create_test_template),
                                       ("Create tests", self.on_create_tests),
                                       ("Show test info", self.on_show_test_info),
                                       ("Open in Browser", self.on_open_browser)], self.on_right_click)
