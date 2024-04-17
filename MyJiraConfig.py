@@ -14,21 +14,26 @@ class MyJiraConfig:
                 "password": "",
                 "username": "myemail@beyondtrust.com",
                 "fullname": "My Name",
-                "team_name": "Sparklemuffin",
-                "team_id": 34,
-                "project_name": "EPM",
-                "short_names_to_ids": {
-                    "Ben": "bstaniford@beyondtrust.com",
-                    "Caleb": "ckershaw@beyondtrust.com",
-                    "Dimi": "dbostock@beyondtrust.com",
-                    "Connor": "cflynn@beyondtrust.com",
-                    "Neil": "nwicker@beyondtrust.com",
-                    "Nick": "ncrowley@beyondtrust.com",
-                    "Tamas": "tvarady@beyondtrust.com"
+                "default_team": "Sparklemuffin",
+                "teams": {
+                    "Sparklemuffin": {
+                        "team_id": 34,
+                        "project_name": "EPM",
+                        "product_name": "PM Windows",
+                        "short_names_to_ids": {
+                            "Ben": "bstaniford@beyondtrust.com",
+                            "Caleb": "ckershaw@beyondtrust.com",
+                            "Dimi": "dbostock@beyondtrust.com",
+                            "Connor": "cflynn@beyondtrust.com",
+                            "Neil": "nwicker@beyondtrust.com",
+                            "Nick": "ncrowley@beyondtrust.com",
+                            "Tamas": "tvarady@beyondtrust.com"
+                        },
+                        "kanban_board_id": 385,
+                        "backlog_board_id": 341,
+                        "windows_escalation_board_id": 406
+                    }
                 },
-                "kanban_board_id": 385,
-                "backlog_board_id": 341,
-                "windows_escalation_board_id": 406
             },
             "github": {
                 "username": "bstaniford",

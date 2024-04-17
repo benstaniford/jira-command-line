@@ -45,13 +45,21 @@ class MyJira:
         self.server = {"server": self.url}
         self.username = config["username"]
         self.fullname = config["fullname"]
-        self.team_name = config["team_name"]
-        self.team_id = config["team_id"]
-        self.project_name = config["project_name"]
-        self.short_names_to_ids = config["short_names_to_ids"]
-        self.kanban_board_id = config["kanban_board_id"]
-        self.backlog_board_id = config["backlog_board_id"]
-        self.windows_escalation_board_id = config["windows_escalation_board_id"]
+
+        # Stuff specific to the team
+        self.team_name = config["default_team"]
+        self.teams = config["teams"]
+        current_team = self.teams[self.team_name]
+        if (current_team == None):
+            raise Exception(f"Team {self.team_name} not found in config")
+
+        self.team_id = current_team["team_id"]
+        self.project_name = current_team["project_name"]
+        self.product_name = current_team["product_name"]
+        self.short_names_to_ids = current_team["short_names_to_ids"]
+        self.kanban_board_id = current_team["kanban_board_id"]
+        self.backlog_board_id = current_team["backlog_board_id"]
+        self.windows_escalation_board_id = current_team["windows_escalation_board_id"]
 
         self.jira = JIRA(self.server, basic_auth=(self.username, self.password))
         self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug", "Customer Defect")' 
