@@ -47,17 +47,15 @@ class MyJiraConfig:
             }
         }
 
-        print("Configuration file not found, generating template...")
-        print("Please edit the configuration file and generate required PAT tokens for jira and github")
-
         os.makedirs(self.config_dir, exist_ok=True)
         with open(self.config_file_path, "w") as config_file:
             json.dump(config_data, config_file, indent=4)
-        print(f"Configuration file saved to: {self.config_file_path}")
-        input("Press any key to exit...")
 
     def exists(self):
         return os.path.exists(self.config_file_path)
+
+    def get_location(self):
+        return self.config_file_path
 
     def load(self):
         config = {}

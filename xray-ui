@@ -16,6 +16,13 @@ class XrayUi:
     issue = None
 
     def __init__(self):
+        if not self.config_file.exists():
+            self.config_file.generate_template()
+            self.ui = TkTableUi("Config needed")
+            config_location = self.config_file.get_location()
+            self.ui.show_error_dialog("A config template has been generated", f"Please fill in the config file at {config_location} and restart the application")
+            quit()
+
         config = self.config_file.load()
         jira_config = config.get('jira')
         self.jira = MyJira(jira_config)

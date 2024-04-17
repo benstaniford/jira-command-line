@@ -17,7 +17,11 @@ import tempfile
 # Load the config
 config_file = MyJiraConfig()
 if not config_file.exists():
+    print("Configuration file not found, generating template...")
+    print("Please edit the configuration file and generate required PAT tokens for jira and github")
     config_file.generate_template()
+    print(f"Configuration file saved to: {config_file.get_location()}")
+    input("Press any key to exit...")
     quit()
 config = config_file.load()
 
