@@ -101,6 +101,9 @@ class XrayUi:
         self.ui.add_button(label="Close", right=True, callback=self.on_close)
         self.ui.add_right_click_menu([("Create testing template", self.on_create_test_template), ("Create tests", self.on_create_tests), ("Open in Browser", self.on_open_browser)], self.on_right_click)
         self.ui.set_column_widths([100, 800])
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        icon_path = os.path.join(dir_path, "xray.ico")
+        self.ui.set_icon(icon_path)
 
     def display(self):
         self.add_issues()

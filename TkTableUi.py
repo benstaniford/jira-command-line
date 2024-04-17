@@ -18,6 +18,9 @@ class TkTableUi:
         self.root.geometry("1024x500")
         self.rightclick_menu = None
 
+    def set_icon(self, icon_path):
+        self.root.iconbitmap(icon_path)
+
     def add_headers(self, headers):
         self.headers = headers
 
