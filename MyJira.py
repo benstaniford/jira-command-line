@@ -71,6 +71,9 @@ class MyJira:
         self.backlog_board_id = current_team["backlog_board_id"]
         self.escalation_board_id = current_team["escalation_board_id"]
 
+    def get_teams():
+        return self.config['teams'].keys()
+
     def get_age(self, issue):
         created = datetime.datetime.strptime(issue.fields.created, '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None)
         now = datetime.datetime.now().replace(tzinfo=None)
