@@ -362,7 +362,6 @@ def main(stdscr):
                     [row, issue] = ui.get_row(int(selection)-1)
                     ui.prompt("Parsing test definitions...", "")
                     xray_issue = JiraXrayIssue(issue, jira)
-                    xray_issue.get_sprint_item()
                     if (not xray_issue.sprint_item_has_valid_tests()):
                         yesno = ui.prompt_get_character(f"Warning: {issue.key} does not have valid tests. Create test template? (y/n)")
                         if yesno == "y":
