@@ -54,8 +54,10 @@ class XrayUi:
             if yesno:
                 (definitions, test_cases) = self.created_tests
                 test_ids = [test.id for test in test_cases]
-                xray_issue.create_test_plan(definitions, test_ids)
-                self.ui.show_info_dialog("Test plan created", f"Test plan created for {xray_issue._issueid}")
+                if (xray_issue.create_update_test_plan(definitions, test_ids)):
+                    self.ui.show_info_dialog("Test plan created", f"Test plan {test_plan_name} created with {len(test_ids)} tests")
+                else:
+                    self.ui.show_info_dialog("Test plan updated", f"Test plan {test_plan_name} updated with {len(test_ids)} tests")
         else:
             self.ui.root.after(100, self.are_tests_created, thread, xray_issue)
 

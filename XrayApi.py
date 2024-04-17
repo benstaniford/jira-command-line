@@ -191,7 +191,6 @@ class XrayApi:
         return resp.json()
 
     def update_test_plan(self, testPlanID, test_ids):
-        f = open(r"C:\Users\tvarady\OneDrive - BeyondTrust Corporation\Desktop\python.txt", "w")
         json_data = f'''
             mutation {{
                 addTestsToTestPlan (
@@ -199,14 +198,17 @@ class XrayApi:
                     testIssueIds: {json.dumps(test_ids)}
                 ) {{
                     addedTests
-                    warnings
+                    warning
                 }}
             }}
         '''
-        f.write(json_data)
-        f.close()
         resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
         resp.raise_for_status()
+
+        if (resp.json().get('errors') != None):
+            raise Exception(resp.json().get('errors'))
+
+        return resp.json()
 
     def create_test_plan(self, summary, description, fixVersions, testIssueIds):
         projectId = self.project_id
