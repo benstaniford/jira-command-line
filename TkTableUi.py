@@ -65,9 +65,12 @@ class TkTableUi:
         self.root.destroy()
 
     def get_selected_item(self):
-        item = self.tree.selection()[0]
-        callback_object = self.callback_objects[self.tree.item(item, "values")[0]]
-        return callback_object
+        try:
+            item = self.tree.selection()[0]
+            callback_object = self.callback_objects[self.tree.item(item, "values")[0]]
+            return callback_object
+        except:
+            return None
 
     def sort_column(self, col, reverse):
         data = [(self.tree.set(child, col), child) for child in self.tree.get_children('')]

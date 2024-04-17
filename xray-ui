@@ -107,8 +107,16 @@ class XrayUi:
         self.ui.show_text_dialog("Test Info", test_info)
 
     def on_right_click(self, issue):
+        if issue is None:
+            self.ui.set_rightclick_item_enabled_by_name("Create testing template", False)
+            self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
+            self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
+            self.ui.set_rightclick_item_enabled_by_name("Open in Browser", False)
+            return
+
         issue = next((x for x in self.issues if x.key == issue.key), None)
         xray_issue = JiraXrayIssue(issue, self.jira)
+        self.ui.set_rightclick_item_enabled_by_name("Open in Browser", True)
         if (not xray_issue.sprint_item_has_valid_tests()):
             self.ui.set_rightclick_item_enabled_by_name("Create testing template", True)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
