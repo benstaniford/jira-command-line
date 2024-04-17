@@ -26,8 +26,8 @@ class XrayUi:
         config = self.config_file.load()
         jira_config = config.get('jira')
         self.jira = MyJira(jira_config)
-        team_name = jira_config.get('team_name')
-        self.ui = TkTableUi("Current Sprint for " + team_name)
+        self.team_name = jira_config.get('default_team')
+        self.ui = TkTableUi("Current Sprint for " + self.team_name)
         self.ui.add_headers(('Issue', 'Summary'))
 
     def add_issues(self):
@@ -107,8 +107,16 @@ class XrayUi:
         self.ui.show_text_dialog("Test Info", test_info)
 
     def on_right_click(self, issue):
+        if issue is None:
+            self.ui.set_rightclick_item_enabled_by_name("Create testing template", False)
+            self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
+            self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
+            self.ui.set_rightclick_item_enabled_by_name("Open in Browser", False)
+            return
+
         issue = next((x for x in self.issues if x.key == issue.key), None)
         xray_issue = JiraXrayIssue(issue, self.jira)
+        self.ui.set_rightclick_item_enabled_by_name("Open in Browser", True)
         if (not xray_issue.sprint_item_has_valid_tests()):
             self.ui.set_rightclick_item_enabled_by_name("Create testing template", True)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
@@ -123,11 +131,18 @@ class XrayUi:
 
     def on_toggle_backlog(self):
         self.backlog_mode = not self.backlog_mode
-        self.ui.set_window_title(("Backlog" if self.backlog_mode else "Current Sprint") + " for " + self.jira.team_name)
+        self.ui.set_window_title(("Backlog" if self.backlog_mode else "Current Sprint") + " for " + self.team_name)
         self.show_backlog_buggon.config(text="Show Sprint" if self.backlog_mode else "Show Backlog")
         self.on_refresh()
 
+    def on_team_switched(self, team_name):
+        self.jira.set_team(team_name)
+        self.team_name = team_name
+        self.ui.set_window_title(("Backlog" if self.backlog_mode else "Current Sprint") + " for " + team_name)
+        self.on_refresh()
+
     def initialize_controls(self):
+        self.ui.add_dropdown(self.jira.get_teams(), self.team_name, self.on_team_switched)
         self.ui.add_button(label="Refresh", right=False, callback=self.on_refresh)
         self.show_backlog_buggon = self.ui.add_button(label="Show Backlog", right=False, callback=self.on_toggle_backlog)
         self.ui.add_button(label="Close", right=True, callback=self.on_close)

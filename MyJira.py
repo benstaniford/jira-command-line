@@ -38,6 +38,7 @@ class MyJiraIssue:
 
 class MyJira:
     def __init__(self, config):
+        self.config = config
         self.url = config["url"]
         self.password = config["password"]
 
@@ -45,13 +46,9 @@ class MyJira:
         self.server = {"server": self.url}
         self.username = config["username"]
         self.fullname = config["fullname"]
-        self.team_name = config["team_name"]
-        self.team_id = config["team_id"]
-        self.project_name = config["project_name"]
-        self.short_names_to_ids = config["short_names_to_ids"]
-        self.kanban_board_id = config["kanban_board_id"]
-        self.backlog_board_id = config["backlog_board_id"]
-        self.windows_escalation_board_id = config["windows_escalation_board_id"]
+
+        # Stuff specific to the team
+        self.set_team(config["default_team"])
 
         self.jira = JIRA(self.server, basic_auth=(self.username, self.password))
         self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug", "Customer Defect")' 
@@ -59,6 +56,26 @@ class MyJira:
 
         # We use the reference issue as a template for creating new issues/tasks
         self.reference_issue = None
+
+    def set_team(self, team_name):
+        self.team_name = team_name
+        current_team = self.config['teams'][team_name]
+        if (current_team == None):
+            raise Exception(f"Team {self.team_name} not found in config")
+
+        self.team_id = current_team["team_id"]
+        self.project_name = current_team["project_name"]
+        self.product_name = current_team["product_name"]
+        self.short_names_to_ids = current_team["short_names_to_ids"]
+        self.kanban_board_id = current_team["kanban_board_id"]
+        self.backlog_board_id = current_team["backlog_board_id"]
+        self.escalation_board_id = current_team["escalation_board_id"]
+
+    def get_teams(self):
+        list_teams = []
+        for team in self.config['teams']:
+            list_teams.append(team)
+        return list_teams
 
     def get_age(self, issue):
         created = datetime.datetime.strptime(issue.fields.created, '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None)
@@ -118,9 +135,9 @@ class MyJira:
         if (search_text.lower().startswith("epm-") or search_text.lower().startswith("help-")):
             issues = [self.jira.issue(search_text)]
         elif (search_text.isdigit()):
-            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("PM Windows") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         else:
-            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("PM Windows") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
         if (len(issues) > 0):
             self.reference_issue = issues[0]
@@ -128,7 +145,7 @@ class MyJira:
         return issues
 
     def get_escalation_issues(self):
-        issues = self.jira.search_issues("project = HELP AND \"Product[Dropdown]\" in (\"PM Windows\") AND statuscategory not in (Done) ORDER BY Rank ASC")
+        issues = self.jira.search_issues(f'project = HELP AND "Product[Dropdown]" in ("{self.product_name}") AND statuscategory not in (Done) ORDER BY Rank ASC')
         if (len(issues) > 0):
             self.reference_issue = issues[0]
         return issues
