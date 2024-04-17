@@ -28,7 +28,7 @@ config = config_file.load()
 # Global variables
 jira = MyJira(config.get('jira'))
 mygit = MyGit(config.get('git'))
-mygithub = MyGithub(config.get('github'))
+mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
 parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
@@ -315,6 +315,9 @@ def main(stdscr):
         # Create a PR
         elif selection == "p":
             try:
+                if (mygithub == None):
+                    ui.error("Github token not set in config, cannot create PRs")
+                    continue
                 selection = ui.prompt_get_string("Enter issue number")
                 if selection.isdigit():
                     [row, issue] = ui.get_row(int(selection)-1)
