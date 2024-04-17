@@ -248,11 +248,9 @@ Then <Step 3>
         if (len(test_plan_issues) > 0):
             test_plan_issue = test_plan_issues[0]
             test_plan_id = test_plan_issue.id
-            print(f"Updating test plan {test_plan_id} with {test_ids}")
             api.update_test_plan(test_plan_id, test_ids)
             return False
         else:
-            print(f"Creating test plan {definitions.get_test_plan()} with {test_ids}")
             test_plan = definitions.get_test_plan()
             fix_versions = definitions.get_fix_versions()
             api.create_test_plan(test_plan, "Test Plan Description", fix_versions, test_ids)
