@@ -243,7 +243,9 @@ Then <Step 3>
     def create_test_plan(self, definitions, test_ids):
         self.initialize()
         api = self._api
-        if not definitions.is_existing_test_plan():
-            test_plan = definitions.test_plan()
+        if definitions.is_existing_test_plan():
+            api.update_test_plan(322313, test_ids)
+        else:
+            test_plan = definitions.get_test_plan()
             fix_versions = definitions.get_fix_versions()
             api.create_test_plan(test_plan, "Test Plan Description", fix_versions, test_ids)
