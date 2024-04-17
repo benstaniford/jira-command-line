@@ -47,6 +47,14 @@ class TkTableUi:
         self.progress = ttk.Progressbar(self.root, orient="horizontal", length=200, mode="determinate", maximum=max_value)
         self.progress.pack(side=tk.LEFT, padx=5, pady=5)
 
+    def add_dropdown(self, items, selected_item, selected_callback):
+        self.selected_team = tk.StringVar()
+        self.selected_team.set(selected_item)
+        dropdown = ttk.Combobox(self.root, textvariable=self.selected_team, values=items)
+        dropdown.pack(side=tk.LEFT, padx=5, pady=5)
+        dropdown.bind("<<ComboboxSelected>>", lambda event: selected_callback(self.selected_team.get()))
+        return dropdown
+
     def update_progress(self, message = None):
         self.progress.step(1)
 
