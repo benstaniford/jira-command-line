@@ -126,9 +126,9 @@ class MyJira:
         if (search_text.lower().startswith("epm-") or search_text.lower().startswith("help-")):
             issues = [self.jira.issue(search_text)]
         elif (search_text.isdigit()):
-            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("PM Windows") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         else:
-            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("PM Windows") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
         if (len(issues) > 0):
             self.reference_issue = issues[0]
@@ -136,7 +136,7 @@ class MyJira:
         return issues
 
     def get_escalation_issues(self):
-        issues = self.jira.search_issues("project = HELP AND \"Product[Dropdown]\" in (\"PM Windows\") AND statuscategory not in (Done) ORDER BY Rank ASC")
+        issues = self.jira.search_issues(f'project = HELP AND "Product[Dropdown]" in ("{self.product_name}") AND statuscategory not in (Done) ORDER BY Rank ASC')
         if (len(issues) > 0):
             self.reference_issue = issues[0]
         return issues
