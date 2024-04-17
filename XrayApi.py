@@ -190,6 +190,26 @@ class XrayApi:
     
         return resp.json()
 
+    def update_test_plan(self, testPlanID, test_ids):
+        json_data = f'''
+            mutation {{
+                addTestsToTestPlan (
+                    issueId: "{testPlanID}",
+                    testIssueIds: {json.dumps(test_ids)}
+                ) {{
+                    addedTests
+                    warning
+                }}
+            }}
+        '''
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp.raise_for_status()
+
+        if (resp.json().get('errors') != None):
+            raise Exception(resp.json().get('errors'))
+
+        return resp.json()
+
     def create_test_plan(self, summary, description, fixVersions, testIssueIds):
         projectId = self.project_id
         log.debug(f'Creating Test Plan "{summary}"...')

@@ -379,8 +379,10 @@ def main(stdscr):
                                 yesno = ui.prompt_get_character(f"\nCreated {len(tests)} tests for {issue.key}, add to test plan {test_plan}? (y/n)")
                                 if yesno == "y":
                                     test_ids = [test.id for test in tests]
-                                    xray_issue.create_test_plan(definitions, test_ids)
-                                    ui.prompt(f"Added to test plan {test_plan}, tests:{test_ids}")
+                                    if (xray_issue.create_update_test_plan(definitions, test_ids)):
+                                        ui.prompt(f"Created test plan {test_plan} with tests:{test_ids}")
+                                    else:
+                                        ui.prompt(f"Added to test plan {test_plan}, tests:{test_ids}")
                             yesno = ui.prompt_get_character(f"\nCreated {len(tests)} tests for {issue.key}, delete? (y/n)")
                             if yesno == "y":
                                 for test in tests:

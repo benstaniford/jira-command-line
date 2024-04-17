@@ -240,11 +240,18 @@ Then <Step 3>
 
         return issue
 
-    def create_test_plan(self, definitions, test_ids):
+    def create_update_test_plan(self, definitions, test_ids):
+        """ Creates or updates a test plan with the given test cases, returns True if a new test plan was created """
         self.initialize()
         api = self._api
-        test_plan = definitions.get_test_plan()
-        fix_versions = definitions.get_fix_versions()
-        jira_issue_key = self._jira_issue.key
-        api.create_test_plan(test_plan, f"Solution Test Plan for {jira_issue_key}", fix_versions, test_ids)
-
+        test_plan_issues = self._jira.get_testplan_by_name(definitions.get_test_plan())
+        if (len(test_plan_issues) > 0):
+            test_plan_issue = test_plan_issues[0]
+            test_plan_id = test_plan_issue.id
+            api.update_test_plan(test_plan_id, test_ids)
+            return False
+        else:
+            test_plan = definitions.get_test_plan()
+            fix_versions = definitions.get_fix_versions()
+            api.create_test_plan(test_plan, "Test Plan Description", fix_versions, test_ids)
+            return True
