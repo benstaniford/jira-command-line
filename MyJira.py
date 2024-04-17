@@ -59,7 +59,7 @@ class MyJira:
         self.short_names_to_ids = current_team["short_names_to_ids"]
         self.kanban_board_id = current_team["kanban_board_id"]
         self.backlog_board_id = current_team["backlog_board_id"]
-        self.windows_escalation_board_id = current_team["windows_escalation_board_id"]
+        self.escalation_board_id = current_team["escalation_board_id"]
 
         self.jira = JIRA(self.server, basic_auth=(self.username, self.password))
         self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug", "Customer Defect")' 
