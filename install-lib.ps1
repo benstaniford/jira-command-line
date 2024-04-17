@@ -119,7 +119,7 @@ $shortcut.Save()
 
 # Create a shortcut to the xray-ui script in the user's desktop, use the icon xray.ico
 Write-Host "Creating a shortcut to the Xray UI script..."
-$shortcutPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "Xray UI.lnk")
+$shortcutPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "Xray Test Creator.lnk")
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = "$pythonPath"
 $shortcut.Arguments = "$repoPath\xray-ui"
