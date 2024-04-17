@@ -69,14 +69,14 @@ class MyJiraConfig:
                 }
             },
             "github": {
-                "username": "bstaniford",
-                "login": "benstaniford",
+                "username": "flast",
+                "login": "firstlast",
                 "token": "",
                 "repo_owner": "BeyondTrust",
                 "repo_name": "epm-windows"
             },
             "git": {
-                "initials": "bs"
+                "initials": "mi"
             },
             "xray": {
                 "client_id": "",
