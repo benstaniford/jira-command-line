@@ -164,10 +164,10 @@ def main(stdscr):
     fkey_string = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
 
     # Keyboard input loop
-    key_shortcuts = ('a', 'b', 'c', 'd', 'e', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'w', 'x', 'z', '?')
+    key_shortcuts = ('a', 'b', 'c', 'd', 'e', 'E', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'w', 'x', 'z', '?')
     while True:
         prompt = f"Commands F1:help, {fkey_string}\n"
-        prompt += """  a:assign, b:browse, c:create, d:delete, e:edit, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points, q:quit
+        prompt += """  a:assign, b:browse, c:create, d:delete, e:edit, E:team, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points, q:quit
   s:sprint, S:support_folder, t:status, T:tasks, v:view, w:winshared, x:xray, z:escalations, ?:glob_search, |:filter, /:search\n"""
         prompt += "Type a number to see task details"
         selection = ""
@@ -198,6 +198,7 @@ def main(stdscr):
             ui.add_row(["", "c", "Create issue in current view"])
             ui.add_row(["", "d", "Delete issue in current view"])
             ui.add_row(["", "e", "Edit issue in editor"])
+            ui.add_row(["", "E", "Switches between teams (if multiple teams configured)"])
             ui.add_row(["", "h", "Create branch to work on the issue"])
             ui.add_row(["", "i", "Inspect issue"])
             ui.add_row(["", "k", "Create spike issue on sprint which links to the selected issue"])
@@ -257,6 +258,17 @@ def main(stdscr):
                         view.rebuild()
             except Exception as e:
                 ui.error("Edit issue", e)
+
+        # Team
+        elif selection == "E":
+            try:
+                teams = jira.get_teams()
+                [index, team] = ui.prompt_with_choice_list("Select team", teams)
+                if team != "":
+                    jira.set_team(team)
+                    view.refresh()
+            except Exception as e:
+                ui.error("Set team", e)
 
         # Show sprint
         elif selection == "s":

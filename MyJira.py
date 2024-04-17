@@ -71,8 +71,11 @@ class MyJira:
         self.backlog_board_id = current_team["backlog_board_id"]
         self.escalation_board_id = current_team["escalation_board_id"]
 
-    def get_teams():
-        return self.config['teams'].keys()
+    def get_teams(self):
+        list_teams = []
+        for team in self.config['teams']:
+            list_teams.append(team)
+        return list_teams
 
     def get_age(self, issue):
         created = datetime.datetime.strptime(issue.fields.created, '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None)
