@@ -43,18 +43,26 @@ class XrayUi:
     def on_close(self):
         self.ui.close()
 
-    def are_tests_created(self, thread, issue):
+    def are_tests_created(self, thread, xray_issue):
         if not thread.is_alive():
             self.ui.hide_progress_bar()
-            self.ui.show_info_dialog("Tests created", f"Tests created for {issue._issueid}")
+            test_plan_name = xray_issue.get_test_plan_name()
+            yesno = self.ui.show_yesno_dialog(f"Create test plan", f"Tests created for {xray_issue._issueid}. Add the new tests to the {test_plan_name} test plan?")
+            if yesno:
+                (definitions, test_cases) = self.created_tests
+                test_ids = [test.id for test in test_cases]
+                xray_issue.create_test_plan(definitions, test_ids)
         else:
-            self.ui.root.after(100, self.are_tests_created, thread, issue)
+            self.ui.root.after(100, self.are_tests_created, thread, xray_issue)
 
-    def create_test_worker(self, issue, definitions, on_test_created):
+    def create_tests_worker(self, xray_issue, definitions, on_test_created):
+        self.created_tests = (definitions, xray_issue.create_test_cases(definitions, on_test_created))
+
+    def create_tests(self, xray_issue, definitions, on_test_created):
         self.ui.show_progress_bar("Creating tests", len(definitions))
-        thread = threading.Thread(target=issue.create_test_cases, args=(definitions, on_test_created))
+        thread = threading.Thread(target=self.create_tests_worker, args=(xray_issue, definitions, on_test_created))
         thread.start()
-        self.ui.root.after(100, self.are_tests_created, thread, issue)
+        self.ui.root.after(100, self.are_tests_created, thread, xray_issue)
 
     def on_test_created(self, message):
         self.ui.update_progress(message)
@@ -66,7 +74,7 @@ class XrayUi:
         yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
         if yes:
             try:
-                self.create_test_worker(xray_issue, definitions, self.on_test_created)
+                self.create_tests(xray_issue, definitions, self.on_test_created)
             except Exception as e:
                 print(e)
                 self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
@@ -79,6 +87,9 @@ class XrayUi:
             try:
                 xray_issue.create_test_template()
                 self.ui.show_info_dialog("Test template created", f"Test template created for {issue.key}")
+                yesno = self.ui.show_yesno_dialog("Open in Browser", f"Open {issue.key} in browser?")
+                if yesno:
+                    self.jira.browse_to(issue)
             except Exception as e:
                 print(e)
                 self.ui.show_error_dialog("Error", f"Error creating test template for {issue.key}: {e}")

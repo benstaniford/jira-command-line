@@ -119,6 +119,10 @@ class JiraXrayIssue:
         except Exception as e:
             return "No test information found"
 
+    def get_test_plan_name(self):
+        definitions = self.parse_test_definitions()
+        return definitions.get_test_plan()
+
     def sprint_item_has_valid_tests(self):
         try:
             issue = MyJiraIssue(self._jira_issue)
@@ -246,5 +250,6 @@ Then <Step 3>
         api = self._api
         test_plan = definitions.get_test_plan()
         fix_versions = definitions.get_fix_versions()
-        api.create_test_plan(test_plan, "Test Plan Description", fix_versions, test_ids)
+        jira_issue_key = self._jira_issue.key
+        api.create_test_plan(test_plan, f"Test Plan for {jira_issue_key}", fix_versions, test_ids)
 
