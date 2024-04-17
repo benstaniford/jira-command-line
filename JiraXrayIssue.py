@@ -73,7 +73,13 @@ class JiraXrayIssue:
     _initiated = False
     _api = None
 
-    def __init_shared__(self, issueid):
+    def __init__(self, issue, jira):
+        if issue is None:
+            raise ValueError('Issue cannot be None')
+        if jira is None:
+            raise ValueError('Jira cannot be None')
+        self._jira_issue = issue
+        issueid = issue.key
         config_file = MyJiraConfig()
         if not config_file.exists():
             config_file.generate_template()
@@ -84,17 +90,6 @@ class JiraXrayIssue:
             self._jira = MyJira(jira_config)
         self._issueid = issueid
         self._api = XrayApi(config.get('xray'))
-
-    def __init__(self, issueid):
-        self.__init_shared__(issueid)
-
-    def __init__(self, issue, jira):
-        if issue is None:
-            raise ValueError('Issue cannot be None')
-        if jira is None:
-            raise ValueError('Jira cannot be None')
-        self._jira_issue = issue
-        self.__init_shared__(issue.key)
 
     def initialize(self):
         if self._initiated:
@@ -248,8 +243,17 @@ Then <Step 3>
     def create_test_plan(self, definitions, test_ids):
         self.initialize()
         api = self._api
+<<<<<<< Updated upstream
         test_plan = definitions.get_test_plan()
         fix_versions = definitions.get_fix_versions()
         jira_issue_key = self._jira_issue.key
         api.create_test_plan(test_plan, f"Solution Test Plan for {jira_issue_key}", fix_versions, test_ids)
 
+=======
+        if definitions.is_existing_test_plan():
+            api.update_test_plan(322313, test_ids)
+        else:
+            test_plan = definitions.get_test_plan()
+            fix_versions = definitions.get_fix_versions()
+            api.create_test_plan(test_plan, "Test Plan Description", fix_versions, test_ids)
+>>>>>>> Stashed changes
