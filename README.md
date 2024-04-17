@@ -12,7 +12,7 @@ $ python --version
 Python 3.11.7
 ```
 3. Install the python modules required:
-`pip install jira gitpython PyGithub windows-curses`
+`pip install jira gitpython PyGithub windows-curses ttkthemes sv-ttk`
 4. Clone the jira command line repo:
 ```
 cd ~
