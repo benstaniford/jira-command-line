@@ -134,7 +134,7 @@ class JiraXrayIssue:
     def create_test_template(self):
         self.initialize()
         wrapped_issue = MyJiraIssue(self._jira_issue)
-        wrapped_issue.test_results = """
+        wrapped_issue.test_results += """
 <begin>
 Folder: /Windows/MyTestFeature  (This is the folder in the test repository)
 Solution Test Plan: 24.X My Awesome Plan (Will create a new test plan if this name doesn't exist)
