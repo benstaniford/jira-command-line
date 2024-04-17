@@ -159,6 +159,10 @@ class MyJira:
         new_description = f"Spike to investigate {issue.key} : {url}\n\n**Original Description**\n\n{original_description}"
         return self.create_sprint_issue(new_title, new_description, "Spike")
 
+    def get_linked_issues(self, issue, issue_type):
+        linked_issues = self.jira.search_issues(f'project = {self.project_name} AND "Product[Dropdown]" in ("{self.product_name}") AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
+        return linked_issues
+
     def set_story_points(self, issue, points):
         wrappedIssue = MyJiraIssue(issue)
         wrappedIssue.story_points = points

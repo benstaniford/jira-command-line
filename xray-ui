@@ -101,6 +101,18 @@ class XrayUi:
                 print(e)
                 self.ui.show_error_dialog("Error", f"Error creating test template for {issue.key}: {e}")
 
+    def on_delete_tests(self, issue):
+        issue = next((x for x in self.issues if x.key == issue.key), None)
+        xray_issue = JiraXrayIssue(issue, self.jira)
+        yes = self.ui.show_yesno_dialog("Delete all tests", f"Are you certain you want to delete ALL tests for {issue.key}?")
+        if yes:
+            try:
+                xray_issue.delete_tests()
+                self.ui.show_info_dialog("Tests deleted", f"All tests deleted for {issue.key}")
+            except Exception as e:
+                print(e)
+                self.ui.show_error_dialog("Error", f"Error deleting tests for {issue.key}: {e}")
+
     def on_show_test_info(self, issue):
         issue = next((x for x in self.issues if x.key == issue.key), None)
         xray_issue = JiraXrayIssue(issue, self.jira)
@@ -113,6 +125,7 @@ class XrayUi:
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
             self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
             self.ui.set_rightclick_item_enabled_by_name("Open in browser", False)
+            self.ui.set_rightclick_item_enabled_by_name("Delete all tests", False)
             return
 
         issue = next((x for x in self.issues if x.key == issue.key), None)
@@ -121,10 +134,12 @@ class XrayUi:
         if (not xray_issue.sprint_item_has_valid_tests()):
             self.ui.set_rightclick_item_enabled_by_name("Add testing template", True)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
+            self.ui.set_rightclick_item_enabled_by_name("Delete all tests", False)
             self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
         else:
             self.ui.set_rightclick_item_enabled_by_name("Add testing template", False)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", True)
+            self.ui.set_rightclick_item_enabled_by_name("Delete all tests", True)
             self.ui.set_rightclick_item_enabled_by_name("Show test info", True)
 
     def on_open_browser(self, issue):
@@ -149,6 +164,7 @@ class XrayUi:
         self.ui.add_button(label="Close", right=True, callback=self.on_close)
         self.ui.add_right_click_menu([("Add testing template", self.on_create_test_template),
                                       ("Create tests", self.on_create_tests),
+                                      ("Delete all tests", self.on_delete_tests),
                                       ("Show test info", self.on_show_test_info),
                                       ("Open in browser", self.on_open_browser)], self.on_right_click)
         self.ui.set_column_widths([100, 800])

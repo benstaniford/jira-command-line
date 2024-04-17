@@ -108,7 +108,10 @@ class JiraXrayIssue:
             test_results = issue.test_results
             definitions = self.parse_test_definitions()
             if len(definitions) > 0:
-                return str(definitions)
+                tests = self.get_tests()
+                ret = f"Test Plan Status for {self._jira_issue.key}\n------------------------------\n"
+                ret += f"Tests defined: {len(definitions)}\nTests created: {len(tests)}\n\n" + str(definitions)
+                return ret
             else:
                 return "No test information found"
         except Exception as e:
@@ -150,6 +153,15 @@ Then <Step 3>
 <end>
 """
         self._jira_issue.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
+
+    def get_tests(self):
+        self.initialize()
+        tests = self._jira.get_linked_issues(self._jira_issue, 'Test')
+        return tests
+
+    def delete_tests(self):
+        for test in self.get_tests():
+            test.delete(deleteSubtasks=True)
 
     def parse_test_definitions(self):
         issue = MyJiraIssue(self._jira_issue)
