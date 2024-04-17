@@ -38,6 +38,7 @@ class MyJiraIssue:
 
 class MyJira:
     def __init__(self, config):
+        self.config = config
         self.url = config["url"]
         self.password = config["password"]
 
@@ -47,9 +48,18 @@ class MyJira:
         self.fullname = config["fullname"]
 
         # Stuff specific to the team
-        self.team_name = config["default_team"]
-        self.teams = config["teams"]
-        current_team = self.teams[self.team_name]
+        self.set_team(config["default_team"])
+
+        self.jira = JIRA(self.server, basic_auth=(self.username, self.password))
+        self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug", "Customer Defect")' 
+        self.ignored_issue_types = {"Sub-task", "Sub-task Bug", "Test", "Test Set", "Test Plan", "Test Execution", "Precondition", "Sub Test Execution"}
+
+        # We use the reference issue as a template for creating new issues/tasks
+        self.reference_issue = None
+
+    def set_team(self, team_name):
+        self.team_name = team_name
+        current_team = self.config['teams'][team_name]
         if (current_team == None):
             raise Exception(f"Team {self.team_name} not found in config")
 
@@ -60,13 +70,6 @@ class MyJira:
         self.kanban_board_id = current_team["kanban_board_id"]
         self.backlog_board_id = current_team["backlog_board_id"]
         self.escalation_board_id = current_team["escalation_board_id"]
-
-        self.jira = JIRA(self.server, basic_auth=(self.username, self.password))
-        self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug", "Customer Defect")' 
-        self.ignored_issue_types = {"Sub-task", "Sub-task Bug", "Test", "Test Set", "Test Plan", "Test Execution", "Precondition", "Sub Test Execution"}
-
-        # We use the reference issue as a template for creating new issues/tasks
-        self.reference_issue = None
 
     def get_age(self, issue):
         created = datetime.datetime.strptime(issue.fields.created, '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None)
