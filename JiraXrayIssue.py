@@ -43,7 +43,7 @@ class MyTestDefinitions:
         return self._fix_versions
 
     def __str__(self):
-        ret = f"Folder: {self._folder}\nTest Plan: {self._test_plan}\nFix Versions: {self._fix_versions}\n"
+        ret = f"Folder: {self._folder}\nSolution Test Plan: {self._test_plan}\nFix Versions: {self._fix_versions}\n"
         for definition in self._definitions:
             ret += f"\n{definition}"
         return ret
@@ -141,9 +141,9 @@ class JiraXrayIssue:
         wrapped_issue = MyJiraIssue(self._jira_issue)
         wrapped_issue.test_results = """
 <begin>
-Folder: /Windows/MyTestFeature
-Test Plan: EPM-XXX (add to existing) || 24.X My Awesome Plan (create new)
-Fix Versions: PMfW 24.3
+Folder: /Windows/MyTestFeature  (This is the folder in the test repository)
+Solution Test Plan: 24.X My Awesome Plan (Will create a new test plan if this name doesn't exist)
+Fix Versions: PMfW 24.3         (Comma separated list of fix versions)
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -175,7 +175,7 @@ Then <Step 3>
                 lwrline = line.lower().strip()
                 if lwrline.startswith('folder:'):
                     folder = line.split(':')[1].strip()
-                elif lwrline.startswith('test plan:'):
+                elif lwrline.startswith('solution test plan:'):
                     test_plan = line.split(':')[1].strip()
                 elif lwrline.startswith('fix versions:'):
                     fix_versions = line.split(':')[1].strip().split(',')
@@ -251,5 +251,5 @@ Then <Step 3>
         test_plan = definitions.get_test_plan()
         fix_versions = definitions.get_fix_versions()
         jira_issue_key = self._jira_issue.key
-        api.create_test_plan(test_plan, f"Test Plan for {jira_issue_key}", fix_versions, test_ids)
+        api.create_test_plan(test_plan, f"Solution Test Plan for {jira_issue_key}", fix_versions, test_ids)
 

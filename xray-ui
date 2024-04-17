@@ -47,7 +47,10 @@ class XrayUi:
         if not thread.is_alive():
             self.ui.hide_progress_bar()
             test_plan_name = xray_issue.get_test_plan_name()
-            yesno = self.ui.show_yesno_dialog(f"Create test plan", f"Tests created for {xray_issue._issueid}. Add the new tests to the {test_plan_name} test plan?")
+            if test_plan_name is None:
+                self.ui.show_info_dialog("Test plan not created", f"Tests created for {xray_issue._issueid}. No test plan declared in the issue.")
+                return
+            yesno = self.ui.show_yesno_dialog(f"Create test plan", f"Tests created for {xray_issue._issueid}. Add the new tests to the {test_plan_name} solution test plan?")
             if yesno:
                 (definitions, test_cases) = self.created_tests
                 test_ids = [test.id for test in test_cases]
