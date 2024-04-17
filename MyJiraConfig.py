@@ -95,7 +95,29 @@ class MyJiraConfig:
     def get_location(self):
         return self.config_file_path
 
+    def validate(self, json_config):
+        if 'jira' not in json_config:
+            raise ValueError("Jira config not found")
+        if 'xray' not in json_config:
+            raise ValueError("Xray config not found")
+        jira = json_config.get('jira')
+        if jira.get('url') is None or jira.get('url') == "":
+            raise ValueError("Jira URL not found in config")
+        if jira.get('username') is None or jira.get('username') == "" or jira.get('username') == "myemail@beyondtrust.com":
+            raise ValueError("Jira username not specified in config")
+        if jira.get('fullname') is None or jira.get('fullname') == "" or jira.get('fullname') == "My Name":
+            raise ValueError("Jira fullname not specified in config")
+        if jira.get('password') is None or jira.get('password') == "":
+            raise ValueError("Jira password not found in config")
+        xray = json_config.get('xray')
+        if xray.get('client_id') is None or xray.get('client_id') == "":
+            raise ValueError("Xray client_id not found in config")
+        if xray.get('client_secret') is None or xray.get('client_secret') == "":
+            raise ValueError("Xray client_secret not found in config")
+
     def load(self):
         config = {}
         with open(self.config_file_path, 'r') as json_file:
-            return json.load(json_file)
+            ret = json.load(json_file)
+            self.validate(ret)
+            return ret

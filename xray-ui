@@ -23,7 +23,14 @@ class XrayUi:
             self.ui.show_error_dialog("A config template has been generated", f"Please fill in the config file at {config_location} and restart the application")
             quit()
 
-        config = self.config_file.load()
+        config = None
+        try:
+            config = self.config_file.load()
+        except Exception as e:
+            self.ui = TkTableUi("Config error")
+            self.ui.show_error_dialog("Error loading config", f"Error loading config: {e}, please check {self.config_file.get_location()}")
+            quit()
+
         jira_config = config.get('jira')
         self.jira = MyJira(jira_config)
         self.team_name = jira_config.get('default_team')
@@ -173,8 +180,11 @@ class XrayUi:
         self.ui.set_icon(icon_path)
 
     def display(self):
-        self.add_issues()
-        self.ui.display(self.initialize_controls)
+        try:
+            self.add_issues()
+            self.ui.display(self.initialize_controls)
+        except Exception as e:
+            self.ui.show_error_dialog("Error", f"Error displaying UI: {e}")
 
 if __name__ == "__main__":
     xray_ui = XrayUi()
