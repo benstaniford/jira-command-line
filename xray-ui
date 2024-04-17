@@ -94,7 +94,7 @@ class XrayUi:
             try:
                 xray_issue.create_test_template()
                 self.ui.show_info_dialog("Test template created", f"Test template created for {issue.key}")
-                yesno = self.ui.show_yesno_dialog("Open in Browser", f"Open {issue.key} in browser?")
+                yesno = self.ui.show_yesno_dialog("Open in browser", f"Open {issue.key} in browser?")
                 if yesno:
                     self.jira.browse_to(issue)
             except Exception as e:
@@ -112,12 +112,12 @@ class XrayUi:
             self.ui.set_rightclick_item_enabled_by_name("Add testing template", False)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
             self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
-            self.ui.set_rightclick_item_enabled_by_name("Open in Browser", False)
+            self.ui.set_rightclick_item_enabled_by_name("Open in browser", False)
             return
 
         issue = next((x for x in self.issues if x.key == issue.key), None)
         xray_issue = JiraXrayIssue(issue, self.jira)
-        self.ui.set_rightclick_item_enabled_by_name("Open in Browser", True)
+        self.ui.set_rightclick_item_enabled_by_name("Open in browser", True)
         if (not xray_issue.sprint_item_has_valid_tests()):
             self.ui.set_rightclick_item_enabled_by_name("Add testing template", True)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
@@ -150,7 +150,7 @@ class XrayUi:
         self.ui.add_right_click_menu([("Add testing template", self.on_create_test_template),
                                       ("Create tests", self.on_create_tests),
                                       ("Show test info", self.on_show_test_info),
-                                      ("Open in Browser", self.on_open_browser)], self.on_right_click)
+                                      ("Open in browser", self.on_open_browser)], self.on_right_click)
         self.ui.set_column_widths([100, 800])
         dir_path = os.path.dirname(os.path.realpath(__file__))
         icon_path = os.path.join(dir_path, "xray.ico")
