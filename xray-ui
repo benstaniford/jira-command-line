@@ -76,15 +76,23 @@ class XrayUi:
                 print(e)
                 self.ui.show_error_dialog("Error", f"Error creating test template for {issue.key}: {e}")
 
+    def on_show_test_info(self, issue):
+        issue = next((x for x in self.issues if x.key == issue.key), None)
+        xray_issue = JiraXrayIssue(issue, self.jira)
+        test_info = xray_issue.get_test_info()
+        self.ui.show_text_dialog("Test Info", test_info)
+
     def on_right_click(self, issue):
         issue = next((x for x in self.issues if x.key == issue.key), None)
         xray_issue = JiraXrayIssue(issue, self.jira)
         if (not xray_issue.sprint_item_has_valid_tests()):
             self.ui.set_rightclick_item_enabled_by_name("Create testing template", True)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", False)
+            self.ui.set_rightclick_item_enabled_by_name("Show test info", False)
         else:
             self.ui.set_rightclick_item_enabled_by_name("Create testing template", False)
             self.ui.set_rightclick_item_enabled_by_name("Create tests", True)
+            self.ui.set_rightclick_item_enabled_by_name("Show test info", True)
 
     def on_open_browser(self, issue):
         self.jira.browse_to(issue)
@@ -99,7 +107,10 @@ class XrayUi:
         self.ui.add_button(label="Refresh", right=False, callback=self.on_refresh)
         self.show_backlog_buggon = self.ui.add_button(label="Show Backlog", right=False, callback=self.on_toggle_backlog)
         self.ui.add_button(label="Close", right=True, callback=self.on_close)
-        self.ui.add_right_click_menu([("Create testing template", self.on_create_test_template), ("Create tests", self.on_create_tests), ("Open in Browser", self.on_open_browser)], self.on_right_click)
+        self.ui.add_right_click_menu([("Create testing template", self.on_create_test_template),
+                                      ("Create tests", self.on_create_tests),
+                                      ("Show test info", self.on_show_test_info),
+                                      ("Open in Browser", self.on_open_browser)], self.on_right_click)
         self.ui.set_column_widths([100, 800])
         dir_path = os.path.dirname(os.path.realpath(__file__))
         icon_path = os.path.join(dir_path, "xray.ico")

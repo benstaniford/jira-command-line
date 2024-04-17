@@ -42,6 +42,12 @@ class MyTestDefinitions:
     def get_fix_versions(self):
         return self._fix_versions
 
+    def __str__(self):
+        ret = f"Folder: {self._folder}\nTest Plan: {self._test_plan}\nFix Versions: {self._fix_versions}\n"
+        for definition in self._definitions:
+            ret += f"\n{definition}"
+        return ret
+
 class MyTestDefinition:
     _name = None
     _description = None
@@ -53,7 +59,12 @@ class MyTestDefinition:
         self._steps = steps
 
     def __str__(self):
-        return f"Name: {self._name}, Description: {self._description}, Steps: {self._steps}"
+        ret = f"""Test name: {self._name}
+Description: {self._description}
+"""
+        for step in self._steps:
+            ret += f"  {step}\n"
+        return ret
 
 class JiraXrayIssue:
     _jira = None
@@ -95,6 +106,18 @@ class JiraXrayIssue:
                 self._jira_issue = issue
                 self._initiated = True
                 return
+
+    def get_test_info(self):
+        try:
+            issue = MyJiraIssue(self._jira_issue)
+            test_results = issue.test_results
+            definitions = self.parse_test_definitions()
+            if len(definitions) > 0:
+                return str(definitions)
+            else:
+                return "No test information found"
+        except Exception as e:
+            return "No test information found"
 
     def sprint_item_has_valid_tests(self):
         try:

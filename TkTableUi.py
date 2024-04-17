@@ -19,6 +19,7 @@ class TkTableUi:
         self.rightclick_menu = None
 
     def set_icon(self, icon_path):
+        self.icon_path = icon_path
         self.root.iconbitmap(icon_path)
 
     def add_headers(self, headers):
@@ -105,6 +106,21 @@ class TkTableUi:
 
     def show_info_dialog(self, title, message):
         messagebox.showinfo(title, message)
+
+    def show_text_dialog(self, title, message):
+        """ A dialog to show text in monospace font with a scrollbar and a close button """
+        top = tk.Toplevel()
+        top.title(title)
+        if hasattr(self, 'icon_path'):
+            top.iconbitmap(self.icon_path)
+        text = tk.Text(top, wrap=tk.WORD, font=("Courier", 10))
+        scrollbar = ttk.Scrollbar(top, orient=tk.VERTICAL, command=text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text.config(yscrollcommand=scrollbar.set)
+        text.pack(expand=True, fill=tk.BOTH)
+        text.insert(tk.END, message)
+        button = ttk.Button(top, text="Close", command=top.destroy)
+        button.pack(side=tk.BOTTOM)
 
     def add_button(self, label, right, callback):
         button = ttk.Button(self.root, text=label, command=callback)
