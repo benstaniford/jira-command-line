@@ -74,6 +74,7 @@ class JiraXrayIssue:
     _api = None
 
     def __init__(self, issue, jira):
+        """Constructs the object, issue can be a string or a Jira issue object.  Passing the latter is more efficient but less up to date"""
         if issue is None:
             raise ValueError('Issue cannot be None')
         if jira is None:
