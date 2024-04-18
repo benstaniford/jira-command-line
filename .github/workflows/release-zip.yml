@@ -24,6 +24,6 @@ jobs:
     - name: Publish zip file
       uses: actions/upload-artifact@v2
       with:
-        name: release-package
+        name: latest-installer.zip
         path: packages/latest-installer.zip
 
