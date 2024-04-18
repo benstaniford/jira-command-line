@@ -78,18 +78,14 @@ class JiraXrayIssue:
             raise ValueError('Issue cannot be None')
         if jira is None:
             raise ValueError('Jira cannot be None')
-        self._jira_issue = issue
-        issueid = issue.key
-        config_file = MyJiraConfig()
-        if not config_file.exists():
-            config_file.generate_template()
-            quit()
-        config = config_file.load()
-        if self._jira is None:
-            jira_config = config.get('jira')
-            self._jira = MyJira(jira_config)
-        self._issueid = issueid
-        self._api = XrayApi(config.get('xray'))
+        self._jira = jira
+        if isinstance(issue, str):
+            # We're looking it up by key so will have to retrieve from server
+            self._jira_issue = self._jira.get_issue_by_key(issue)
+        else:
+            self._jira_issue = issue
+        self._issueid = self._jira_issue.key
+        self._api = XrayApi(MyJiraConfig().load().get('xray'))
 
     def initialize(self):
         if self._initiated:

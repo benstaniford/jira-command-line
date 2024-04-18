@@ -126,6 +126,12 @@ class MyJira:
     def get_sprint_issues(self):
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
+    def get_issue_by_key(self, key):
+        issues = self.search_issues(f'project = {self.project_name} AND key = {key}')
+        if len(issues) != 1:
+            raise Exception(f"Expected 1 issue with key {key}, but found {len(issues)}")
+        return issues[0]
+
     def add_comment(self, issue, comment):
         self.jira.add_comment(issue, comment)
 
