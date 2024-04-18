@@ -127,7 +127,9 @@ class XrayUi:
         yes = self.ui.show_yesno_dialog("Delete all tests", f"Are you certain you want to delete ALL tests for {issue.key}?")
         if yes:
             try:
-                xray_issue.delete_tests()
+                def delete_tests():
+                    xray_issue.delete_tests()
+                self.ui.do_task_with_progress(delete_tests)
                 self.ui.show_info_dialog("Tests deleted", f"All tests deleted for {issue.key}")
             except Exception as e:
                 print(e)
