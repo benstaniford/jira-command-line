@@ -117,7 +117,7 @@ class JiraXrayIssue:
             if len(definitions) > 0:
                 tests = self.get_tests()
                 ret = f"Test Plan Status for {self._jira_issue.key}\n------------------------------\n"
-                ret += f"Tests defined: {len(definitions)}\nTests created: {len(tests)}\n\n" + str(definitions)
+                ret += f"Given/when/then's defined: {len(definitions)}\nXray tests created: {len(tests)}\n\n" + str(definitions)
                 return ret
             else:
                 return "No test information found"

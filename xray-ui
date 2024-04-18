@@ -86,7 +86,7 @@ class XrayUi:
         xray_issue = JiraXrayIssue(issue, self.jira)
         (definitions, tests) = xray_issue.get_definitions_and_tests()
         if len(tests) > 0:
-            yes = self.ui.show_yesno_dialog("Overwrite tests", f"There are {len(tests)} tests already created for [{issue.key}], do you want to delete and recreate?")
+            yes = self.ui.show_yesno_dialog("Overwrite tests", f"There are {len(tests)} xray tests already created for [{issue.key}], do you want to delete and recreate from the {len(definitions)} definitions?")
             if yes:
                 try:
                     xray_issue.delete_tests()
@@ -94,7 +94,7 @@ class XrayUi:
                     return
                 except Exception as e:
                     self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
-        yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
+        yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} new xray tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
         if yes:
             try:
                 self.create_tests(xray_issue, definitions, self.on_test_created)
