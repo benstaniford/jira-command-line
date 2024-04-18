@@ -102,6 +102,13 @@ class JiraXrayIssue:
                 self._initiated = True
                 return
 
+    def get_definitions_and_tests(self):
+        issue = MyJiraIssue(self._jira_issue)
+        test_results = issue.test_results
+        definitions = self.parse_test_definitions()
+        tests = self.get_tests()
+        return (definitions, tests)
+
     def get_test_info(self):
         try:
             issue = MyJiraIssue(self._jira_issue)
