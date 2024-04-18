@@ -112,7 +112,7 @@ class XrayUi:
         yes = self.ui.show_yesno_dialog("Test template", f"{issue.key} doesn't yet have any tests defined. Create test template?")
         if yes:
             try:
-                xray_issue.create_test_template()
+                self.ui.do_task_with_progress(xray_issue.create_test_template)
                 self.ui.show_info_dialog("Test template created", f"Test template created for {issue.key}")
                 yesno = self.ui.show_yesno_dialog("Open in browser", f"Open {issue.key} in browser?")
                 if yesno:
