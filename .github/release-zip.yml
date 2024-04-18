@@ -1,0 +1,29 @@
+name: Release Zip
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+    - name: Install zip
+      run: sudo apt-get install zip -y
+      
+    - name: Zip .bat and .ps1 files
+      run: |
+        zip -r latest-installer.zip *.bat *.ps1
+        mkdir -p packages
+        mv latest-installer.zip packages/
+      
+    - name: Publish zip file
+      uses: actions/upload-artifact@v2
+      with:
+        name: release-package
+        path: packages/latest-installer.zip
+
