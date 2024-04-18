@@ -20,7 +20,10 @@ class TkTableUi:
 
     def set_icon(self, icon_path):
         self.icon_path = icon_path
-        self.root.iconbitmap(icon_path)
+        try:
+            self.root.iconbitmap(icon_path)
+        except:
+            pass # Probably not running on Windows
 
     def add_headers(self, headers):
         self.headers = headers
@@ -123,7 +126,10 @@ class TkTableUi:
         top = tk.Toplevel()
         top.title(title)
         if hasattr(self, 'icon_path'):
-            top.iconbitmap(self.icon_path)
+            try:
+                top.iconbitmap(self.icon_path)
+            except:
+                pass # Probably not running on Windows
         text = tk.Text(top, wrap=tk.WORD, font=("Courier", 10))
         scrollbar = ttk.Scrollbar(top, orient=tk.VERTICAL, command=text.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
