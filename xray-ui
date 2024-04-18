@@ -44,9 +44,11 @@ class XrayUi:
             self.ui.add_row((issue.key, issue.fields.summary), issue)
 
     def on_refresh(self):
-        self.ui.clear()
-        self.add_issues()
-        self.ui.refresh()
+        def refresh():
+            self.ui.clear()
+            self.add_issues()
+            self.ui.refresh()
+        self.ui.do_task_with_progress(refresh)
 
     def on_close(self):
         self.ui.close()
@@ -73,7 +75,7 @@ class XrayUi:
         self.created_tests = (definitions, xray_issue.create_test_cases(definitions, on_test_created))
 
     def create_tests(self, xray_issue, definitions, on_test_created):
-        self.ui.show_progress_bar("Creating tests", len(definitions))
+        self.ui.show_determinate_progress("Creating tests", len(definitions))
         thread = threading.Thread(target=self.create_tests_worker, args=(xray_issue, definitions, on_test_created))
         thread.start()
         self.ui.root.after(100, self.are_tests_created, thread, xray_issue)

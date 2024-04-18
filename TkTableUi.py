@@ -2,6 +2,7 @@ import sv_ttk
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+import threading
 
 class TkTableUi:
     def __init__(self, title):
@@ -46,9 +47,21 @@ class TkTableUi:
         for row in self.data:
             self.tree.insert("", tk.END, values=row)
 
-    def show_progress_bar(self, message, max_value):
+    def show_determinate_progress(self, message, max_value):
         self.progress = ttk.Progressbar(self.root, orient="horizontal", length=200, mode="determinate", maximum=max_value)
         self.progress.pack(side=tk.LEFT, padx=5, pady=5)
+
+    def show_indeterminate_progress(self):
+        self.progress = ttk.Progressbar(self.root, orient="horizontal", length=200, mode="indeterminate")
+        self.progress.pack(side=tk.LEFT, padx=5, pady=5)
+        self.progress.start()
+
+    def update_progress(self, message = None):
+        self.progress.step(1)
+
+    def hide_progress_bar(self):
+        self.progress.stop()
+        self.progress.pack_forget()
 
     def add_dropdown(self, items, selected_item, selected_callback):
         self.selected_team = tk.StringVar()
@@ -58,11 +71,17 @@ class TkTableUi:
         dropdown.bind("<<ComboboxSelected>>", lambda event: selected_callback(self.selected_team.get()))
         return dropdown
 
-    def update_progress(self, message = None):
-        self.progress.step(1)
+    def is_task_complete(self, thread):
+        if not thread.is_alive():
+            self.hide_progress_bar()
+        else:
+            self.root.after(10, self.is_task_complete, thread)
 
-    def hide_progress_bar(self):
-        self.progress.pack_forget()
+    def do_task_with_progress(self, task):
+        self.show_indeterminate_progress()
+        thread = threading.Thread(target=task)
+        thread.start()
+        self.root.after(10, self.is_task_complete, thread)
             
     def close(self):
         self.root.destroy()
