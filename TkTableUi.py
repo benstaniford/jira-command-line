@@ -71,12 +71,6 @@ class TkTableUi:
         dropdown.bind("<<ComboboxSelected>>", lambda event: selected_callback(self.selected_team.get()))
         return dropdown
 
-    def is_task_complete(self, thread):
-        if not thread.is_alive():
-            self.hide_progress_bar()
-        else:
-            self.root.after(10, self.is_task_complete, thread)
-
     def do_task_with_progress(self, task):
         self.show_indeterminate_progress()
         thread = threading.Thread(target=task)
