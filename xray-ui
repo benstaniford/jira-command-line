@@ -138,8 +138,10 @@ class XrayUi:
     def on_show_test_info(self, issue):
         issue = next((x for x in self.issues if x.key == issue.key), None)
         xray_issue = JiraXrayIssue(issue, self.jira)
-        test_info = xray_issue.get_test_info()
-        self.ui.show_text_dialog("Test Info", test_info)
+        def show_info():
+            test_info = xray_issue.get_test_info()
+            self.ui.show_text_dialog("Test Info", test_info)
+        self.ui.do_task_with_progress(show_info)
 
     def on_right_click(self, issue):
         if issue is None:
