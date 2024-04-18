@@ -12,14 +12,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       
-    - name: Install zip
-      run: sudo apt-get install zip -y
-      
     - name: Zip .bat and .ps1 files
       run: |
-        zip -r latest-installer.zip *.bat *.ps1
         mkdir -p packages
-        mv latest-installer.zip packages/
+        cp install*.bat install*.ps1 packages/
       
     - name: Publish zip file
       uses: actions/upload-artifact@v2
