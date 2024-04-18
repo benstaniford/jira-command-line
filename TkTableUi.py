@@ -72,13 +72,18 @@ class TkTableUi:
         return dropdown
 
     def do_task_with_progress(self, task):
+        return_obj = None
         self.show_indeterminate_progress()
-        thread = threading.Thread(target=task)
+        def inner_task():
+            nonlocal return_obj
+            return_obj = task()
+        thread = threading.Thread(target=inner_task)
         thread.start()
         while thread.is_alive():
             self.root.update_idletasks()
             self.root.update()
         self.hide_progress_bar()
+        return return_obj
             
     def close(self):
         self.root.destroy()
