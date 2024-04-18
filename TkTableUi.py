@@ -81,7 +81,10 @@ class TkTableUi:
         self.show_indeterminate_progress()
         thread = threading.Thread(target=task)
         thread.start()
-        self.root.after(10, self.is_task_complete, thread)
+        while thread.is_alive():
+            self.root.update_idletasks()
+            self.root.update()
+        self.hide_progress_bar()
             
     def close(self):
         self.root.destroy()
