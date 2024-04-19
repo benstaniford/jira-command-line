@@ -72,7 +72,7 @@ class MyJiraConfig:
                 "username": "flast",
                 "login": "firstlast",
                 "token": "",
-                "repo_owner": "BeyondTrust",
+                "repo_owner": "mycorp",
                 "repo_name": "epm-windows"
             },
             "git": {
