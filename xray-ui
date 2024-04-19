@@ -60,9 +60,15 @@ class XrayUi:
             if test_plan_name is None:
                 self.ui.show_info_dialog("Test plan not created", f"Tests created for {xray_issue._issueid}. No test plan declared in the issue.")
                 return
-            yesno = self.ui.show_yesno_dialog(f"Create test plan", f"Tests created for {xray_issue._issueid}. Add the new tests to the {test_plan_name} solution test plan?")
+            yesno = self.ui.show_yesno_dialog(f"Create test plan", f"Tests created for {xray_issue._issueid}. Add the new tests to the {test_plan_name} solution test plan? (This will be created if it doesn't exist)")
             if yesno:
                 (definitions, test_cases) = self.created_tests
+                list_fixed_versions = definitions.get_fix_versions()
+                if len(list_fixed_versions) > 0:
+                    joined_fixed_versions = ", ".join(list_fixed_versions)
+                    yesno = self.ui.show_yesno_dialog(f"Add fix versions", f"Add fix versions [{joined_fixed_versions}] to the test plan? WARNING: THESE MUST ALREADY EXIST IN JIRA")
+                    if not yesno:
+                        definitions.set_fix_versions([])
                 test_ids = [test.id for test in test_cases]
                 if (xray_issue.create_update_test_plan(definitions, test_ids)):
                     self.ui.show_info_dialog("Test plan created", f"Test plan {test_plan_name} created with {len(test_ids)} tests")

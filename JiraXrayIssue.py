@@ -42,6 +42,9 @@ class MyTestDefinitions:
     def get_fix_versions(self):
         return self._fix_versions
 
+    def set_fix_versions(self, fix_versions):
+        self._fix_versions = fix_versions
+
     def __str__(self):
         ret = f"Folder: {self._folder}\nSolution Test Plan: {self._test_plan}\nFix Versions: {self._fix_versions}\n"
         for definition in self._definitions:

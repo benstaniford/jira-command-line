@@ -151,6 +151,9 @@ class TkTableUi:
     def show_info_dialog(self, title, message):
         messagebox.showinfo(title, message)
 
+    def show_warning_dialog(self, title, message):
+        messagebox.showwarning(title, message)
+
     def show_text_dialog(self, title, message):
         """ A dialog to show text in monospace font with a scrollbar and a close button """
         top = tk.Toplevel()
