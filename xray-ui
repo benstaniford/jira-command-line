@@ -23,15 +23,14 @@ class XrayUi:
             self.ui.show_error_dialog("A config template has been generated", f"Please fill in the config file at {config_location} and restart the application")
             quit()
 
-        config = None
         try:
-            config = self.config_file.load()
+            self.config = self.config_file.load()
         except Exception as e:
             self.ui = TkTableUi("Config error")
             self.ui.show_error_dialog("Error loading config", f"Error loading config: {e}, please check {self.config_file.get_location()}")
             quit()
 
-        jira_config = config.get('jira')
+        jira_config = self.config.get('jira')
         self.jira = MyJira(jira_config)
         self.team_name = jira_config.get('default_team')
         self.toolname = "Xray Test Creator - "
@@ -90,33 +89,38 @@ class XrayUi:
         self.ui.update_progress(message)
 
     def on_create_tests(self, issue):
-        issue = next((x for x in self.issues if x.key == issue.key), None)
+        try:
+            if not self.config.get('xray') or not self.config.get('xray').get('client_id') or not self.config.get('xray').get('client_secret'):
+                raise Exception("Xray client_id and client_secret must be set in the configuration")
 
-        xray_issue = None
-        def get_issue():
-            nonlocal xray_issue
-            xray_issue = JiraXrayIssue(issue.key, self.jira)
-        self.ui.do_task_with_progress(get_issue)
+            issue = next((x for x in self.issues if x.key == issue.key), None)
+            xray_issue = None
+            def get_issue():
+                nonlocal xray_issue
+                xray_issue = JiraXrayIssue(issue.key, self.jira)
+            self.ui.do_task_with_progress(get_issue)
 
-        (definitions, tests) = xray_issue.get_definitions_and_tests()
-        if len(tests) > 0:
-            yes = self.ui.show_yesno_dialog("Overwrite tests", f"There are {len(tests)} xray tests already created for [{issue.key}], do you want to delete and recreate from the {len(definitions)} definitions?")
+            (definitions, tests) = xray_issue.get_definitions_and_tests()
+            if len(tests) > 0:
+                yes = self.ui.show_yesno_dialog("Overwrite tests", f"There are {len(tests)} xray tests already created for [{issue.key}], do you want to delete and recreate from the {len(definitions)} definitions?")
+                if yes:
+                    try:
+                        def delete_tests():
+                            xray_issue.delete_tests()
+                        self.ui.do_task_with_progress(delete_tests)
+                        self.create_tests(xray_issue, definitions, self.on_test_created)
+                        return
+                    except Exception as e:
+                        self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
+            yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} new xray tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
             if yes:
                 try:
-                    def delete_tests():
-                        xray_issue.delete_tests()
-                    self.ui.do_task_with_progress(delete_tests)
                     self.create_tests(xray_issue, definitions, self.on_test_created)
-                    return
                 except Exception as e:
+                    print(e)
                     self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
-        yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} new xray tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
-        if yes:
-            try:
-                self.create_tests(xray_issue, definitions, self.on_test_created)
-            except Exception as e:
-                print(e)
-                self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
+        except Exception as e:
+            self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
 
     def on_create_test_template(self, issue):
         issue = next((x for x in self.issues if x.key == issue.key), None)
