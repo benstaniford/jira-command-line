@@ -102,7 +102,7 @@ if (Test-Path $repoPath) {
     Remove-Item -Recurse -Force $repoPath
 }
 Set-Location $env:USERPROFILE
-& $gitPath clone -c http.sslVerify=false https://github.com/benstaniford/jira-command-line
+& $gitPath clone -c http.sslVerify=false --branch LatestRelease https://github.com/benstaniford/jira-command-line
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[Failed to clone Jira repository]" -ForegroundColor Red
     PressAnyKeyToExit
