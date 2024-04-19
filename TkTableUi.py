@@ -18,6 +18,9 @@ class TkTableUi:
         self.root.title(self.title)
         self.root.geometry("1024x500")
         self.rightclick_menu = None
+        
+        self.disable_list = []
+        self.disable_list_state = False
 
     def set_icon(self, icon_path):
         self.icon_path = icon_path
@@ -48,10 +51,12 @@ class TkTableUi:
             self.tree.insert("", tk.END, values=row)
 
     def show_determinate_progress(self, message, max_value):
+        self.set_state_disable_list(True)
         self.progress = ttk.Progressbar(self.root, orient="horizontal", length=200, mode="determinate", maximum=max_value)
         self.progress.pack(side=tk.LEFT, padx=5, pady=5)
 
     def show_indeterminate_progress(self):
+        self.set_state_disable_list(True)
         self.progress = ttk.Progressbar(self.root, orient="horizontal", length=200, mode="indeterminate")
         self.progress.pack(side=tk.LEFT, padx=5, pady=5)
         self.progress.start()
@@ -62,6 +67,7 @@ class TkTableUi:
     def hide_progress_bar(self):
         self.progress.stop()
         self.progress.pack_forget()
+        self.set_state_disable_list(False)
 
     def add_dropdown(self, items, selected_item, selected_callback):
         self.selected_team = tk.StringVar()
@@ -69,9 +75,10 @@ class TkTableUi:
         dropdown = ttk.Combobox(self.root, textvariable=self.selected_team, values=items)
         dropdown.pack(side=tk.LEFT, padx=5, pady=5)
         dropdown.bind("<<ComboboxSelected>>", lambda event: selected_callback(self.selected_team.get()))
+        self.disable_list.append(dropdown)
         return dropdown
 
-    def do_task_with_progress(self, task):
+    def do_task_with_progress(self, task, lock_ui=True):
         return_obj = None
         self.show_indeterminate_progress()
         def inner_task():
@@ -121,6 +128,8 @@ class TkTableUi:
             self.rightclick_menu.add_command(label=callback[0], command=self.build_callback_labmda(callback[1]))
 
         def popup(event):
+            if self.disable_list_state:
+                return
             if self.tree.identify_region(event.x, event.y) == "cell":
                 if on_right_click_callback:
                     on_right_click_callback(self.get_selected_item())
@@ -166,6 +175,7 @@ class TkTableUi:
             button.pack(side=tk.RIGHT, padx=5, pady=5)
         else:
             button.pack(side=tk.LEFT, padx=5, pady=5)
+        self.disable_list.append(button)
         return button
 
     def set_column_widths(self, widths):
@@ -173,11 +183,26 @@ class TkTableUi:
             self.tree.column(self.headers[index], width=width, minwidth=width, stretch=tk.NO)
 
     def display(self, init_callback):
-        self.tree = ttk.Treeview(self.root, columns=self.headers, show="headings")
+        self.tree = ttk.Treeview(self.root, columns=self.headers, show="headings", selectmode="browse")
         self.tree.pack(expand=True, fill=tk.BOTH)
+        self.disable_list.append(self.tree)
         self.add_scrollbar()
         self.refresh()
         init_callback()
 
         # Start the UI loop
         self.root.mainloop()
+    
+    def set_state_disable_list(self, disable = True):
+        self.disable_list_state = disable
+        if disable:
+            action = "disabled"
+            tree_action = "none"
+        else:
+            action = "normal"
+            tree_action = "browse"
+        for widget in self.disable_list:
+            if isinstance(widget, ttk.Treeview):
+                widget.config(selectmode=tree_action)
+            else:
+                widget.config(state=action)
