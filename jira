@@ -372,6 +372,11 @@ def main(stdscr):
         # Create x-ray template or create tests in x-ray if template filled in
         elif selection == "x":
             try:
+                # If no xray client_id or client_secret is set in the config, show an error
+                if (config.get('xray')['client_id'] == "" or config.get('xray')['client_secret'] == ""):
+                    ui.error("Xray client_id or client_secret not set in config, cannot create x-ray tests")
+                    continue
+
                 selection = ui.prompt_get_string("Enter issue number")
                 if selection.isdigit():
                     [row, issue] = ui.get_row(int(selection)-1)

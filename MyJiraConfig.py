@@ -111,11 +111,6 @@ class MyJiraConfig:
             raise ValueError("Jira fullname not specified in config")
         if jira.get('password') is None or jira.get('password') == "":
             raise ValueError("Jira password not found in config")
-        xray = json_config.get('xray')
-        if xray.get('client_id') is None or xray.get('client_id') == "":
-            raise ValueError("Xray client_id not found in config")
-        if xray.get('client_secret') is None or xray.get('client_secret') == "":
-            raise ValueError("Xray client_secret not found in config")
 
     def upgrade(self, config):
         try:
