@@ -10,9 +10,9 @@ class MyJiraConfig:
     def generate_template(self):
         config_data = {
             "jira": {
-                "url": "https://beyondtrust.atlassian.net",
+                "url": "https://mycorp.atlassian.net",
                 "password": "",
-                "username": "myemail@beyondtrust.com",
+                "username": "myemail@mycorp.com",
                 "fullname": "My Name",
                 "default_team": "Sparklemuffin",
                 "teams": {
@@ -21,13 +21,13 @@ class MyJiraConfig:
                         "project_name": "EPM",
                         "product_name": "PM Windows",
                         "short_names_to_ids": {
-                            "Ben": "bstaniford@beyondtrust.com",
-                            "Caleb": "ckershaw@beyondtrust.com",
-                            "Dimi": "dbostock@beyondtrust.com",
-                            "Connor": "cflynn@beyondtrust.com",
-                            "Neil": "nwicker@beyondtrust.com",
-                            "Nick": "ncrowley@beyondtrust.com",
-                            "Tamas": "tvarady@beyondtrust.com"
+                            "Ben": "bstaniford@mycorp.com",
+                            "Caleb": "ckershaw@mycorp.com",
+                            "Dimi": "dbostock@mycorp.com",
+                            "Connor": "cflynn@mycorp.com",
+                            "Neil": "nwicker@mycorp.com",
+                            "Nick": "ncrowley@mycorp.com",
+                            "Tamas": "tvarady@mycorp.com"
                         },
                         "kanban_board_id": 385,
                         "backlog_board_id": 341,
@@ -38,7 +38,7 @@ class MyJiraConfig:
                         "project_name": "EPM",
                         "product_name": "PM Windows",
                         "short_names_to_ids": {
-                            "Jack": "jlawless@beyondtrust.com"
+                            "Jack": "jlawless@mycorp.com"
                         },
                         "kanban_board_id": 509,
                         "backlog_board_id": 69,
@@ -49,7 +49,7 @@ class MyJiraConfig:
                         "project_name": "EPM",
                         "product_name": "PM Windows",
                         "short_names_to_ids": {
-                            "Richard": "rpittello@beyondtrust.com"
+                            "Richard": "rpittello@mycorp.com"
                         },
                         "kanban_board_id": 509,
                         "backlog_board_id": 316,
@@ -60,7 +60,7 @@ class MyJiraConfig:
                         "project_name": "EPM",
                         "product_name": "PM Mac",
                         "short_names_to_ids": {
-                            "Omar": "oikram@beyondtrust.com"
+                            "Omar": "oikram@mycorp.com"
                         },
                         "kanban_board_id": 509,
                         "backlog_board_id": 77,
@@ -103,7 +103,7 @@ class MyJiraConfig:
         jira = json_config.get('jira')
         if jira.get('url') is None or jira.get('url') == "":
             raise ValueError("Jira URL not found in config")
-        if jira.get('username') is None or jira.get('username') == "" or jira.get('username') == "myemail@beyondtrust.com":
+        if jira.get('username') is None or jira.get('username') == "" or jira.get('username') == "myemail@mycorp.com":
             raise ValueError("Jira username not specified in config")
         if jira.get('fullname') is None or jira.get('fullname') == "" or jira.get('fullname') == "My Name":
             raise ValueError("Jira fullname not specified in config")
