@@ -78,7 +78,7 @@ class TkTableUi:
         self.disable_list.append(dropdown)
         return dropdown
 
-    def do_task_with_progress(self, task, lock_ui=True):
+    def do_task_with_progress(self, task):
         return_obj = None
         self.show_indeterminate_progress()
         def inner_task():
