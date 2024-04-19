@@ -69,10 +69,12 @@ class XrayUi:
                     if not yesno:
                         definitions.set_fix_versions([])
                 test_ids = [test.id for test in test_cases]
-                if (xray_issue.create_update_test_plan(definitions, test_ids)):
-                    self.ui.show_info_dialog("Test plan created", f"Test plan [{test_plan_name}] created with {len(test_ids)} tests")
-                else:
-                    self.ui.show_info_dialog("Test plan updated", f"Test plan [{test_plan_name}] updated with {len(test_ids)} tests")
+                def create_update_test_plan():
+                    if (xray_issue.create_update_test_plan(definitions, test_ids)):
+                        self.ui.show_info_dialog("Test plan created", f"Test plan [{test_plan_name}] created with {len(test_ids)} tests")
+                    else:
+                        self.ui.show_info_dialog("Test plan updated", f"Test plan [{test_plan_name}] updated with {len(test_ids)} tests")
+                self.ui.do_task_with_progress(create_update_test_plan)
         else:
             self.ui.root.after(100, self.are_tests_created, thread, xray_issue)
 
