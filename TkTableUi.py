@@ -81,15 +81,22 @@ class TkTableUi:
     def do_task_with_progress(self, task):
         return_obj = None
         self.show_indeterminate_progress()
+        thread_exception = None
         def inner_task():
-            nonlocal return_obj
-            return_obj = task()
+            try:
+                nonlocal return_obj
+                return_obj = task()
+            except Exception as e:
+                nonlocal thread_exception
+                thread_exception = e
         thread = threading.Thread(target=inner_task)
         thread.start()
         while thread.is_alive():
             self.root.update_idletasks()
             self.root.update()
         self.hide_progress_bar()
+        if thread_exception:
+            raise thread_exception
         return return_obj
             
     def close(self):
