@@ -144,7 +144,7 @@ class JiraXrayIssue:
     def create_test_template(self):
         self.initialize()
         wrapped_issue = MyJiraIssue(self._jira_issue)
-        wrapped_issue.test_results += """
+        template = """
 <begin>
 Folder: /Windows/MyTestFeature  (This is the folder in the test repository)
 Solution Test Plan: 24.X My Awesome Plan (Will create a new test plan if this name doesn't exist)
@@ -159,6 +159,10 @@ When <Step 2>
 Then <Step 3>
 <end>
 """
+        if wrapped_issue.test_results is None:
+            wrapped_issue.test_results = template
+        else:
+            wrapped_issue.test_results += template
         self._jira_issue.update(fields={wrapped_issue.test_results_fieldname: wrapped_issue.test_results})
 
     def get_tests(self):
