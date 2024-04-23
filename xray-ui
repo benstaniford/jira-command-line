@@ -30,12 +30,17 @@ class XrayUi:
             self.ui.show_error_dialog("Error loading config", f"Error loading config: {e}, please check {self.config_file.get_location()}")
             quit()
 
-        jira_config = self.config.get('jira')
-        self.jira = MyJira(jira_config)
-        self.team_name = jira_config.get('default_team')
-        self.toolname = "Xray Test Creator - "
-        self.ui = TkTableUi(self.toolname + "Current Sprint for " + self.team_name)
-        self.ui.add_headers(('Issue', 'Summary'))
+        try:
+            jira_config = self.config.get('jira')
+            self.team_name = jira_config.get('default_team')
+            self.toolname = "Xray Test Creator - "
+            self.ui = TkTableUi(self.toolname + "Current Sprint for " + self.team_name)
+            self.ui.add_headers(('Issue', 'Summary'))
+            self.jira = MyJira(jira_config)
+        except Exception as e:
+            self.ui = TkTableUi("Jira error")
+            self.ui.show_error_dialog("Error connecting to Jira", f"Error connecting to Jira: {e}")
+            quit()
 
     def add_issues(self):
         self.issues = self.jira.get_sprint_issues() if not self.backlog_mode else self.jira.get_backlog_issues()
