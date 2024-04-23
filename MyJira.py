@@ -160,10 +160,12 @@ class MyJira:
         # Update ther reference issue so that we can create an issue on sprint
         self.get_sprint_issues()
         url = issue.fields.issuetype.self
-        new_title = f"Spike: {issue.fields.summary}"
+        new_title = f"SPIKE: {issue.fields.summary}"
         original_description = self.get_body(issue)
         new_description = f"Spike to investigate {issue.key} : {url}\n\n**Original Description**\n\n{original_description}"
-        return self.create_sprint_issue(new_title, new_description, "Spike")
+        new_issue = self.create_sprint_issue(new_title, new_description, "Spike")
+        self.jira.create_issue_link("Relates", issue, new_issue)
+        return new_issue
 
     def get_linked_issues(self, issue, issue_type):
         linked_issues = self.jira.search_issues(f'project = {self.project_name} AND "Product[Dropdown]" in ("{self.product_name}") AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
