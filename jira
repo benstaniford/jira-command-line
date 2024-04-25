@@ -403,11 +403,7 @@ def main(stdscr):
                                         ui.prompt(f"Created test plan {test_plan} with tests:{test_ids}")
                                     else:
                                         ui.prompt(f"Added to test plan {test_plan}, tests:{test_ids}")
-                            yesno = ui.prompt_get_character(f"\nCreated {len(tests)} tests for {issue.key}, delete? (y/n)")
-                            if yesno == "y":
-                                for test in tests:
-                                    test.delete(deleteSubtasks=True)
-                                    ui.prompt(f"Deleted test:{test.key}", "")
+                            ui.prompt_get_character(f"\nCreated {len(tests)} tests for {issue.key}, press any key to continue...")
             except Exception as e:
                 ui.error("Create x-ray tests", e)
 
