@@ -599,7 +599,7 @@ def main(stdscr):
             except Exception as e:
                 ui.error("Browse issue", e)
 
-            # Boards
+        # Boards
         elif selection == "B":
             try:
                 boards = jira.get_boards()
