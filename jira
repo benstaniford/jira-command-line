@@ -32,6 +32,7 @@ mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != ""
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
 parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
+parser.add_argument("-B", "--board", help="Start in board mode, takes an index of the board to show", type=int)
 parser.add_argument("-z", "--escalations", help="Start in escalations mode", action="store_true")
 parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
 args = parser.parse_args()
@@ -153,11 +154,16 @@ def main(stdscr):
     ui.enable_row_numbers()
     view = JiraTableView(ui)
 
+    board = None
+    if args.board:
+        board = jira.get_boards()[args.board]
+
     # Get the backlog issues
     view.refresh(ViewMode.SPRINT if args.sprint
                  else ViewMode.ESCALATIONS if args.escalations
                  else ViewMode.WINDOWS_SHARED if args.windows_shared
-                 else ViewMode.BACKLOG)
+                 else ViewMode.BOARD if args.board
+                 else ViewMode.BACKLOG, params=board if args.board else None)
 
     # Column sort f-keys
     possible_columns = jira.get_optional_fields()
