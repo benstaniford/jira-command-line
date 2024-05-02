@@ -65,6 +65,7 @@ class ViewMode:
     TASKVIEW = 5
     SEARCH = 6
     HELP = 7
+    BOARD = 8
 
 class JiraTableView:
     def __init__(self, ui):
@@ -107,6 +108,8 @@ class JiraTableView:
             self.__current_issues = self.__build(jira.search_for_issue(params))
         elif self.mode == ViewMode.TASKVIEW:
             self.__current_issues = self.__build(jira.get_sub_tasks(self.parent_issue))
+        elif self.mode == ViewMode.BOARD:
+            self.__current_issues = self.__build(jira.get_board_issues(params))
 
         self.__previous_issues = self.__current_issues if self.mode != ViewMode.TASKVIEW else self.__previous_issues
 
@@ -164,11 +167,11 @@ def main(stdscr):
     fkey_string = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
 
     # Keyboard input loop
-    key_shortcuts = ('a', 'b', 'c', 'd', 'e', 'E', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'w', 'x', 'z', '?')
+    key_shortcuts = ('a', 'b', 'B', 'c', 'd', 'e', 'E', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'w', 'x', 'z', '?')
     while True:
         prompt = f"Commands F1:help, {fkey_string}\n"
-        prompt += """  a:assign, b:browse, c:create, d:delete, e:edit, E:team, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points, q:quit
-  s:sprint, S:support_folder, t:status, T:tasks, v:view, w:winshared, x:xray, z:escalations, ?:glob_search, |:filter, /:search\n"""
+        prompt += """  a:assign, b:browse, B:boards, c:create, d:delete, e:edit, E:team, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points
+  q:quit, s:sprint, S:support_folder, t:status, T:tasks, v:view, w:winshared, x:xray, z:escalations, ?:glob_search, |:filter, /:search\n"""
         prompt += "Type a number to see task details"
         selection = ""
         try:
@@ -195,6 +198,7 @@ def main(stdscr):
             ui.add_row(["", "?", "Global search (bug numbers or title keywords)"])
             ui.add_row(["", "a", "Assign issue to user"])
             ui.add_row(["", "b", "Browse issue in browser"])
+            ui.add_row(["", "B", "Show other boards"])
             ui.add_row(["", "c", "Create issue in current view"])
             ui.add_row(["", "d", "Delete issue in current view"])
             ui.add_row(["", "e", "Edit issue in editor"])
@@ -594,6 +598,19 @@ def main(stdscr):
                     jira.browse_to(issue)
             except Exception as e:
                 ui.error("Browse issue", e)
+
+            # Boards
+        elif selection == "B":
+            try:
+                boards = jira.get_boards()
+                if len(boards) == 0:
+                    ui.error("No boards configured in config")
+                    continue
+                [index, board] = ui.prompt_with_choice_list("Select board", boards)
+                if board != "":
+                    view.refresh(ViewMode.BOARD, params=board)
+            except Exception as e:
+                ui.error("Set board", e)
 
         # Show task view
         elif selection.isdigit():

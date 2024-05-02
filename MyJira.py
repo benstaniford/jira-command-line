@@ -77,6 +77,18 @@ class MyJira:
             list_teams.append(team)
         return list_teams
 
+    def get_boards(self):
+        list_boards = []
+        for board in self.config['boards']:
+            list_boards.append(board)
+        return list_boards
+
+    def get_board_issues(self, board):
+        self.board = board
+        board = self.config['boards'][board]
+        query = board["query"]
+        return self.search_issues(query)
+
     def get_age(self, issue):
         created = datetime.datetime.strptime(issue.fields.created, '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None)
         now = datetime.datetime.now().replace(tzinfo=None)
