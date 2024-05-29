@@ -66,7 +66,6 @@ class XrayApi:
     
         return resp.json()
 
-
     def create_test(self, summary, description, testType, folder, steps):
         """
         Create a test in a project
@@ -83,19 +82,19 @@ class XrayApi:
         projectId = self.project_id
         log.debug(f'Creating Test "{summary}"...')
 
-        summary = summary.replace('"', '\\"')
-        description = description.replace('"', '\\"')
+        summary = json.dumps(summary)
+        description = json.dumps(description)
 
         if (testType == 'Cucumber'):
-            ctn = steps.replace('"', '\\"')
-            content = f'gherkin: "{ctn}"'.replace('\n', '\\n')
+            ctn = json.dumps(steps)
+            content = f'gherkin: {ctn}'
         elif (testType == 'Manual'):
             content = 'steps: ' + json.dumps(steps).replace('"action"', 'action').replace('"data"', 'data').replace('"result"', 'result')
         elif (testType == 'Manual (Gherkin)'):
-            ctn = steps.replace('"', '\\"')
-            content = f'gherkin: "{ctn}"'.replace('\n', '\\n')
+            ctn = json.dumps(steps)
+            content = f'gherkin: {ctn}'
         else:
-            ctn = steps.replace('"', '\\"')
+            ctn = json.dumps(steps)
             content = f'unstructured: "{ctn}"'
 
         json_data = f'''
@@ -105,7 +104,7 @@ class XrayApi:
                     {content},
                     folderPath: "{folder}"
                     jira: {{
-                        fields: {{ summary: "{summary}", description: "{description}", project: {{ id: "{projectId}" }} }}
+                        fields: {{ summary: {summary}, description: {description}, project: {{ id: "{projectId}" }} }}
                     }}
                 ) {{
                     test {{
