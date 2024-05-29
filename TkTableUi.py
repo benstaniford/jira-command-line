@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 import threading
+import re
 
 class TkTableUi:
     def __init__(self, title):
@@ -42,11 +43,14 @@ class TkTableUi:
     def set_window_title(self, title):
         self.root.title(title)
 
+    def build_sort_lambda(self, column):
+        return lambda: self.sort_column(column, False)
+
     def refresh(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
         for header in self.headers:
-            self.tree.heading(header, text=header, anchor=tk.W, command=lambda: self.sort_column(header, False))
+            self.tree.heading(header, text=header, anchor=tk.W, command=self.build_sort_lambda(header))
         for row in self.data:
             self.tree.insert("", tk.END, values=row)
 
@@ -112,7 +116,12 @@ class TkTableUi:
 
     def sort_column(self, col, reverse):
         data = [(self.tree.set(child, col), child) for child in self.tree.get_children('')]
-        data.sort(reverse=reverse)
+        # Does all the data look like an ID of some kind with at least 4 numeric digits?
+        sort_as_numbers = all(re.match(r'.*\d{4,}.*', val) for val, child in data)
+        if sort_as_numbers:
+            data.sort(key=lambda x: int(re.sub(r'\D', '', x[0])) if sort_as_numbers else x[0], reverse=reverse)
+        else:
+            data.sort(reverse=reverse)
 
         for index, (val, child) in enumerate(data):
             self.tree.move(child, '', index)
