@@ -284,6 +284,8 @@ class MyJira:
 
     def assign_to(self, issue, shortname):
         username = self.short_names_to_ids[shortname]
+        if username == "":
+            username = None
         self.jira.assign_issue(issue, username)
 
     # Returns a dictionary of keypresses to shortnames

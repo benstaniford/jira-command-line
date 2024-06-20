@@ -28,7 +28,8 @@ class MyJiraConfig:
                             "Connor": "cflynn@mycorp.com",
                             "Neil": "nwicker@mycorp.com",
                             "Nick": "ncrowley@mycorp.com",
-                            "Tamas": "tvarady@mycorp.com"
+                            "Tamas": "tvarady@mycorp.com",
+                            "Unassigned": ""
                         },
                         "kanban_board_id": 385,
                         "backlog_board_id": 341,
