@@ -25,6 +25,7 @@ class MyJiraIssue:
                 "test_results": "customfield_10097",
                 "team": "customfield_10001",
                 "test_steps": "customfield_10039",
+                "priority_score": "customfield_10718",
             }
 
         for key in self.translations:
@@ -106,6 +107,7 @@ class MyJira:
                 "Issue Type": lambda issue: str(issue.fields.issuetype),
                 "Sub-Tasks": lambda issue: str(self.get_subtask_count(issue)),
                 "Parent Desc": lambda issue: self.get_parent_description(issue),
+                "Pri Score": lambda issue: str(self.get_priority_score(issue)),
             }
         return optional_fields
 
@@ -272,6 +274,10 @@ class MyJira:
     def get_story_points(self, issue):
         sp = MyJiraIssue(issue).story_points
         return str(sp) if sp != None else ""
+
+    def get_priority_score(self, issue):
+        ps = MyJiraIssue(issue).priority_score
+        return str(ps) if ps != None else ""
 
     def get_assignee(self, issue):
         if issue.fields.assignee != None:
