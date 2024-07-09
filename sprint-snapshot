@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+
 #scriptdoc: title="Gather stats about the last two weeks", tags="bt,work,jira"
 import json
 import argparse
