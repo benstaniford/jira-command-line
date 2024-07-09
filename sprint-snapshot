@@ -1,16 +1,12 @@
 #!/usr/bin/python
-#scriptdoc: title="Curses based Jira team backlog/sprint", tags="bt,work,jira"
-import curses
+#scriptdoc: title="Gather stats about the last two weeks", tags="bt,work,jira"
 import json
 import argparse
-import os
 from MyJira import MyJira
 from MyGit import MyGit
 from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
-import webbrowser
 import time
-import tempfile
 
 # Load the config
 config_file = MyJiraConfig()
@@ -36,6 +32,9 @@ def main():
     sprint = jira.get_sprint_issues()
     for issue in sprint:
         print(f"{issue.key} - {issue.fields.summary}")
+        subtasks = issue.fields.subtasks
+        for subtask in subtasks:
+            print(f"  {subtask.key} - {subtask.fields.summary}")
 
 if __name__ == "__main__":
     main()
