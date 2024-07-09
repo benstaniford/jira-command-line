@@ -4,6 +4,7 @@ import json
 import argparse
 import sys
 import time
+import os
 from MyJira import MyJira
 from MyGit import MyGit
 from MyGithub import MyGithub
@@ -38,15 +39,21 @@ def subtask_being_worked_on(subtask):
 
 def print_csv(line):
     if csvFile:
+        if not os.path.isfile(csvFile):
+            with open(csvFile, 'a') as f:
+                f.write("Time,Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State\n")
         with open(csvFile, 'a') as f:
             f.write(line + '\n')
 
+def print_working_list(working_list):
+    for item in working_list:
+        (assignee, task, task_summary, task_state, issue, issue_summary, issue_state) = item
+        print(f"{assignee} is working on {task}, state:{task_state} - {task_summary}")
+        print(f"  {issue} - {issue_summary}\n")
+        print_csv(f"{time_now},{assignee},{task},{task_summary},{task_state},{issue},{issue_summary},{issue_state}")
+
 def main():
-    print_csv("Time,Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State")
-
     working_list = []
-
-    # Print each item on the sprint
     sprint = jira.get_sprint_issues()
     for issue in sprint:
         subtasks = issue.fields.subtasks
@@ -54,9 +61,8 @@ def main():
             subtask_issue = jira.get_issue_by_key(subtask.key)
             assignee = jira.get_assignee(subtask_issue) if subtask_issue.fields.assignee is not None else "Noone"
             if subtask_being_worked_on(subtask_issue):
-                print (f"{assignee} is working on {subtask.key}, state:{subtask_issue.fields.status.name} - {subtask_issue.fields.summary}")
-                print (f"  {issue.key} - {issue.fields.summary}\n")
-                print_csv(f"{assignee},{time_now},{subtask.key},{subtask.fields.summary},{subtask_issue.fields.status.name},{issue.key},{issue.fields.summary},{issue.fields.status.name}")
+                working_list.append((assignee, subtask.key, subtask.fields.summary, subtask_issue.fields.status.name, issue.key, issue.fields.summary, issue.fields.status.name))
+    print_working_list(working_list)
 
 if __name__ == "__main__":
     main()
