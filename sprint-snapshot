@@ -52,6 +52,22 @@ def print_working_list(working_list):
         print(f"  {issue} - {issue_summary}\n")
         print_csv(f"{time_now},{assignee},{task},{task_summary},{task_state},{issue},{issue_summary},{issue_state}")
 
+def check_for_problems(working_list):
+    problems = []
+
+    # Check that a person isn't working on more than one task
+    working_on = {}
+    for item in working_list:
+        (assignee, task, task_summary, task_state, issue, issue_summary, issue_state) = item
+        if assignee in working_on:
+            working_on[assignee].append(task)
+        else:
+            working_on[assignee] = [task]
+    for key in working_on:
+        if len(working_on[key]) > 1:
+            problems.append(f"{key} is working on multiple tasks: {working_on[key]}")
+    return problems
+
 def main():
     working_list = []
     sprint = jira.get_sprint_issues()
@@ -63,6 +79,11 @@ def main():
             if subtask_being_worked_on(subtask_issue):
                 working_list.append((assignee, subtask.key, subtask.fields.summary, subtask_issue.fields.status.name, issue.key, issue.fields.summary, issue.fields.status.name))
     print_working_list(working_list)
+    problems = check_for_problems(working_list)
+    if len(problems) > 0:
+        print("Problems found:")
+        for problem in problems:
+            print(f"  {problem}")
 
 if __name__ == "__main__":
     main()
