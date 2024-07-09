@@ -9,6 +9,7 @@ from MyJira import MyJira
 from MyGit import MyGit
 from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
+from MyEmail import MyEmail
 
 # Load the config
 config_file = MyJiraConfig()
@@ -27,6 +28,7 @@ mygit = MyGit(config.get('git'))
 mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--csv", help="Output in CSV format")
+parser.add_argument("-e", "--email", help="Email the report to this address")
 args = parser.parse_args()
 csvFile = args.csv
 time_now = time.strftime("%d/%m/%Y %H:%M:%S")
@@ -101,6 +103,7 @@ def check_for_sprint_problems(working_list, sprint, all_subtasks):
     return problems
 
 def main():
+    email = MyEmail()
     working_list = []
     all_subtasks = []
     sprint = jira.get_sprint_issues()
@@ -116,10 +119,15 @@ def main():
     print_working_list(working_list)
     problems = check_for_people_problems(working_list)
     problems += check_for_sprint_problems(working_list, sprint, all_subtasks)
+
     if len(problems) > 0:
         print("Problems found:")
         for problem in problems:
             print(f"  {problem}")
+
+        problems_body = "\n".join(problems)
+        if args.email:
+            email.send(args.email, f"Sprint problems found: {len(problems)}", problems_body)
 
 if __name__ == "__main__":
     main()
