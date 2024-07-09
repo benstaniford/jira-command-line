@@ -35,11 +35,13 @@ def subtask_being_worked_on(subtask):
         return True
     return False
 
-def main():
-    csvStream = None
+def print_csv(line):
     if csvFile:
-        csvStream = open(csvFile, 'w')
-        csvStream.print ("Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State")
+        with open(csvFile, 'a') as f:
+            f.write(line + '\n')
+
+def main():
+    print_csv("Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State")
 
     working_list = []
 
@@ -53,9 +55,7 @@ def main():
             if subtask_being_worked_on(subtask_issue):
                 print (f"{assignee} is working on {subtask.key}, state:{subtask_issue.fields.status.name} - {subtask_issue.fields.summary}")
                 print (f"  {issue.key} - {issue.fields.summary}\n")
-                if csvFile:
-                    print(csvStream, f"{assignee},{subtask.key},{subtask.fields.summary},{subtask_issue.fields.status.name},{issue.key},{issue.fields.summary},{issue.fields.status.name}")
-
+                print_csv(f"{assignee},{subtask.key},{subtask.fields.summary},{subtask_issue.fields.status.name},{issue.key},{issue.fields.summary},{issue.fields.status.name}")
 
 if __name__ == "__main__":
     main()
