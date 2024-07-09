@@ -2,11 +2,12 @@
 #scriptdoc: title="Gather stats about the last two weeks", tags="bt,work,jira"
 import json
 import argparse
+import sys
+import time
 from MyJira import MyJira
 from MyGit import MyGit
 from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
-import time
 
 # Load the config
 config_file = MyJiraConfig()
@@ -23,18 +24,38 @@ config = config_file.load()
 jira = MyJira(config.get('jira'))
 mygit = MyGit(config.get('git'))
 mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
-#parser = argparse.ArgumentParser()
-#args = parser.parse_args()
+parser = argparse.ArgumentParser()
+parser.add_argument("-c", "--csv", help="Output in CSV format")
+args = parser.parse_args()
+csvFile = args.csv
 
+def subtask_being_worked_on(subtask):
+    in_progress_states = ["In Progress", "Development", "Testing"]
+    if subtask.fields.status.name in in_progress_states:
+        return True
+    return False
 
 def main():
+    csvStream = None
+    if csvFile:
+        csvStream = open(csvFile, 'w')
+        csvStream.print ("Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State")
+
+    working_list = []
+
     # Print each item on the sprint
     sprint = jira.get_sprint_issues()
     for issue in sprint:
-        print(f"{issue.key} - {issue.fields.summary}")
         subtasks = issue.fields.subtasks
         for subtask in subtasks:
-            print(f"  {subtask.key} - {subtask.fields.summary}")
+            subtask_issue = jira.get_issue_by_key(subtask.key)
+            assignee = jira.get_assignee(subtask_issue) if subtask_issue.fields.assignee is not None else "Noone"
+            if subtask_being_worked_on(subtask_issue):
+                print (f"{assignee} is working on {subtask.key}, state:{subtask_issue.fields.status.name} - {subtask_issue.fields.summary}")
+                print (f"  {issue.key} - {issue.fields.summary}\n")
+                if csvFile:
+                    print(csvStream, f"{assignee},{subtask.key},{subtask.fields.summary},{subtask_issue.fields.status.name},{issue.key},{issue.fields.summary},{issue.fields.status.name}")
+
 
 if __name__ == "__main__":
     main()
