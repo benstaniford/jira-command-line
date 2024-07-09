@@ -47,39 +47,75 @@ def print_csv(line):
 
 def print_working_list(working_list):
     for item in working_list:
-        (assignee, task, task_summary, task_state, issue, issue_summary, issue_state) = item
+        (assignee, assignee_email, task, task_summary, task_state, issue, issue_summary, issue_state) = item
         print(f"{assignee} is working on {task}, state:{task_state} - {task_summary}")
         print(f"  {issue} - {issue_summary}\n")
         print_csv(f"{time_now},{assignee},{task},{task_summary},{task_state},{issue},{issue_summary},{issue_state}")
 
-def check_for_problems(working_list):
+def check_for_people_problems(working_list):
     problems = []
 
     # Check that a person isn't working on more than one task
     working_on = {}
     for item in working_list:
-        (assignee, task, task_summary, task_state, issue, issue_summary, issue_state) = item
-        if assignee in working_on:
-            working_on[assignee].append(task)
+        (assignee, assignee_email, task, task_summary, task_state, issue, issue_summary, issue_state) = item
+        if assignee_email in working_on:
+            working_on[assignee_email].append(task)
         else:
-            working_on[assignee] = [task]
+            working_on[assignee_email] = [task]
     for key in working_on:
         if len(working_on[key]) > 1:
             problems.append(f"{key} is working on multiple tasks: {working_on[key]}")
+
+    # Check that everyone is working on a task
+    shortnames_to_email = jira.get_user_shortname_to_id()
+    email_to_shortnames = {v: k for k, v in shortnames_to_email.items()}
+    for assignee in email_to_shortnames.keys():
+        if assignee not in working_on:
+            if assignee != None and assignee != "":
+                problems.append(f"{assignee} is not working on a task")
+
+    return problems
+
+def check_for_sprint_problems(working_list, sprint, all_subtasks):
+    problems = []
+    # Check that every item in the sprint has a task if it is in progress
+    in_progress_states = ["In Progress", "Development", "Testing"]
+    wip_count = 0
+    for issue in sprint:
+        if issue.fields.status.name in in_progress_states:
+            wip_count += 1
+            subtasks = issue.fields.subtasks
+            found = False
+            for subtask in subtasks:
+                for asubtask in all_subtasks:
+                    if subtask.key == asubtask.key:
+                        found = True
+                        break
+            if not found:
+                problems.append(f"{issue.key} is in progress but has no subtask")
+
+    if wip_count > 4:
+        problems.append(f"Too many items in the sprint: {wip_count} when the WIP is 4")
+
     return problems
 
 def main():
     working_list = []
+    all_subtasks = []
     sprint = jira.get_sprint_issues()
     for issue in sprint:
         subtasks = issue.fields.subtasks
         for subtask in subtasks:
             subtask_issue = jira.get_issue_by_key(subtask.key)
+            all_subtasks.append(subtask_issue)
             assignee = jira.get_assignee(subtask_issue) if subtask_issue.fields.assignee is not None else "Noone"
+            assignee_email = subtask_issue.fields.assignee.emailAddress if subtask_issue.fields.assignee is not None else None 
             if subtask_being_worked_on(subtask_issue):
-                working_list.append((assignee, subtask.key, subtask.fields.summary, subtask_issue.fields.status.name, issue.key, issue.fields.summary, issue.fields.status.name))
+                working_list.append((assignee, assignee_email, subtask.key, subtask.fields.summary, subtask_issue.fields.status.name, issue.key, issue.fields.summary, issue.fields.status.name))
     print_working_list(working_list)
-    problems = check_for_problems(working_list)
+    problems = check_for_people_problems(working_list)
+    problems += check_for_sprint_problems(working_list, sprint, all_subtasks)
     if len(problems) > 0:
         print("Problems found:")
         for problem in problems:
