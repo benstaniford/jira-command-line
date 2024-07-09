@@ -1,0 +1,42 @@
+#!/usr/bin/python
+#scriptdoc: title="Curses based Jira team backlog/sprint", tags="bt,work,jira"
+import curses
+import json
+import argparse
+import os
+from MyJira import MyJira
+from MyGit import MyGit
+from MyGithub import MyGithub
+from MyJiraConfig import MyJiraConfig
+import webbrowser
+import time
+import tempfile
+
+# Load the config
+config_file = MyJiraConfig()
+if not config_file.exists():
+    print("Configuration file not found, generating template...")
+    print("Please edit the configuration file and generate required PAT tokens for jira and github")
+    config_file.generate_template()
+    print(f"Configuration file saved to: {config_file.get_location()}")
+    input("Press any key to exit...")
+    quit()
+config = config_file.load()
+
+# Global variables
+jira = MyJira(config.get('jira'))
+mygit = MyGit(config.get('git'))
+mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
+#parser = argparse.ArgumentParser()
+#args = parser.parse_args()
+
+
+def main():
+    # Print each item on the sprint
+    sprint = jira.get_sprint_issues()
+    for issue in sprint:
+        print(f"{issue.key} - {issue.fields.summary}")
+
+if __name__ == "__main__":
+    main()
+
