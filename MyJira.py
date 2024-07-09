@@ -298,6 +298,9 @@ class MyJira:
     def get_user_shortnames(self):
         return self.short_names_to_ids.keys()
 
+    def get_user_shortname_to_id(self):
+        return self.short_names_to_ids
+
     def browse_to(self, issue):
         webbrowser.open(issue.permalink())
 
