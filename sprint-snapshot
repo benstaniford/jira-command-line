@@ -28,6 +28,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--csv", help="Output in CSV format")
 args = parser.parse_args()
 csvFile = args.csv
+time_now = time.strftime("%d/%m/%Y %H:%M:%S")
 
 def subtask_being_worked_on(subtask):
     in_progress_states = ["In Progress", "Development", "Testing"]
@@ -41,7 +42,7 @@ def print_csv(line):
             f.write(line + '\n')
 
 def main():
-    print_csv("Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State")
+    print_csv("Time,Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State")
 
     working_list = []
 
@@ -55,7 +56,7 @@ def main():
             if subtask_being_worked_on(subtask_issue):
                 print (f"{assignee} is working on {subtask.key}, state:{subtask_issue.fields.status.name} - {subtask_issue.fields.summary}")
                 print (f"  {issue.key} - {issue.fields.summary}\n")
-                print_csv(f"{assignee},{subtask.key},{subtask.fields.summary},{subtask_issue.fields.status.name},{issue.key},{issue.fields.summary},{issue.fields.status.name}")
+                print_csv(f"{assignee},{time_now},{subtask.key},{subtask.fields.summary},{subtask_issue.fields.status.name},{issue.key},{issue.fields.summary},{issue.fields.status.name}")
 
 if __name__ == "__main__":
     main()
