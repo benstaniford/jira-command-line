@@ -94,11 +94,11 @@ def check_for_sprint_problems(working_list, sprint, all_subtasks):
             found = False
             for subtask in subtasks:
                 for asubtask in all_subtasks:
-                    if subtask.key == asubtask.key:
+                    if subtask.key == asubtask.key and subtask_being_worked_on(asubtask):
                         found = True
                         break
             if not found:
-                problems.append(f"{issue.key} is in progress but has no subtask")
+                problems.append(f"{issue.key} is in progress but has no subtask that's in progress")
 
     # Check that noone is assigned to a parent item
     for issue in sprint:
