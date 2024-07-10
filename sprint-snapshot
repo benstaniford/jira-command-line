@@ -48,14 +48,13 @@ def print_csv(line):
         with open(csvFile, 'a') as f:
             f.write(line + '\n')
 
-def print_working_list(working_list):
+def get_summary(working_list):
     summary = ""
     for item in working_list:
         (assignee, assignee_email, task, task_summary, task_state, issue, issue_summary, issue_state) = item
-        summary += f"{assignee} is working on {task}, state:{task_state} - {task_summary}\n"
-        summary += f"  {issue} - {issue_summary}\n"
+        summary += f"{assignee} is working on {task}, state:{task_state} - {task_summary}\r\n"
+        summary += f"  {issue} - {issue_summary}\r\n\r\n"
         print_csv(f"{time_now},{assignee},{task},{task_summary},{task_state},{issue},{issue_summary},{issue_state}")
-    print(summary)
     return summary
 
 def check_for_people_problems(working_list):
@@ -120,17 +119,21 @@ def main():
             assignee_email = subtask_issue.fields.assignee.emailAddress if subtask_issue.fields.assignee is not None else None 
             if subtask_being_worked_on(subtask_issue):
                 working_list.append((assignee, assignee_email, subtask.key, subtask.fields.summary, subtask_issue.fields.status.name, issue.key, issue.fields.summary, issue.fields.status.name))
-    summary = print_working_list(working_list)
     problems = check_for_people_problems(working_list)
     problems += check_for_sprint_problems(working_list, sprint, all_subtasks)
 
+    summary = "Sprint Summary\r\n\r\n"
+    summary += get_summary(working_list)
+
     if len(problems) > 0:
-        problem_msg = f"Problems found: {len(problems)}\r\n"
+        problem_msg = f"Problems found: {len(problems)}\r\n\r\n"
         for problem in problems:
             problem_msg += f"  {problem}\r\n"
         print(problem_msg)
         if args.email:
-            email.send(args.email, f"Sparklemuffin: {len(problems)} sprint problems found", summary + "\r\n" + problem_msg)
+            email.send(args.email, f"Sparklemuffin: {len(problems)} sprint problems found", problem_msg + "\r\n" + summary)
+
+    print (summary)
 
 if __name__ == "__main__":
     main()
