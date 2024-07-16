@@ -99,12 +99,10 @@ def check_for_sprint_problems(working_list, sprint, all_subtasks):
                         break
             if not found:
                 problems.append(f"{issue.key} is in progress but has no subtask that's in progress")
-
-    # Check that noone is assigned to a parent item
-    for issue in sprint:
-        if issue.fields.assignee is not None:
-            assignee = jira.get_assignee(issue)
-            problems.append(f"{assignee} is assigned to parent item {issue.key}")
+            if issue.fields.assignee is not None:
+                assignee = jira.get_assignee(issue)
+                if (len(subtasks) != 0):
+                    problems.append(f"{assignee} is assigned to parent item {issue.key} where there are subtasks assigned")
 
     if wip_count > 4:
         problems.append(f"Too many items in the sprint: {wip_count} when the WIP is 4")
