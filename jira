@@ -4,12 +4,14 @@ import curses
 import json
 import argparse
 import os
+import threading
 from MyJira import MyJira
 from MyGit import MyGit
 from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
 from CursesTableView import CursesTableView
 from JiraXrayIssue import JiraXrayIssue
+from MyPlotter import MyPlotter
 import webbrowser
 import time
 import tempfile
@@ -173,11 +175,11 @@ def main(stdscr):
     fkey_string = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
 
     # Keyboard input loop
-    key_shortcuts = ('a', 'b', 'B', 'c', 'd', 'e', 'E', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'w', 'x', 'z', '?')
+    key_shortcuts = ('a', 'b', 'B', 'c', 'd', 'e', 'E', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'V', 'w', 'x', 'z', '?')
     while True:
         prompt = f"Commands F1:help, {fkey_string}\n"
         prompt += """  a:assign, b:browse, B:boards, c:create, d:delete, e:edit, E:team, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points
-  q:quit, s:sprint, S:support_folder, t:status, T:tasks, v:view, w:winshared, x:xray, z:escalations, ?:glob_search, |:filter, /:search\n"""
+  q:quit, s:sprint, S:support_folder, t:status, T:tasks, v:view, V:visualise, w:winshared, x:xray, z:escalations, ?:glob_search, |:filter, /:search\n"""
         prompt += "Type a number to see task details"
         selection = ""
         try:
@@ -222,6 +224,7 @@ def main(stdscr):
             ui.add_row(["", "s", "Show sprint issues"])
             ui.add_row(["", "t", "Change issue status"])
             ui.add_row(["", "v", "View issue in editor"])
+            ui.add_row(["", "V", "Show visualisations"])
             ui.add_row(["", "T", "Toggle subtasks"])
             ui.add_row(["", "w", "Show windows shared issues"])
             ui.add_row(["", "x", "Create x-ray template or create tests in x-ray if template filled in"])
@@ -531,6 +534,21 @@ def main(stdscr):
                     view_description(issue)
             except Exception as e:
                 ui.error("View issue", e)
+
+        # Sprint Visualisations
+        elif selection == "V":
+            try:
+                visualisationOptions = { 'p': 'By person', 'i': 'By item' }
+                selection = ui.prompt_with_choice_dictionary("Visualise sprint", visualisationOptions)
+                plotter = MyPlotter()
+                if selection == 'By person':
+                    thread = threading.Thread(target=plotter.sprint_by_person)
+                    thread.start()
+                elif selection == 'By item':
+                    thread = threading.Thread(target=plotter.sprint_by_item)
+                    thread.start()
+            except Exception as e:
+                ui.error("Visualise sprint", e)
 
         # Create issue
         elif selection == "c":
