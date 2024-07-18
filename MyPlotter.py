@@ -7,13 +7,15 @@ from MyJiraLog import MyJiraLog
 
 class MyPlotter:
     def __init__(self, data_file=None):
-        self.data_file = MyJiraLog().get_log() if data_file is None else data_file
+        self.log = MyJiraLog()
+        self.data_file = self.log.get_log() if data_file is None else data_file
         self.created_data = data_file is None
         self.df = pd.read_csv(self.data_file)
         self.df['Time'] = pd.to_datetime(self.df['Time'], format='%d/%m/%Y %H:%M:%S')
 
     def __del__(self):
         if self.created_data:
+            self.df = None
             os.unlink(self.data_file)
 
     def sprint_by_person(self):
