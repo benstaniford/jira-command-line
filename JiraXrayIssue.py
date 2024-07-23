@@ -210,7 +210,7 @@ Then <Step 3>
                         elif line_lwr_j.startswith('steps:'):
                             for k in range(j + 1, len(lines)):
                                 line_lwr_k = lines[k].lower().strip()
-                                if line_lwr_k.startswith(('given', 'and', 'when', 'then', 'but')):
+                                if line_lwr_k.startswith(('given', 'and', 'when', 'then', 'but', '|')):
                                     steps.append(lines[k].strip())
                                 else:
                                     break
