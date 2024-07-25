@@ -3,6 +3,7 @@
 import re
 import sys
 import random
+import os
 
 def generate_jira_tag():
     return f"EPM-{random.randint(1000, 9999)}"
@@ -15,8 +16,11 @@ def parse_and_edit_feature_file(file_path):
     file_lines = []
 
     with open(file_path, 'r', encoding='utf-8') as file:
+        all_lines = file.readlines()
         current_tags = []
-        for line in file:
+        current_line = -1 
+        for line in all_lines:
+            current_line += 1
             file_lines.append(line)
             # Check for Jira tags
             tag_match = jira_tag_regex.findall(line)
@@ -31,7 +35,22 @@ def parse_and_edit_feature_file(file_path):
                     if not current_tags:
                         new_tag = generate_jira_tag()
                         scenarios.append((current_scenario, [new_tag]))
+                        # Insert the new tag line before the current scenario line
                         file_lines[-1] = f"@{new_tag}\n" + file_lines[-1]
+                        # Write the scenario with the new tag to a file
+                        print (f"Writing scenario to {new_tag}.txt")
+
+                        # Keep reading lines into current_scenario_lines until we reach a blank line
+                        current_scenario_lines = []
+                        for i in range(current_line, len(all_lines)):
+                            line = all_lines[i]
+                            current_scenario_lines.append(line)
+                            if line.strip() == "":
+                                break
+                        print (current_scenario_lines)
+
+                        with open(f"{new_tag}.txt", 'w', encoding='utf-8') as scenario_file:
+                            scenario_file.writelines(current_scenario_lines)
                     else:
                         scenarios.append((current_scenario, current_tags))
                 
