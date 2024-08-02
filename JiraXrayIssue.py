@@ -197,13 +197,15 @@ Then <Step 3>
                     test_plan = line.split(':')[1].strip()
                 elif lwrline.startswith('fix versions:'):
                     fix_versions = line.split(':')[1].strip().split(',')
-                elif lwrline.startswith('name:'):
+                elif lwrline.startswith('@'):
+                    pass
+                elif lwrline.startswith('name:') or lwrline.startswith('scenario:'):
                     name = line.split(':')[1].strip()
                     description = ''
                     steps = []
                     for j in range(i + 1, len(lines)):
                         line_lwr_j = lines[j].lower().strip()
-                        if line_lwr_j.startswith('name:'):
+                        if line_lwr_j.startswith('name:') or line_lwr_j.startswith('scenario:'):
                             break
                         elif line_lwr_j.startswith('description:'):
                             description = lines[j].split(':')[1].strip()
@@ -215,6 +217,19 @@ Then <Step 3>
                                 else:
                                     break
                             break
+                        elif line_lwr_j.startswith('given'):
+                            # Automation style
+                            for k in range(j, len(lines)):
+                                line_lwr_k = lines[k].lower().strip()
+                                if line_lwr_k.startswith(('given', 'and', 'when', 'then', 'but', '|', 'example')):
+                                    steps.append(lines[k].strip())
+                                else:
+                                    break
+                            break
+
+                    if description == '':
+                        description = name
+
                     all_definitions.append(MyTestDefinition(name, description, steps))
             i += 1
 
