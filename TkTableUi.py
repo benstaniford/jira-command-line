@@ -151,7 +151,11 @@ class TkTableUi:
                     on_right_click_callback(self.get_selected_item())
                 self.rightclick_menu.post(event.x_root, event.y_root)
 
-        self.tree.bind("<Button-3>", popup)
+        # If this is mac, use button-2
+        if self.root.tk.call('tk', 'windowingsystem') == 'aqua':
+            self.tree.bind("<Button-2>", popup)
+        else:
+            self.tree.bind("<Button-3>", popup)
 
     def set_rightclick_item_enabled_by_name(self, item_name, enabled):
         for index in range(len(self.rightclick_menu._tclCommands)):

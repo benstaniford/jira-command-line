@@ -52,7 +52,7 @@ class MyJira:
         self.set_team(config["default_team"])
 
         self.jira = JIRA(self.server, basic_auth=(self.username, self.password))
-        self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug", "Customer Defect")' 
+        self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug")' 
         self.ignored_issue_types = {"Sub-task", "Sub-task Bug", "Test", "Test Set", "Test Plan", "Test Execution", "Precondition", "Sub Test Execution"}
 
         # We use the reference issue as a template for creating new issues/tasks
