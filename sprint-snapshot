@@ -57,7 +57,8 @@ def get_summary(working_list):
         (assignee, assignee_email, task, task_summary, task_state, issue, issue_summary, issue_state) = item
         summary += f"{assignee} is working on {task}, state:{task_state} - {task_summary}\r\n"
         summary += f"  {issue} - {issue_summary}\r\n\r\n"
-        print_csv(time_now, assignee, task, task_summary, task_state, issue, issue_summary, issue_state)
+        if assignee_email is not "Noone":
+            print_csv(time_now, assignee, task, task_summary, task_state, issue, issue_summary, issue_state)
     return summary
 
 def check_for_people_problems(working_list):
