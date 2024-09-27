@@ -6,9 +6,9 @@ import os
 from MyJiraLog import MyJiraLog
 
 class MyPlotter:
-    def __init__(self, data_file=None):
+    def __init__(self, data_file=None, time_period=14):
         self.log = MyJiraLog()
-        self.data_file = self.log.get_log() if data_file is None else data_file
+        self.data_file = self.log.get_log(time_period) if data_file is None else data_file
         self.created_data = data_file is None
         self.df = pd.read_csv(self.data_file)
         self.df['Time'] = pd.to_datetime(self.df['Time'], format='%d/%m/%Y %H:%M:%S')

@@ -18,7 +18,7 @@ class MyJiraLog:
         except:
             return None
 
-    def get_log(self, days_old = 14):
+    def get_log(self, time_period = 14):
         self.tempfile = tempfile.NamedTemporaryFile(delete=False)
         log_path = f'{self.user}@{self.server}:~/sprint-snapshot.log'
         process = subprocess.Popen(['scp', log_path, self.tempfile.name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -28,9 +28,9 @@ class MyJiraLog:
             os.unlink(self.tempfile.name)
             raise Exception('Log file is empty, failed to retrieve log file from server.')
 
-        # Calculate today - days_old
+        # Calculate today - time_period
         today = datetime.datetime.now()
-        n_days_ago = datetime.timedelta(days=days_old)
+        n_days_ago = datetime.timedelta(days=time_period)
         too_old = today - n_days_ago
 
         # Filter out lines older than n_days_ago
