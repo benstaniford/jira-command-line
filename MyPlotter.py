@@ -22,6 +22,7 @@ class MyPlotter:
         self.df = self.df.sort_values(by=['Assignee', 'Time'])
         fig, ax = plt.subplots(figsize=(15, 10))
         assignees = self.df['Assignee'].unique()
+        assignees = [assignee for assignee in assignees if assignee != 'Noone']
         issues = self.df[['Issue', 'Issue Summary']].drop_duplicates()
         colors = plt.cm.rainbow(np.linspace(0, 1, len(issues)))
         added_to_legend = set()
@@ -78,6 +79,8 @@ class MyPlotter:
             for _, assignee in assignees.iterrows():
                 assignee_data = issue_data[issue_data['Assignee'] == assignee['Assignee']]
                 assignee_name = assignee['Assignee']
+                if (assignee_name == 'Noone'):
+                    continue
                 if not assignee_data.empty:
                     if assignee_name not in added_to_legend:
                         ax.scatter(assignee_data['Time'], [i] * len(assignee_data), color=colors[color_index], label=assignee_name)
