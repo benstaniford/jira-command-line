@@ -121,21 +121,26 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def main():
+def init():
     config = load_configuration()
-
     jira = MyJira(config.get('jira'))
     mygit = MyGit(config.get('git'))
     mygithub = MyGithub(config.get('github')) if config.get('github').get('token') else None
-
     args = parse_args()
+    return jira, mygit, mygithub, args
+
+def main():
+    jira, mygit, mygithub, args = init()
+
+    # Gather all the items to analyse
     time_now = time.strftime("%d/%m/%Y %H:%M:%S")
-    
     working_list, all_subtasks, sprint = gather_working_list(jira)
 
+    # Check for problems
     problems = check_for_people_problems(jira, working_list)
     problems += check_for_sprint_problems(jira, working_list, sprint, all_subtasks)
 
+    # Print the summary, and email if problems
     summary = "Sprint Summary\r\n\r\n"
     summary += get_summary(working_list, time_now, args.csv)
 
