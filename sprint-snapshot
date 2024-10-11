@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-#scriptdoc: title="Gather stats about the last two weeks", tags="bt,work,jira"
+# scriptdoc: title="Gather stats about the last two weeks", tags="bt,work,jira"
 import json
 import argparse
 import sys
@@ -12,85 +12,86 @@ from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
 from MyEmail import MyEmail
 
-# Load the config
-config_file = MyJiraConfig()
-if not config_file.exists():
-    print("Configuration file not found, generating template...")
-    print("Please edit the configuration file and generate required PAT tokens for jira and github")
-    config_file.generate_template()
-    print(f"Configuration file saved to: {config_file.get_location()}")
-    input("Press any key to exit...")
-    quit()
-config = config_file.load()
+def load_configuration():
+    config_file = MyJiraConfig()
+    if not config_file.exists():
+        print("Configuration file not found, generating template...")
+        config_file.generate_template()
+        print(f"Configuration file saved to: {config_file.get_location()}")
+        input("Press any key to exit...")
+        quit()
+    return config_file.load()
 
-# Global variables
-jira = MyJira(config.get('jira'))
-mygit = MyGit(config.get('git'))
-mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
-parser = argparse.ArgumentParser()
-parser.add_argument("-c", "--csv", help="Output in CSV format")
-parser.add_argument("-e", "--email", help="Email the report to this address")
-args = parser.parse_args()
-csvFile = args.csv
-time_now = time.strftime("%d/%m/%Y %H:%M:%S")
+def append_to_csv(file, header, data):
+    if not os.path.isfile(file):
+        with open(file, 'a') as f:
+            f.write(header)
+    with open(file, 'a') as f:
+        f.write(data + '\n')
 
 def subtask_being_worked_on(subtask):
     in_progress_states = ["In Progress", "Development", "Testing"]
-    if subtask.fields.status.name in in_progress_states:
-        return True
-    return False
+    return subtask.fields.status.name in in_progress_states
 
-def print_csv(time_now, assignee, task, task_summary, task_state, issue, issue_summary, issue_state):
-    if csvFile:
-        if not os.path.isfile(csvFile):
-            with open(csvFile, 'a') as f:
-                f.write("Time,Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State\n")
-        with open(csvFile, 'a') as f:
-            task_summary = task_summary.replace(',', '.')
-            issue_summary = issue_summary.replace(',', '.')
-            line = f"{time_now},{assignee},{task},{task_summary},{task_state},{issue},{issue_summary},{issue_state}"
-            f.write(line + '\n')
+def print_csv(csv_file, time_now, assignee, task, task_summary, task_state, issue, issue_summary, issue_state):
+    if csv_file:
+        header = "Time,Assignee,Task,Task Summary,Task State,Issue,Issue Summary,Issue State\n"
+        task_summary = task_summary.replace(',', '.')
+        issue_summary = issue_summary.replace(',', '.')
+        line = f"{time_now},{assignee},{task},{task_summary},{task_state},{issue},{issue_summary},{issue_state}"
+        append_to_csv(csv_file, header, line)
 
-def get_summary(working_list):
+def get_summary(working_list, time_now, csv_file=None):
     summary = ""
     for item in working_list:
-        (assignee, assignee_email, task, task_summary, task_state, issue, issue_summary, issue_state) = item
+        assignee, assignee_email, task, task_summary, task_state, issue, issue_summary, issue_state = item
         summary += f"{assignee} is working on {task}, state:{task_state} - {task_summary}\r\n"
         summary += f"  {issue} - {issue_summary}\r\n\r\n"
-        if assignee_email is not "Noone":
-            print_csv(time_now, assignee, task, task_summary, task_state, issue, issue_summary, issue_state)
+        if assignee_email != "Noone" and csv_file:
+            print_csv(csv_file, time_now, assignee, task, task_summary, task_state, issue, issue_summary, issue_state)
     return summary
 
-def check_for_people_problems(working_list):
+def gather_working_list(jira):
+    working_list = []
+    all_subtasks = []
+    sprint = jira.get_sprint_issues()
+    for issue in sprint:
+        subtasks = issue.fields.subtasks
+        for subtask in subtasks:
+            subtask_issue = jira.get_issue_by_key(subtask.key)
+            all_subtasks.append(subtask_issue)
+            assignee = jira.get_assignee(subtask_issue) if subtask_issue.fields.assignee else "Noone"
+            assignee_email = subtask_issue.fields.assignee.emailAddress if subtask_issue.fields.assignee else None
+            if subtask_being_worked_on(subtask_issue):
+                working_list.append((assignee, assignee_email, subtask.key, subtask.fields.summary, subtask_issue.fields.status.name, issue.key, issue.fields.summary, issue.fields.status.name))
+    return working_list, all_subtasks, sprint
+
+def check_for_people_problems(jira, working_list):
     problems = []
-
-    # Check that a person isn't working on more than one task
     working_on = {}
-    for item in working_list:
-        (assignee, assignee_email, task, task_summary, task_state, issue, issue_summary, issue_state) = item
-        if assignee_email in working_on:
-            working_on[assignee_email].append(task)
-        else:
-            working_on[assignee_email] = [task]
-    for key in working_on:
-        if len(working_on[key]) > 1:
-            problems.append(f"{key} is working on multiple tasks: {working_on[key]}")
 
-    # Check that everyone is working on a task
+    for item in working_list:
+        assignee, assignee_email, task, *_ = item
+        working_on.setdefault(assignee_email, []).append(task)
+
+    for key, tasks in working_on.items():
+        if len(tasks) > 1:
+            problems.append(f"{key} is working on multiple tasks: {tasks}")
+
     shortnames_to_email = jira.get_user_shortname_to_id()
     email_to_shortnames = {v: k for k, v in shortnames_to_email.items()}
+    
     for assignee in email_to_shortnames.keys():
-        if assignee not in working_on:
-            if assignee != None and assignee != "":
-                problems.append(f"{assignee} is not working on a task")
-
+        if assignee not in working_on and assignee:
+            problems.append(f"{assignee} is not working on a task")
+    
     return problems
 
-def check_for_sprint_problems(working_list, sprint, all_subtasks):
+def check_for_sprint_problems(jira, working_list, sprint, all_subtasks):
     problems = []
-    # Check that every item in the sprint has a task if it is in progress
     in_progress_states = ["In Progress", "Development", "Testing"]
     wip_count = 0
+
     for issue in sprint:
         if issue.fields.status.name in in_progress_states:
             wip_count += 1
@@ -103,45 +104,51 @@ def check_for_sprint_problems(working_list, sprint, all_subtasks):
                         break
             if not found:
                 problems.append(f"{issue.key} is in progress but has no subtask that's in progress")
-            if issue.fields.assignee is not None:
+            if issue.fields.assignee:
                 assignee = jira.get_assignee(issue)
-                if (len(subtasks) != 0):
+                if subtasks:
                     problems.append(f"{assignee} is assigned to parent item {issue.key} where there are subtasks assigned")
 
     if wip_count > 4:
         problems.append(f"Too many items in the sprint: {wip_count} when the WIP is 4")
-
+    
     return problems
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--csv", help="Output in CSV format")
+    parser.add_argument("-e", "--email", help="Email the report to this address")
+    args = parser.parse_args()
+    return args
+
 def main():
-    email = MyEmail()
-    working_list = []
-    all_subtasks = []
-    sprint = jira.get_sprint_issues()
-    for issue in sprint:
-        subtasks = issue.fields.subtasks
-        for subtask in subtasks:
-            subtask_issue = jira.get_issue_by_key(subtask.key)
-            all_subtasks.append(subtask_issue)
-            assignee = jira.get_assignee(subtask_issue) if subtask_issue.fields.assignee is not None else "Noone"
-            assignee_email = subtask_issue.fields.assignee.emailAddress if subtask_issue.fields.assignee is not None else None 
-            if subtask_being_worked_on(subtask_issue):
-                working_list.append((assignee, assignee_email, subtask.key, subtask.fields.summary, subtask_issue.fields.status.name, issue.key, issue.fields.summary, issue.fields.status.name))
-    problems = check_for_people_problems(working_list)
-    problems += check_for_sprint_problems(working_list, sprint, all_subtasks)
+    config = load_configuration()
+
+    jira = MyJira(config.get('jira'))
+    mygit = MyGit(config.get('git'))
+    mygithub = MyGithub(config.get('github')) if config.get('github').get('token') else None
+
+    args = parse_args()
+    time_now = time.strftime("%d/%m/%Y %H:%M:%S")
+    
+    working_list, all_subtasks, sprint = gather_working_list(jira)
+
+    problems = check_for_people_problems(jira, working_list)
+    problems += check_for_sprint_problems(jira, working_list, sprint, all_subtasks)
 
     summary = "Sprint Summary\r\n\r\n"
-    summary += get_summary(working_list)
+    summary += get_summary(working_list, time_now, args.csv)
 
-    if len(problems) > 0:
+    if problems:
         problem_msg = f"Problems found: {len(problems)}\r\n\r\n"
-        for problem in problems:
-            problem_msg += f"  {problem}\r\n"
+        problem_msg += "\r\n".join(f"  {problem}" for problem in problems)
+        problem_msg += "\r\n"
         print(problem_msg)
         if args.email:
+            email = MyEmail()
             email.send(args.email, f"Sparklemuffin: {len(problems)} sprint problems found", problem_msg + "\r\n" + summary)
 
-    print (summary)
+    print(summary)
 
 if __name__ == "__main__":
     main()
