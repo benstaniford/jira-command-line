@@ -7,6 +7,7 @@ import sys
 import time
 import os
 from MyJira import MyJira
+from MyJira import MyJiraIssue
 from MyGit import MyGit
 from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
@@ -114,6 +115,18 @@ def check_for_sprint_problems(jira, working_list, sprint, all_subtasks):
     
     return problems
 
+def remedy_issue_impact_areas(jira, issue):
+    needs_impact_areas_progress_states = ["Ready for Test", "Testing", "In Review", "Ready for Merge"]
+    if issue.fields.status.name in needs_impact_areas_progress_states:
+        wrapped_issue = MyJiraIssue(issue)
+        if not wrapped_issue.impact_areas or wrapped_issue.impact_areas == "":
+            jira.create_sub_task(issue, "Add impact areas", "Add impact areas to the issue")
+            print(f"Need to add impact areas to {issue.key}")
+
+def remedy_issue_problems(jira, sprint):
+    for issue in sprint:
+        remedy_issue_impact_areas(jira, issue)
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--csv", help="Output in CSV format")
@@ -139,6 +152,9 @@ def main():
     # Check for problems
     problems = check_for_people_problems(jira, working_list)
     problems += check_for_sprint_problems(jira, working_list, sprint, all_subtasks)
+
+    # Remedy any issues
+    remedy_issue_problems(jira, sprint)
 
     # Print the summary, and email if problems
     summary = "Sprint Summary\r\n\r\n"

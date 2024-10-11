@@ -25,6 +25,7 @@ class MyJiraIssue:
                 "test_results": "customfield_10097",
                 "team": "customfield_10001",
                 "test_steps": "customfield_10039",
+                "impact_areas": "customfield_10199",
                 "priority_score": "customfield_10718",
             }
 
