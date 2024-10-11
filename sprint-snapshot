@@ -88,14 +88,17 @@ def check_for_people_problems(jira, working_list):
     
     return problems
 
-def get_subtasks_in_progress(issue, all_subtasks):
+lambda_being_worked_on = lambda x: subtask_being_worked_on(x)
+lambda_all_subtasks = lambda x: True
+
+def get_subtasks(issue, all_subtasks, state_lambda = lambda_all_subtasks):
     subtasks = issue.fields.subtasks
-    in_progress_subtasks = []
+    selected_subtasks = []
     for subtask in subtasks:
         for asubtask in all_subtasks:
-            if subtask.key == asubtask.key and subtask_being_worked_on(asubtask):
-                in_progress_subtasks.append(asubtask)
-    return in_progress_subtasks
+            if subtask.key == asubtask.key and state_lambda(asubtask):
+                selected_subtasks.append(asubtask)
+    return selected_subtasks
 
 def check_for_sprint_problems(jira, working_list, sprint, all_subtasks):
     problems = []
@@ -105,7 +108,7 @@ def check_for_sprint_problems(jira, working_list, sprint, all_subtasks):
     for issue in sprint:
         if issue.fields.status.name in in_progress_states:
             wip_count += 1
-            in_progress_subtasks = get_subtasks_in_progress(issue, all_subtasks)
+            in_progress_subtasks = get_subtasks(issue, all_subtasks, lambda_being_worked_on)
             if not in_progress_subtasks:
                 problems.append(f"{issue.key} is in progress but has no subtask that's in progress")
             if issue.fields.assignee:
@@ -118,17 +121,31 @@ def check_for_sprint_problems(jira, working_list, sprint, all_subtasks):
     
     return problems
 
-def remedy_issue_impact_areas(jira, issue):
+def remedy_issue_impact_areas(jira, issue, all_subtasks):
+    subtasks = get_subtasks(issue, all_subtasks)
+    for subtask in subtasks:
+        if subtask.fields.summary == "Add impact areas":
+            return  # Already being worked on
+
     needs_impact_areas_progress_states = ["Ready for Test", "Testing", "In Review", "Ready for Merge"]
-    if issue.fields.status.name in needs_impact_areas_progress_states:
+    lambda_could_need_impact_areas = lambda x: x.fields.status.name in needs_impact_areas_progress_states
+
+    impact_subtasks = get_subtasks(issue, all_subtasks, lambda_could_need_impact_areas)
+    if issue.fields.status.name in needs_impact_areas_progress_states or impact_subtasks:
         wrapped_issue = MyJiraIssue(issue)
         if not wrapped_issue.impact_areas or wrapped_issue.impact_areas == "":
-            jira.create_sub_task(issue, "Add impact areas", "Add impact areas to the issue")
+            subtask = jira.create_sub_task(issue, "Add impact areas", "Add impact areas to the issue")
             print(f"Need to add impact areas to {issue.key}")
+            if impact_subtasks:
+                dev_subtask = impact_subtasks[0]
+                assignee = str(dev_subtask.fields.assignee)
+                if assignee:
+                    jira.jira.assign_issue(subtask, assignee)
+            return
 
-def remedy_issue_problems(jira, sprint):
+def remedy_issue_problems(jira, sprint, all_subtasks):
     for issue in sprint:
-        remedy_issue_impact_areas(jira, issue)
+        remedy_issue_impact_areas(jira, issue, all_subtasks)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -157,7 +174,7 @@ def main():
     problems += check_for_sprint_problems(jira, working_list, sprint, all_subtasks)
 
     # Remedy any issues
-    remedy_issue_problems(jira, sprint)
+    remedy_issue_problems(jira, sprint, all_subtasks)
 
     # Print the summary, and email if problems
     summary = "Sprint Summary\r\n\r\n"
