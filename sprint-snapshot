@@ -88,6 +88,15 @@ def check_for_people_problems(jira, working_list):
     
     return problems
 
+def get_subtasks_in_progress(issue, all_subtasks):
+    subtasks = issue.fields.subtasks
+    in_progress_subtasks = []
+    for subtask in subtasks:
+        for asubtask in all_subtasks:
+            if subtask.key == asubtask.key and subtask_being_worked_on(asubtask):
+                in_progress_subtasks.append(asubtask)
+    return in_progress_subtasks
+
 def check_for_sprint_problems(jira, working_list, sprint, all_subtasks):
     problems = []
     in_progress_states = ["In Progress", "Development", "Testing"]
@@ -96,18 +105,12 @@ def check_for_sprint_problems(jira, working_list, sprint, all_subtasks):
     for issue in sprint:
         if issue.fields.status.name in in_progress_states:
             wip_count += 1
-            subtasks = issue.fields.subtasks
-            found = False
-            for subtask in subtasks:
-                for asubtask in all_subtasks:
-                    if subtask.key == asubtask.key and subtask_being_worked_on(asubtask):
-                        found = True
-                        break
-            if not found:
+            in_progress_subtasks = get_subtasks_in_progress(issue, all_subtasks)
+            if not in_progress_subtasks:
                 problems.append(f"{issue.key} is in progress but has no subtask that's in progress")
             if issue.fields.assignee:
                 assignee = jira.get_assignee(issue)
-                if subtasks:
+                if issue.fields.subtasks:
                     problems.append(f"{assignee} is assigned to parent item {issue.key} where there are subtasks assigned")
 
     if wip_count > 4:
