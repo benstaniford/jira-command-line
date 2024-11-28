@@ -125,8 +125,7 @@ class MyJira:
 
     def search_issues(self, search_text):
         issues = self.jira.search_issues(search_text, startAt=0, maxResults=400)
-        if (len(issues) > 0):
-            self.reference_issue = issues[0]
+        self.set_reference_issue(issues)
         return issues
 
     def get_testplan_by_name(self, name):
@@ -150,6 +149,13 @@ class MyJira:
     def add_comment(self, issue, comment):
         self.jira.add_comment(issue, comment)
 
+    def set_reference_issue(self, issues):
+        if (len(issues) > 0):
+            for issue in issues:
+                potential_ref_issue = MyJiraIssue(issue)
+                if potential_ref_issue.sprint == None or len(potential_ref_issue.sprint) == 1:
+                    self.reference_issue = issue
+
     def search_for_issue(self, search_text):
         issues = [] 
 
@@ -160,15 +166,13 @@ class MyJira:
         else:
             issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
-        if (len(issues) > 0):
-            self.reference_issue = issues[0]
+        self.set_reference_issue(issues)
 
         return issues
 
     def get_escalation_issues(self):
         issues = self.jira.search_issues(f'project = HELP AND "Product[Dropdown]" in ("{self.product_name}") AND statuscategory not in (Done) ORDER BY Rank ASC')
-        if (len(issues) > 0):
-            self.reference_issue = issues[0]
+        self.set_reference_issue(issues)
         return issues
 
     def create_linked_issue_on_sprint(self, issue):
@@ -245,6 +249,10 @@ class MyJira:
     def create_sprint_issue(self, title, description, issue_type):
         issue_dict = self.__build_issue(None, title, description, issue_type)
         ref_issue = MyJiraIssue(self.reference_issue)
+        
+        if len(ref_issue.sprint) > 1:
+            raise Exception("Reference issue has more than one sprint, please select a single sprint issue")
+
         issue_dict[ref_issue.sprint_fieldname] = int(ref_issue.sprint[-1].id)     # Sprint
         new_issue = self.jira.create_issue(fields=issue_dict)
         return new_issue
