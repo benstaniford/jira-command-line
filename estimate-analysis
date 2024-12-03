@@ -27,17 +27,20 @@ def check_sprint(jira):
     sprint = jira.get_sprint_issues(changelog=True)
 
     for issue in sprint:
-        print(issue)
+        points = MyJiraIssue(issue).story_points
+        if (points == None):
+            continue
+        print(f"{issue} - {points}")
         for history in issue.changelog.histories:
             for item in history.items:
-                # Continue if it's not a status change
                 if item.field != 'status':
                     continue
-                print(f"Field name: {item.field}") # field to which the change happened
-                print(f"Changed to: {item.toString}") # new value, item.to might be better in some cases depending on your needs.
-                print(f"Changed from: {item.fromString}") # old value, item.from might be better in some cases depending on your needs.
+
+                print(f"  Field name: {item.field}") # field to which the change happened
+                print(f"  Changed to: {item.toString}") # new value, item.to might be better in some cases depending on your needs.
+                print(f"  Changed from: {item.fromString}") # old value, item.from might be better in some cases depending on your needs.
                 action_time = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
-                print(f"Date: {action_time}")
+                print(f"  Date: {action_time}")
                 print()
         #transitions = jira.transitions(issue)
         #for transition in transitions:
