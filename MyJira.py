@@ -97,6 +97,9 @@ class MyJira:
         age = now - created
         return age.days
 
+    def transitions(self, issue):
+        return self.jira.transitions(issue)
+
     # Returns a dictionary of optional field names lambda functions to get the value of each field from an issue
     def get_optional_fields(self):
         optional_fields = {
@@ -123,8 +126,8 @@ class MyJira:
             summary = summary[0:30] + "..."
         return summary
 
-    def search_issues(self, search_text):
-        issues = self.jira.search_issues(search_text, startAt=0, maxResults=400)
+    def search_issues(self, search_text, changelog=False):
+        issues = self.jira.search_issues(search_text, startAt=0, maxResults=400, expand="changelog" if changelog else None)
         self.set_reference_issue(issues)
         return issues
 
@@ -137,8 +140,8 @@ class MyJira:
     def get_windows_backlog_issues(self):
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]" is EMPTY AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
-    def get_sprint_issues(self):
-        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+    def get_sprint_issues(self, changelog=False):
+        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
     def get_issue_by_key(self, key):
         issues = self.search_issues(f'project = {self.project_name} AND key = {key}')
