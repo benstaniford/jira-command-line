@@ -23,43 +23,56 @@ def load_configuration():
         quit()
     return config_file.load()
 
-def check_sprint(jira):
-    #sprint = jira.get_sprint_issues(changelog=True)
-    sprint = jira.get_sprint_by_name("Viscacha - Sprint 105", changelog=True)
+def print_to_csv(csv_file, data):
+    if not csv_file:
+        print(data)
+        return
+    with open(csv_file, 'a') as f:
+        f.write(f"{data}\n")
 
-    for issue in sprint:
-        points = MyJiraIssue(issue).story_points
-        if (points == None):
-            continue
-        histories = issue.changelog.histories
-        histories.reverse()
+def check_sprint(jira, sprints, csv_file=None):
+    print_to_csv(csv_file, "Issue,Sprint,Estimate,Duration")
 
-        startTime = None
-        endTime = None
-        for history in issue.changelog.histories:
-            for item in history.items:
-                if item.field != 'status':
-                    continue
+    # Issues can run accross sprints so must dedupe
+    issue_dedupe_dictionary = {}
 
-                stateTo = item.toString
-                stateFrom = item.fromString
+    for (sprint_name, sprint) in sprints:
+        for issue in sprint:
+            if issue.key in issue_dedupe_dictionary:
+                continue
+            issue_dedupe_dictionary[issue.key] = True
+            points = MyJiraIssue(issue).story_points
+            if (points == None):
+                continue
+            histories = issue.changelog.histories
+            histories.reverse()
 
-                if stateFrom in ['New', 'Ready'] and stateTo in ['In Progress', 'Development', 'Code Review', 'Testing']:
-                    startTime = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
-                elif stateTo in ['Done']:
-                    endTime = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
-                    break
+            startTime = None
+            endTime = None
+            for history in issue.changelog.histories:
+                for item in history.items:
+                    if item.field != 'status':
+                        continue
 
-        if startTime == None or endTime == None:
-            continue
+                    stateTo = item.toString
+                    stateFrom = item.fromString
 
-        duration = round((endTime - startTime).total_seconds() / 86400, 2)
-        print(f"{issue} - Estimate:{points} - Duration:{duration}")
+                    if stateFrom in ['New', 'Ready'] and stateTo in ['In Progress', 'Development', 'Code Review', 'Testing']:
+                        startTime = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
+                    elif stateTo in ['Done']:
+                        endTime = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
+                        break
+
+            if startTime == None or endTime == None:
+                continue
+
+            duration = round((endTime - startTime).total_seconds() / 86400, 2)
+            print_to_csv(csv_file, f"{issue},{sprint_name},{points},{duration}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--csv", help="Output in CSV format")
-    parser.add_argument("-e", "--email", help="Email the report to this address")
+    parser.add_argument("-c", "--csv", help="Output file name")
+    parser.add_argument("-p", "--previous", help="Output previous N sprint")
     args = parser.parse_args()
     return args
 
@@ -73,7 +86,20 @@ def init():
 
 def main():
     jira, mygit, mygithub, args = init()
-    check_sprint(jira)
+
+    sprints = []
+    if args.previous:
+        previous_sprints = jira.list_closed_sprints()
+        previous_sprints = previous_sprints[-int(args.previous):]
+        for sprint in previous_sprints:
+            print (f"Processing sprint {sprint.name}")
+            sprints.append((sprint.name, jira.get_sprint_by_name(sprint.name, changelog=True)))
+    sprints.append(("Current", jira.get_sprint_issues(changelog=True)))
+
+    if args.csv and os.path.exists(args.csv):
+        os.remove(args.csv)
+
+    check_sprint(jira, sprints, args.csv)
 
 if __name__ == "__main__":
     main()

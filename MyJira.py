@@ -146,6 +146,9 @@ class MyJira:
     def get_sprint_by_name(self, name, changelog=False):
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint="{name}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
+    def list_closed_sprints(self):
+        return self.jira.sprints(self.backlog_board_id, extended=True, startAt=0, maxResults=100, state='closed')
+
     def get_issue_by_key(self, key):
         issues = self.search_issues(f'project = {self.project_name} AND key = {key}')
         if len(issues) != 1:
