@@ -24,28 +24,37 @@ def load_configuration():
     return config_file.load()
 
 def check_sprint(jira):
-    sprint = jira.get_sprint_issues(changelog=True)
+    #sprint = jira.get_sprint_issues(changelog=True)
+    sprint = jira.get_sprint_by_name("Viscacha - Sprint 105", changelog=True)
 
     for issue in sprint:
         points = MyJiraIssue(issue).story_points
         if (points == None):
             continue
-        print(f"{issue} - {points}")
+        histories = issue.changelog.histories
+        histories.reverse()
+
+        startTime = None
+        endTime = None
         for history in issue.changelog.histories:
             for item in history.items:
                 if item.field != 'status':
                     continue
 
-                print(f"  Field name: {item.field}") # field to which the change happened
-                print(f"  Changed to: {item.toString}") # new value, item.to might be better in some cases depending on your needs.
-                print(f"  Changed from: {item.fromString}") # old value, item.from might be better in some cases depending on your needs.
-                action_time = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
-                print(f"  Date: {action_time}")
-                print()
-        #transitions = jira.transitions(issue)
-        #for transition in transitions:
-        #    print(transition)
+                stateTo = item.toString
+                stateFrom = item.fromString
 
+                if stateFrom in ['New', 'Ready'] and stateTo in ['In Progress', 'Development', 'Code Review', 'Testing']:
+                    startTime = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
+                elif stateTo in ['Done']:
+                    endTime = datetime.strptime(history.created, '%Y-%m-%dT%H:%M:%S.%f%z')
+                    break
+
+        if startTime == None or endTime == None:
+            continue
+
+        duration = round((endTime - startTime).total_seconds() / 86400, 2)
+        print(f"{issue} - Estimate:{points} - Duration:{duration}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
