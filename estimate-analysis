@@ -31,7 +31,7 @@ def print_to_csv(csv_file, data):
         f.write(f"{data}\n")
 
 def check_sprint(jira, sprints, csv_file=None):
-    print_to_csv(csv_file, "Issue,Sprint,Estimate,Duration")
+    print_to_csv(csv_file, "Issue,Sprint,Estimate,Started,Finished,Duration")
 
     # Issues can run accross sprints so must dedupe
     issue_dedupe_dictionary = {}
@@ -67,7 +67,11 @@ def check_sprint(jira, sprints, csv_file=None):
                 continue
 
             duration = round((endTime - startTime).total_seconds() / 86400, 2)
-            print_to_csv(csv_file, f"{issue},{sprint_name},{points},{duration}")
+
+            startTime = startTime.strftime('%Y-%m-%d %H:%M')
+            endTime = endTime.strftime('%Y-%m-%d %H:%M')
+
+            print_to_csv(csv_file, f"{issue},{sprint_name},{points},{startTime},{endTime},{duration}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
