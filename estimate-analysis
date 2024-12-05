@@ -28,7 +28,8 @@ def print_to_csv(csv_file, data):
         print(data)
         return
     with open(csv_file, 'a') as f:
-        f.write(f"{data}\n")
+        # convert data to utf-8
+        f.write(f"{data.encode('utf-8')}\n")
 
 def check_sprint(jira, sprints, csv_file=None):
     print_to_csv(csv_file, "Issue,Sprint,Estimate,Started,Finished,Duration")
@@ -77,6 +78,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--csv", help="Output file name")
     parser.add_argument("-p", "--previous", help="Output previous N sprint")
+    parser.add_argument("-t", "--team", help="Set the team")
     args = parser.parse_args()
     return args
 
@@ -90,6 +92,9 @@ def init():
 
 def main():
     jira, mygit, mygithub, args = init()
+
+    if (args.team):
+        jira.set_team(args.team)
 
     sprints = []
     if args.previous:
