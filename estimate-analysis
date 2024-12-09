@@ -24,14 +24,16 @@ def load_configuration():
     return config_file.load()
 
 def print_to_csv(csv_file, data):
+    # Delete any characters outside the ascii range
+    data = ''.join([i if ord(i) < 128 else ' ' for i in data])
+
     if not csv_file:
         print(data)
         return
     with open(csv_file, 'a') as f:
-        # convert data to utf-8
-        f.write(f"{data.encode('utf-8')}\n")
+        f.write(f"{data}\n")
 
-def check_sprint(jira, sprints, csv_file=None):
+def check_sprint(jira, sprints, csv_file=None, exclude_spike=False):
     print_to_csv(csv_file, "Issue,Sprint,Estimate,Started,Finished,Duration")
 
     # Issues can run accross sprints so must dedupe
@@ -39,6 +41,8 @@ def check_sprint(jira, sprints, csv_file=None):
 
     for (sprint_name, sprint) in sprints:
         for issue in sprint:
+            if exclude_spike and MyJiraIssue(issue).is_spike():
+                continue
             if issue.key in issue_dedupe_dictionary:
                 continue
             issue_dedupe_dictionary[issue.key] = True
@@ -79,6 +83,8 @@ def parse_args():
     parser.add_argument("-c", "--csv", help="Output file name")
     parser.add_argument("-p", "--previous", help="Output previous N sprint")
     parser.add_argument("-t", "--team", help="Set the team")
+    parser.add_argument("-ns", "--nospike", help="Exclude spike issues", action="store_true")
+
     args = parser.parse_args()
     return args
 
@@ -108,7 +114,7 @@ def main():
     if args.csv and os.path.exists(args.csv):
         os.remove(args.csv)
 
-    check_sprint(jira, sprints, args.csv)
+    check_sprint(jira, sprints, args.csv, args.nospike)
 
 if __name__ == "__main__":
     main()

@@ -38,6 +38,9 @@ class MyJiraIssue:
                 setattr(self, key, "")
                 setattr(self, key + "_fieldname", self.translations[key])
 
+    def is_spike(self):
+        return self.issue.fields.issuetype.name == "Spike"
+
 class MyJira:
     def __init__(self, config):
         self.config = config
