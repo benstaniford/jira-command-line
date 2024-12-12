@@ -336,7 +336,9 @@ def main(stdscr):
                     [row, issue] = ui.get_row(int(selection)-1)
                     [i, type_pr] = ui.prompt_with_choice_list("PR Type", ["fix", "feat", "chore", "refactor"])
                     if type_pr != "":
-                        title = f"{type_pr}: {issue.fields.summary} [{issue.key}]"
+                        summary = ui.prompt_get_string("Enter a PR summary (default is issue summary)")
+                        summary = summary if summary != "" else issue.fields.summary
+                        title = f"{type_pr}: {summary} [{issue.key}]"
                         body = f"Jira Issue: {issue.permalink()}"
                         yesno = ui.prompt_get_character(f"Do you want to include the description in the PR body? (y/n)")
                         if yesno == "y":
