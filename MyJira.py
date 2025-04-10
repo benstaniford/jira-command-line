@@ -15,9 +15,11 @@ class MyJiraIssue:
                 "description": "description",
                 "summary": "summary",
                 "repro_steps": "customfield_10093",
+                "acceptance_criteria": "customfield_10039",
                 "actual_results": "customfield_10094",
                 "expected_results": "customfield_10095",
                 "customer_repro_steps": "customfield_10121",
+                "test_result_evidence": "customfield_10197",
                 "relevant_environment": "customfield_10134",
                 "sprint": "customfield_10020",
                 "story_points": "customfield_10028",
@@ -239,6 +241,8 @@ class MyJira:
         wrapped_issue = MyJiraIssue(issue)
         whole_description = ""
         whole_description = self.add_titled_section(whole_description, "Description", wrapped_issue.description)
+        whole_description = self.add_titled_section(whole_description, "Acceptance Criteria", wrapped_issue.acceptance_criteria)
+        whole_description = self.add_titled_section(whole_description, "Test Result and Evidence", wrapped_issue.test_result_evidence)
         whole_description = self.add_titled_section(whole_description, "Reproduction Steps", wrapped_issue.repro_steps)    # Backlog
         whole_description = self.add_titled_section(whole_description, "Steps to Reproduce", wrapped_issue.customer_repro_steps)    # Escalations
         whole_description = self.add_titled_section(whole_description, "Relevant Environment", wrapped_issue.relevant_environment)  # Escalations
