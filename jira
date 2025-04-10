@@ -11,6 +11,7 @@ from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
 from CursesTableView import CursesTableView
 from JiraXrayIssue import JiraXrayIssue
+#from JiraTextIssue import JiraTextIssue
 from MyPlotter import MyPlotter
 import webbrowser
 import time
@@ -43,7 +44,7 @@ def show_viewer(string):
     with tempfile.NamedTemporaryFile(suffix=".json") as f:
         f.write(string.encode('utf-8'))
         f.flush()
-        os.system("vim " + f.name)
+        os.system("vim -N --clean +\"set filetype=human\" " + f.name)
 
 def get_string_from_editor():
     filename = None
@@ -535,6 +536,8 @@ def main(stdscr):
                 if selection.isdigit():
                     [row, issue] = ui.get_row(int(selection)-1)
                     view_description(issue)
+                    #textView = JiraTextIssue(issue, jira)
+                    #textView.print()
             except Exception as e:
                 ui.error("View issue", e)
 
