@@ -176,10 +176,10 @@ def main(stdscr):
     fkey_string = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
 
     # Keyboard input loop
-    key_shortcuts = ('a', 'b', 'B', 'c', 'd', 'e', 'E', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'V', 'w', 'x', 'z', '?')
+    key_shortcuts = ('a', 'b', 'B', 'c', 'C', 'd', 'e', 'E', 'h', 'i', 'k', 'l', 'm', 'o', 'p', 'P', 'q', 's', 'S', 't', 'T', 'v', 'V', 'w', 'x', 'z', '?')
     while True:
         prompt = f"Commands F1:help, {fkey_string}\n"
-        prompt += """  a:assign, b:browse, B:boards, c:create, d:delete, e:edit, E:team, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points
+        prompt += """  a:assign, b:browse, B:boards, c:create, C:chat, d:delete, e:edit, E:team, h:branch, i:inspect, k:link l:backlog, m:move, o/O:sort, p:pr, P:points
   q:quit, s:sprint, S:support_folder, t:status, T:tasks, v:view, V:visualise, w:winshared, x:xray, z:escalations, ?:glob_search, |:filter, /:search\n"""
         prompt += "Type a number to see task details"
         selection = ""
@@ -209,6 +209,7 @@ def main(stdscr):
             ui.add_row(["", "b", "Browse issue in browser"])
             ui.add_row(["", "B", "Show other boards"])
             ui.add_row(["", "c", "Create issue in current view"])
+            ui.add_row(["", "C", "Chat about issue(s)"])
             ui.add_row(["", "d", "Delete issue in current view"])
             ui.add_row(["", "e", "Edit issue in editor"])
             ui.add_row(["", "E", "Switches between teams (if multiple teams configured)"])
@@ -592,6 +593,42 @@ def main(stdscr):
                 view.refresh()
             except Exception as e:
                 ui.error("Create issue", e)
+
+        # Chat about issue
+        elif selection == "C":
+            try:
+                selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to discuss all issues in the view")
+
+                # Get the numbers of the rows
+                if selection == "":
+                    rows = ui.get_rows()
+                    selection = []
+                    for i in range(len(rows)):
+                        selection.append(str(i + 1))
+                else:
+                    selection = selection.split(",")
+                    selection = [issue.strip() for issue in selection]
+
+                selection = [int(issue) for issue in selection if issue.isdigit()]
+                if len(selection) == 0:
+                    continue
+
+                issues = []
+                for issue in selection:
+                    [row, issue] = ui.get_row(issue-1)
+                    issues.append(issue)
+
+                # Make a commar seperated list of all the issue ids
+                issue_ids = []
+                for issue in issues:
+                    issue_ids.append(issue.key)
+
+                ui.prompt(f"Fetching {issue_ids} ...")
+                time.sleep(3)
+                view.refresh()
+
+            except Exception as e:
+                ui.error("Chat about issue", e)
 
         # Delete issue
         elif selection == "d":

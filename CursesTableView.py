@@ -186,6 +186,16 @@ class CursesTableView:
         row_container = self.__get_active_rows()[row_index]
         return row_container.row, row_container.data
 
+    def get_rows(self):
+        """
+        Returns the active rows in the view
+
+        Parameters: None
+
+        Returns: list of rows
+        """
+        return self.__get_active_rows()
+
     def clear(self):
         """
         Clears the data in the table including the headers.
