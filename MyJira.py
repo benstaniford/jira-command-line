@@ -240,6 +240,7 @@ class MyJira:
     def get_body(self, issue, include_comments=False):
         wrapped_issue = MyJiraIssue(issue)
         whole_description = ""
+        whole_description = self.add_titled_section(whole_description, "Issue ID: ", issue.key)
         whole_description = self.add_titled_section(whole_description, "Description", wrapped_issue.description)
         whole_description = self.add_titled_section(whole_description, "Acceptance Criteria", wrapped_issue.acceptance_criteria)
         whole_description = self.add_titled_section(whole_description, "Test Result and Evidence", wrapped_issue.test_result_evidence)
