@@ -61,6 +61,16 @@ def inspect_issue(issue):
 def view_description(issue):
     show_viewer(jira.get_body(issue, include_comments=True))
 
+def write_issue_for_chat(issue):
+    chat_folder = "~/.jiratmp"
+    if not os.path.exists(chat_folder):
+        os.makedirs(chat_folder)
+    filename = os.path.join(chat_folder, f"{issue.key}.json")
+    with open(filename, 'w', encoding='utf-8', errors='replace') as f:
+        string = jira.get_body(issue, include_comments=True)
+        f.write(string)
+    return filename
+
 class ViewMode:
     SPRINT = 1
     BACKLOG = 2
@@ -618,14 +628,17 @@ def main(stdscr):
                     [row, issue] = ui.get_row(issue-1)
                     issues.append(issue)
 
-                # Make a commar seperated list of all the issue ids
-                issue_ids = []
-                for issue in issues:
-                    issue_ids.append(issue.key)
+                ui.prompt(f"Fetching {len(issues)} issues...")
 
-                ui.prompt(f"Fetching {issue_ids} ...")
-                time.sleep(3)
-                view.refresh()
+                issue_ids = []
+                from RagChat import RagChat
+                chat = RagChat()
+                for issue in issues:
+                    chat.add_document(write_issue_for_chat(issue))
+
+                ui.yield_screen()
+                chat.chat()
+                ui.restore_screen()
 
             except Exception as e:
                 ui.error("Chat about issue", e)

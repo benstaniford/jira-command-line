@@ -214,6 +214,29 @@ class CursesTableView:
         if (self.row_numbers):
             self.enable_row_numbers()
 
+    def yield_screen(self):
+        """
+        Clears the screen and yields to other terminal input/output
+        Args: None
+        Returns: None
+        """
+        self.stdscr.clear()
+        self.stdscr.refresh()
+        curses.update_lines_cols()
+        curses.endwin()
+
+    def restore_screen(self):
+        """
+        Restores the screen after yielding to other terminal input/output
+        Args: None
+        Returns: None
+        """
+        curses.initscr()
+        self.stdscr.clear()
+        self.stdscr.refresh()
+        curses.update_lines_cols()
+        self.draw()
+
     def clear_prompt(self):
         """
         Clears the prompt at the bottom of the screen.
