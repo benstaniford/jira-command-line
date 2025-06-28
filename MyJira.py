@@ -267,26 +267,37 @@ class MyJira:
             body += f"**{title}**\n\n{content}\n\n"
         return body
 
+    def _add_field_section(self, wrapped_issue, whole_description, field_name, section_title):
+        """
+        Helper method to add a field section to the description if the field exists.
+        """
+        if wrapped_issue.has_field(field_name):
+            field_value = getattr(wrapped_issue, field_name, "")
+            whole_description = self.add_titled_section(whole_description, section_title, field_value)
+        return whole_description
+
     def get_body(self, issue, include_comments=False):
         wrapped_issue = MyJiraIssue(issue, self.get_field_mapping())
         whole_description = ""
+        
+        # Always add the issue ID
         whole_description = self.add_titled_section(whole_description, "Issue ID: ", issue.key)
-        if wrapped_issue.has_field("description"):
-            whole_description = self.add_titled_section(whole_description, "Description", wrapped_issue.description)
-        if wrapped_issue.has_field("acceptance_criteria"):
-            whole_description = self.add_titled_section(whole_description, "Acceptance Criteria", wrapped_issue.acceptance_criteria)
-        if wrapped_issue.has_field("test_result_evidence"):
-            whole_description = self.add_titled_section(whole_description, "Test Result and Evidence", wrapped_issue.test_result_evidence)
-        if wrapped_issue.has_field("test_steps"):
-            whole_description = self.add_titled_section(whole_description, "Reproduction Steps", wrapped_issue.repro_steps)    # Backlog
-        if wrapped_issue.has_field("customer_repro_steps"):
-            whole_description = self.add_titled_section(whole_description, "Steps to Reproduce", wrapped_issue.customer_repro_steps)    # Escalations
-        if wrapped_issue.has_field("relevant_environment"):
-            whole_description = self.add_titled_section(whole_description, "Relevant Environment", wrapped_issue.relevant_environment)  # Escalations
-        if wrapped_issue.has_field("impact_areas"):
-            whole_description = self.add_titled_section(whole_description, "Expected Results", wrapped_issue.expected_results)
-        if wrapped_issue.has_field("priority_score"):
-            whole_description = self.add_titled_section(whole_description, "Actual Results", wrapped_issue.actual_results)
+        
+        # Define field mappings for sections
+        field_sections = [
+            ("description", "Description"),
+            ("acceptance_criteria", "Acceptance Criteria"),
+            ("test_result_evidence", "Test Result and Evidence"),
+            ("repro_steps", "Reproduction Steps"),
+            ("customer_repro_steps", "Steps to Reproduce"),
+            ("relevant_environment", "Relevant Environment"),
+            ("expected_results", "Expected Results"),
+            ("actual_results", "Actual Results")
+        ]
+        
+        # Add each field section if it exists
+        for field_name, section_title in field_sections:
+            whole_description = self._add_field_section(wrapped_issue, whole_description, field_name, section_title)
 
         if (include_comments):
             comments = self.jira.comments(issue.key)
