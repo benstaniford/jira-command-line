@@ -69,14 +69,9 @@ class MyJiraIssue:
                 
                 # Check if this field matches any of our desired mappings
                 for friendly_name, possible_names in name_mappings.items():
-                    if any(possible_name in field['name'].lower() for possible_name in possible_names):
-                        # Check the existing issue also has this field
-                        if hasattr(issue.fields, field_id):
-                            # Is it null
-                            if getattr(issue.fields, field_id) is not None:
-                                # If the field exists on the issue, add it to the mapping
-                                field_mapping[friendly_name] = field_id
-                                break
+                    if any(possible_name in field['name'].lower() for possible_name in possible_names) and hasattr(issue.fields, field_id) and getattr(issue.fields, field_id) is not None:
+                        field_mapping[friendly_name] = field_id
+                        break
             
             MyJiraIssue._field_mapping_cache = field_mapping
             return field_mapping
