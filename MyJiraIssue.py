@@ -2,6 +2,8 @@
 class MyJiraIssue:
     # Class-level cache for field mappings to avoid repeated API calls across instances
     _field_mapping_cache = None
+    # Class-level cache for all Jira fields to avoid repeated API calls
+    _jira_fields_cache = None
     
     def __init__(self, issue, jira_instance=None):
         self.issue = issue
@@ -30,8 +32,10 @@ class MyJiraIssue:
             return MyJiraIssue._field_mapping_cache
             
         try:
-            # Get all fields from Jira
-            fields = self.jira_instance.fields()
+            # Get all fields from Jira (use cached version if available)
+            if MyJiraIssue._jira_fields_cache is None:
+                MyJiraIssue._jira_fields_cache = self.jira_instance.fields()
+            fields = MyJiraIssue._jira_fields_cache
             
             # Create mapping based on field names
             field_mapping = {}
