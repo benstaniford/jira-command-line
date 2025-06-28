@@ -8,14 +8,8 @@ class MyJiraIssue:
     def __init__(self, issue, jira_instance):
         self.issue = issue
         self.jira_instance = jira_instance
-        self.translations = self.get_field_mapping() if jira_instance else {}
+        self.translations = self.get_field_mapping(issue) if jira_instance else {}
         self._jira_fields = None  # Cache for available field names
-
-        # There's more than one team and product in the translations, so we need to set them up
-        # Probably we should do this by looking for custom fields on the issue which map to a field called product or team
-        # and then we'll have derived the correct field names
-        self.translations["team"] = "customfield_10001"
-        self.translations["product"] = "customfield_10108"
 
         for key in self.translations:
             try:
@@ -26,7 +20,7 @@ class MyJiraIssue:
                 setattr(self, key, "")
                 setattr(self, key + "_fieldname", self.translations[key])
 
-    def get_field_mapping(self):
+    def get_field_mapping(self, issue):
         """
         Dynamically retrieve field mappings from Jira API.
         Returns a dictionary mapping friendly names to field IDs.
@@ -76,8 +70,13 @@ class MyJiraIssue:
                 # Check if this field matches any of our desired mappings
                 for friendly_name, possible_names in name_mappings.items():
                     if any(possible_name in field['name'].lower() for possible_name in possible_names):
-                        field_mapping[friendly_name] = field_id
-                        break
+                        # Check the existing issue also has this field
+                        if hasattr(issue.fields, field_id):
+                            # Is it null
+                            if getattr(issue.fields, field_id) is not None:
+                                # If the field exists on the issue, add it to the mapping
+                                field_mapping[friendly_name] = field_id
+                                break
             
             MyJiraIssue._field_mapping_cache = field_mapping
             return field_mapping
