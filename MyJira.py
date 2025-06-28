@@ -347,17 +347,28 @@ class MyJira:
 
         ref_issue = MyJiraIssue(self.reference_issue, self.jira)
 
+        # Helper function to extract ID from field value
+        def get_field_id(field_value):
+            if hasattr(field_value, 'id'):
+                return field_value.id
+            elif isinstance(field_value, dict) and 'id' in field_value:
+                return field_value['id']
+            elif isinstance(field_value, str):
+                return field_value
+            else:
+                return field_value
+
         issue_dict = {
             'project': {'id': self.reference_issue.fields.project.id},
             'summary': title,
             'description': description,
-            ref_issue.product_fieldname: {'id': ref_issue.product.id}, # Product
+            ref_issue.product_fieldname: {'id': get_field_id(ref_issue.product)}, # Product
             'issuetype': {'name': issue_type},
             }
 
         if (parent_issue != None):
             issue_dict["parent"] = {"id": parent_issue.id}
         else:
-            issue_dict[ref_issue.team_fieldname] = ref_issue.team.id
+            issue_dict[ref_issue.team_fieldname] = get_field_id(ref_issue.team)
 
         return issue_dict
