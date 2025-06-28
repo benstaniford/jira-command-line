@@ -2,7 +2,6 @@
 
 # pip install jira
 from jira import JIRA
-import json
 import os
 import datetime
 import webbrowser
@@ -70,7 +69,6 @@ class MyJira:
             
             # Custom fields - map by name to ID
             for field in fields:
-                field_name = field['name'].lower().replace(' ', '_').replace('/', '_')
                 field_id = field['id']
                 
                 # Map common field names to friendly names
@@ -104,31 +102,7 @@ class MyJira:
         except Exception as e:
             print(f"Warning: Could not retrieve field mappings from Jira API: {e}")
             # Fallback to hardcoded mappings if API call fails
-            return self._get_fallback_field_mapping()
-    
-    def _get_fallback_field_mapping(self):
-        """
-        Fallback field mapping in case API retrieval fails.
-        """
-        return {
-            "description": "description",
-            "summary": "summary",
-            "repro_steps": "customfield_10093",
-            "acceptance_criteria": "customfield_10039",
-            "actual_results": "customfield_10094",
-            "expected_results": "customfield_10095",
-            "customer_repro_steps": "customfield_10121",
-            "test_result_evidence": "customfield_10197",
-            "relevant_environment": "customfield_10134",
-            "sprint": "customfield_10020",
-            "story_points": "customfield_10028",
-            "product": "customfield_10108",
-            "test_results": "customfield_10097",
-            "team": "customfield_10001",
-            "test_steps": "customfield_10039",
-            "impact_areas": "customfield_10199",
-            "priority_score": "customfield_10718",
-        }
+            return ""
 
     def refresh_field_mapping(self):
         """
