@@ -5,7 +5,11 @@ import json
 import argparse
 import os
 import threading
+import tempfile
+import time
+import webbrowser
 from MyJira import MyJira
+from MyJiraIssue import MyJiraIssue
 from MyGit import MyGit
 from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
