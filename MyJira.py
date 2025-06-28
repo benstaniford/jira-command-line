@@ -11,6 +11,7 @@ class MyJiraIssue:
     def __init__(self, issue, field_mapping=None):
         self.issue = issue
         self.translations = field_mapping or {}
+        self._jira_fields = None  # Cache for available field names
 
         for key in self.translations:
             try:
@@ -20,6 +21,51 @@ class MyJiraIssue:
             except:
                 setattr(self, key, "")
                 setattr(self, key + "_fieldname", self.translations[key])
+
+    def has_field(self, field_name):
+        """
+        Check if the issue has a field with the given name.
+        Returns True if the field exists, False otherwise.
+        """
+        return hasattr(self.issue.fields, field_name) or (self._jira_fields != None and field_name in self._jira_fields)
+
+    def __getattr__(self, name):
+        """
+        Handle missing attributes by suggesting similar field names.
+        """
+        if name.startswith('_'):
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            
+        # Get all available field names from the issue
+        if self._jira_fields is None:
+            self._jira_fields = []
+            try:
+                # Get field names from the raw issue data
+                if hasattr(self.issue, 'raw') and 'fields' in self.issue.raw:
+                    for field_id, field_value in self.issue.raw['fields'].items():
+                        if hasattr(self.issue.fields, field_id):
+                            self._jira_fields.append(field_id)
+                # Also get standard field names
+                for attr_name in dir(self.issue.fields):
+                    if not attr_name.startswith('_'):
+                        self._jira_fields.append(attr_name)
+            except:
+                pass
+
+        # Find fields that start with the same 3 letters
+        suggestions = []
+        if len(name) >= 3:
+            prefix = name[:3].lower()
+            for field_name in self._jira_fields:
+                if field_name.lower().startswith(prefix) or prefix in field_name.lower():
+                    suggestions.append(field_name)
+
+        # Create error message with suggestions
+        error_msg = f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        if suggestions:
+            error_msg += f". Did you mean one of these fields: {', '.join(suggestions[:5])}"  # Limit to 5 suggestions
+        
+        raise AttributeError(error_msg)
 
     def is_spike(self):
         return self.issue.fields.issuetype.name == "Spike"
@@ -101,8 +147,8 @@ class MyJira:
             
         except Exception as e:
             print(f"Warning: Could not retrieve field mappings from Jira API: {e}")
-            # Fallback to hardcoded mappings if API call fails
-            return ""
+            # Return empty mapping to trigger field suggestions
+            return {}
 
     def refresh_field_mapping(self):
         """
@@ -288,14 +334,22 @@ class MyJira:
         wrapped_issue = MyJiraIssue(issue, self.get_field_mapping())
         whole_description = ""
         whole_description = self.add_titled_section(whole_description, "Issue ID: ", issue.key)
-        whole_description = self.add_titled_section(whole_description, "Description", wrapped_issue.description)
-        whole_description = self.add_titled_section(whole_description, "Acceptance Criteria", wrapped_issue.acceptance_criteria)
-        whole_description = self.add_titled_section(whole_description, "Test Result and Evidence", wrapped_issue.test_result_evidence)
-        whole_description = self.add_titled_section(whole_description, "Reproduction Steps", wrapped_issue.repro_steps)    # Backlog
-        whole_description = self.add_titled_section(whole_description, "Steps to Reproduce", wrapped_issue.customer_repro_steps)    # Escalations
-        whole_description = self.add_titled_section(whole_description, "Relevant Environment", wrapped_issue.relevant_environment)  # Escalations
-        whole_description = self.add_titled_section(whole_description, "Expected Results", wrapped_issue.expected_results)
-        whole_description = self.add_titled_section(whole_description, "Actual Results", wrapped_issue.actual_results)
+        if wrapped_issue.has_field("description"):
+            whole_description = self.add_titled_section(whole_description, "Description", wrapped_issue.description)
+        if wrapped_issue.has_field("acceptance_criteria"):
+            whole_description = self.add_titled_section(whole_description, "Acceptance Criteria", wrapped_issue.acceptance_criteria)
+        if wrapped_issue.has_field("test_result_evidence"):
+            whole_description = self.add_titled_section(whole_description, "Test Result and Evidence", wrapped_issue.test_result_evidence)
+        if wrapped_issue.has_field("test_steps"):
+            whole_description = self.add_titled_section(whole_description, "Reproduction Steps", wrapped_issue.repro_steps)    # Backlog
+        if wrapped_issue.has_field("customer_repro_steps"):
+            whole_description = self.add_titled_section(whole_description, "Steps to Reproduce", wrapped_issue.customer_repro_steps)    # Escalations
+        if wrapped_issue.has_field("relevant_environment"):
+            whole_description = self.add_titled_section(whole_description, "Relevant Environment", wrapped_issue.relevant_environment)  # Escalations
+        if wrapped_issue.has_field("impact_areas"):
+            whole_description = self.add_titled_section(whole_description, "Expected Results", wrapped_issue.expected_results)
+        if wrapped_issue.has_field("priority_score"):
+            whole_description = self.add_titled_section(whole_description, "Actual Results", wrapped_issue.actual_results)
 
         if (include_comments):
             comments = self.jira.comments(issue.key)
