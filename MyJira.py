@@ -397,7 +397,7 @@ class MyJira:
         if (self.reference_issue == None):
             raise Exception("No reference issue found, please call get_backlog_issues() or get_sprint_issues() first")
 
-        ref_issue = MyJiraIssue(self.reference_issue)
+        ref_issue = MyJiraIssue(self.reference_issue, self.jira)
 
         issue_dict = {
             'project': {'id': self.reference_issue.fields.project.id},

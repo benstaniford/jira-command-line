@@ -103,7 +103,7 @@ class JiraXrayIssue:
                 return
 
     def get_definitions_and_tests(self):
-        issue = MyJiraIssue(self._jira_issue)
+        issue = MyJiraIssue(self._jira_issue, self._jira)
         test_results = issue.test_results
         definitions = self.parse_test_definitions()
         tests = self.get_tests()
@@ -111,7 +111,7 @@ class JiraXrayIssue:
 
     def get_test_info(self):
         try:
-            issue = MyJiraIssue(self._jira_issue)
+            issue = MyJiraIssue(self._jira_issue, self._jira)
             test_results = issue.test_results
             definitions = self.parse_test_definitions()
             if len(definitions) > 0:
@@ -130,7 +130,7 @@ class JiraXrayIssue:
 
     def sprint_item_has_valid_tests(self):
         try:
-            issue = MyJiraIssue(self._jira_issue)
+            issue = MyJiraIssue(self._jira_issue, self._jira)
             test_results = issue.test_results
             definitions = self.parse_test_definitions()
             return len(definitions) > 0 and definitions.get_folder() is not None
@@ -143,7 +143,7 @@ class JiraXrayIssue:
 
     def create_test_template(self):
         self.initialize()
-        wrapped_issue = MyJiraIssue(self._jira_issue)
+        wrapped_issue = MyJiraIssue(self._jira_issue, self._jira)
         template = """
 <begin>
 Folder: /Windows/MyTestFeature  (This is the folder in the test repository)
@@ -175,7 +175,7 @@ Then <Step 3>
             test.delete(deleteSubtasks=True)
 
     def parse_test_definitions(self):
-        issue = MyJiraIssue(self._jira_issue)
+        issue = MyJiraIssue(self._jira_issue, self._jira)
         all_definitions = []
         lines = issue.test_results.split('\n')
         folder = None
@@ -270,8 +270,8 @@ Then <Step 3>
         self._jira.jira.create_issue_link('Test', issue, self._jira_issue)
 
         # Update some important fields to match the PBI
-        sprint_issue = MyJiraIssue(self._jira_issue)
-        test_issue = MyJiraIssue(issue)
+        sprint_issue = MyJiraIssue(self._jira_issue, self._jira)
+        test_issue = MyJiraIssue(issue, self._jira)
         product_name = sprint_issue.product.value
         test_issue.issue.update(fields={test_issue.product_fieldname: {"value": product_name},
             test_issue.team_fieldname: sprint_issue.team.id})

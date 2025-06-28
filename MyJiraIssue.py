@@ -5,7 +5,7 @@ class MyJiraIssue:
     # Class-level cache for all Jira fields to avoid repeated API calls
     _jira_fields_cache = None
     
-    def __init__(self, issue, jira_instance=None):
+    def __init__(self, issue, jira_instance):
         self.issue = issue
         self.jira_instance = jira_instance
         self.translations = self.get_field_mapping() if jira_instance else {}
