@@ -11,6 +11,12 @@ class MyJiraIssue:
         self.translations = self.get_field_mapping() if jira_instance else {}
         self._jira_fields = None  # Cache for available field names
 
+        # There's more than one team and product in the translations, so we need to set them up
+        # Probably we should do this by looking for custom fields on the issue which map to a field called product or team
+        # and then we'll have derived the correct field names
+        self.translations["team"] = "customfield_10001"
+        self.translations["product"] = "customfield_10108"
+
         for key in self.translations:
             try:
                 # Dynamically set the attribute on this object to the value of the attribute on the issue
