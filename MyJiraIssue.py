@@ -1,8 +1,12 @@
 # A wrapper for issues that allow us to translate atttributes to sensible names
 class MyJiraIssue:
-    def __init__(self, issue, field_mapping=None):
+    # Class-level cache for field mappings to avoid repeated API calls across instances
+    _field_mapping_cache = None
+    
+    def __init__(self, issue, jira_instance=None):
         self.issue = issue
-        self.translations = field_mapping or {}
+        self.jira_instance = jira_instance
+        self.translations = self.get_field_mapping() if jira_instance else {}
         self._jira_fields = None  # Cache for available field names
 
         for key in self.translations:
@@ -13,6 +17,72 @@ class MyJiraIssue:
             except:
                 setattr(self, key, "")
                 setattr(self, key + "_fieldname", self.translations[key])
+
+    def get_field_mapping(self):
+        """
+        Dynamically retrieve field mappings from Jira API.
+        Returns a dictionary mapping friendly names to field IDs.
+        """
+        if not self.jira_instance:
+            return {}
+            
+        if MyJiraIssue._field_mapping_cache is not None:
+            return MyJiraIssue._field_mapping_cache
+            
+        try:
+            # Get all fields from Jira
+            fields = self.jira_instance.fields()
+            
+            # Create mapping based on field names
+            field_mapping = {}
+            
+            # Standard fields (these are consistent across Jira instances)
+            field_mapping["description"] = "description"
+            field_mapping["summary"] = "summary"
+            
+            # Custom fields - map by name to ID
+            for field in fields:
+                field_id = field['id']
+                
+                # Map common field names to friendly names
+                name_mappings = {
+                    'repro_steps': ['repro steps', 'reproduction steps', 'steps to reproduce'],
+                    'acceptance_criteria': ['acceptance criteria', 'ac'],
+                    'actual_results': ['actual results', 'actual result'],
+                    'expected_results': ['expected results', 'expected result'],
+                    'customer_repro_steps': ['customer repro steps', 'customer reproduction steps'],
+                    'test_result_evidence': ['test result evidence', 'test evidence'],
+                    'relevant_environment': ['relevant environment', 'environment'],
+                    'sprint': ['sprint'],
+                    'story_points': ['story points', 'points'],
+                    'product': ['product'],
+                    'test_results': ['test results'],
+                    'team': ['team'],
+                    'test_steps': ['test steps'],
+                    'impact_areas': ['impact areas'],
+                    'priority_score': ['priority score']
+                }
+                
+                # Check if this field matches any of our desired mappings
+                for friendly_name, possible_names in name_mappings.items():
+                    if any(possible_name in field['name'].lower() for possible_name in possible_names):
+                        field_mapping[friendly_name] = field_id
+                        break
+            
+            MyJiraIssue._field_mapping_cache = field_mapping
+            return field_mapping
+            
+        except Exception as e:
+            print(f"Warning: Could not retrieve field mappings from Jira API: {e}")
+            # Return empty mapping to trigger field suggestions
+            return {}
+
+    @classmethod
+    def refresh_field_mapping(cls):
+        """
+        Force refresh of field mapping cache.
+        """
+        cls._field_mapping_cache = None
 
     def has_field(self, field_name):
         """
