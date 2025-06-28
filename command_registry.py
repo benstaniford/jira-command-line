@@ -46,7 +46,7 @@ class CommandRegistry:
         help_lines = []
         current_line = ""
         
-        for shortcut in sorted(self.commands.keys()):
+        for shortcut in sorted(self.commands.keys(), key=lambda x: (x.lower(), x)):
             command = self.commands[shortcut]
             command_text = f"{shortcut}:{command.description}"
             
