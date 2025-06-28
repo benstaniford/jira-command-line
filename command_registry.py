@@ -44,7 +44,25 @@ class CommandRegistry:
     def get_help_text(self):
         """Get formatted help text for all commands"""
         help_lines = []
+        current_line = ""
+        
         for shortcut in sorted(self.commands.keys()):
             command = self.commands[shortcut]
-            help_lines.append(f"{shortcut}:{command.description}")
-        return ', '.join(help_lines)
+            command_text = f"{shortcut}:{command.description}"
+            
+            # Check if adding this command would exceed 160 characters
+            potential_line = current_line + (", " if current_line else "") + command_text
+            
+            if len(potential_line) > 160 and current_line:
+                # Start a new line
+                help_lines.append(current_line)
+                current_line = command_text
+            else:
+                # Add to current line
+                current_line = potential_line
+        
+        # Add the last line if it has content
+        if current_line:
+            help_lines.append(current_line)
+            
+        return '\n'.join(help_lines)
