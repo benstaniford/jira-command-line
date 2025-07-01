@@ -9,7 +9,7 @@ class SupportCommand(BaseCommand):
     
     @property
     def description(self):
-        return "support_folder"
+        return "spprtdir"
     
     def execute(self, ui, view, jira, mygit=None, **kwargs):
         try:

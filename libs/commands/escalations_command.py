@@ -8,7 +8,7 @@ class EscalationsCommand(BaseCommand):
     
     @property
     def description(self):
-        return "escalations"
+        return "escltn"
     
     def execute(self, ui, view, jira, **kwargs):
         try:
