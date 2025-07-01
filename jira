@@ -2,6 +2,7 @@
 #scriptdoc: title="Curses based Jira team backlog/sprint", tags="bt,work,jira"
 import curses
 import argparse
+from typing import Any, Dict, Optional, List
 from MyJira import MyJira
 from MyGit import MyGit
 from MyGithub import MyGithub
@@ -11,7 +12,12 @@ from JiraTableView import JiraTableView
 from view_mode import ViewMode
 from command_registry import CommandRegistry
 
-def build_arg_parser():
+def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build and return the argument parser for command-line options.
+    Returns:
+        argparse.ArgumentParser: Configured argument parser.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
     parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
@@ -20,7 +26,12 @@ def build_arg_parser():
     parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
     return parser
 
-def load_config():
+def load_config() -> MyJiraConfig:
+    """
+    Load the Jira configuration file, generating a template if not found.
+    Returns:
+        MyJiraConfig: Loaded configuration object.
+    """
     config_file = MyJiraConfig()
     if not config_file.exists():
         print("Configuration file not found, generating template...")
@@ -32,23 +43,28 @@ def load_config():
     return config_file
 
 # Global variables
-config = load_config().load()
-jira = MyJira(config.get('jira'))
-mygit = MyGit(config.get('git'))
-mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
+config: Dict[str, Any] = load_config().load()
+jira: MyJira = MyJira(config.get('jira'))
+mygit: MyGit = MyGit(config.get('git'))
+mygithub: Optional[MyGithub] = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
 args = build_arg_parser().parse_args()
 
-def main(stdscr):
-    ui = CursesTableView(stdscr)
+def main(stdscr: Any) -> Optional[None]:
+    """
+    Main entry point for the curses UI. Initializes UI, loads data, and starts the UI loop.
+    Args:
+        stdscr: The curses standard screen object.
+    """
+    ui: CursesTableView = CursesTableView(stdscr)
     ui.set_header_color(curses.COLOR_RED)
     ui.set_column_colors([curses.COLOR_RED, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_BLUE, curses.COLOR_GREEN, curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_BLUE, curses.COLOR_GREEN, curses.COLOR_MAGENTA])
     ui.enable_row_numbers()
-    view = JiraTableView(ui, jira)
+    view: JiraTableView = JiraTableView(ui, jira)
 
     # Initialize command registry
-    command_registry = CommandRegistry()
+    command_registry: CommandRegistry = CommandRegistry()
 
-    board = None
+    board: Optional[Any] = None
     if args.board:
         board = jira.get_boards()[args.board]
 
@@ -59,25 +75,48 @@ def main(stdscr):
                  else ViewMode.BOARD if args.board
                  else ViewMode.BACKLOG, params=board if args.board else None)
 
-    possible_columns = jira.get_optional_fields()
-    fkey_to_column = {}
+    possible_columns: Dict[str, Any] = jira.get_optional_fields()
+    fkey_to_column: Dict[str, str] = {}
     for i, possible_column in enumerate(possible_columns):
         fkey_to_column[f"F{i+2}"] = possible_column
-    fkey_string = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
+    fkey_string: str = ''.join([f"{key}:{value.lower()} " for key, value in fkey_to_column.items()])
 
     # Get available shortcuts from command registry (only single-character ones for UI)
-    key_shortcuts = command_registry.get_single_char_shortcuts()
+    key_shortcuts: List[str] = command_registry.get_single_char_shortcuts()
     
     return run_ui_loop(stdscr, ui, view, command_registry, possible_columns, fkey_to_column, fkey_string, key_shortcuts)
 
-def run_ui_loop(stdscr, ui, view, command_registry, possible_columns, fkey_to_column, fkey_string, key_shortcuts):
+def run_ui_loop(
+    stdscr: Any,
+    ui: CursesTableView,
+    view: JiraTableView,
+    command_registry: CommandRegistry,
+    possible_columns: Dict[str, Any],
+    fkey_to_column: Dict[str, str],
+    fkey_string: str,
+    key_shortcuts: List[str]
+) -> Optional[None]:
+    """
+    Main UI event loop. Handles user input and dispatches commands or view changes.
+    Args:
+        stdscr: The curses standard screen object.
+        ui: The UI object.
+        view: The JiraTableView object.
+        command_registry: The CommandRegistry object.
+        possible_columns: List of possible extra columns.
+        fkey_to_column: Mapping of function keys to columns.
+        fkey_string: String describing F-key mappings.
+        key_shortcuts: List of available key shortcuts.
+    Returns:
+        None
+    """
     while True:
-        selection = display_prompt(ui, command_registry, fkey_string, key_shortcuts)
+        selection: str = display_prompt(ui, command_registry, fkey_string, key_shortcuts)
 
         if selection in ("KEY_F2", "KEY_F3", "KEY_F4", "KEY_F5", "KEY_F6", "KEY_F7", "KEY_F8", "KEY_F9", "KEY_F10", "KEY_F11", "KEY_F12"):
             handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection)
         elif selection in command_registry.commands and handle_regular_commands(stdscr, ui, view, command_registry, selection):
-            return
+            return None
         elif selection.isdigit():
             handle_task_view(ui, view, selection)
         elif selection == "":
@@ -85,25 +124,64 @@ def run_ui_loop(stdscr, ui, view, command_registry, possible_columns, fkey_to_co
             if view.mode == ViewMode.TASKVIEW:
                 view.previous(jira=jira)
 
-def display_prompt(ui, command_registry, fkey_string, key_shortcuts):
-    prompt = f"Commands F1:help, {fkey_string}\n"
+def display_prompt(
+    ui: CursesTableView,
+    command_registry: CommandRegistry,
+    fkey_string: str,
+    key_shortcuts: List[str]
+) -> str:
+    """
+    Display the main prompt and get user input.
+    Args:
+        ui: The UI object.
+        command_registry: The CommandRegistry object.
+        fkey_string: String describing F-key mappings.
+        key_shortcuts: List of available key shortcuts.
+    Returns:
+        str: The user's selection/input.
+    """
+    prompt: str = f"Commands F1:help, {fkey_string}\n"
     prompt += f"  {command_registry.get_help_text()}\n"
     prompt += "Type a number to see task details"
-    selection = ""
+    selection: str = ""
     try:
         selection = ui.prompt_get_string(prompt, key_shortcuts, '|', ('o', 'O'), '/')
     except Exception as e:
         ui.error("Command execution", e)
     return selection
 
-def handle_task_view(ui, view, selection):
+def handle_task_view(ui: CursesTableView, view: JiraTableView, selection: str) -> None:
+    """
+    Handle displaying the task view for a selected issue.
+    Args:
+        ui: The UI object.
+        view: The JiraTableView object.
+        selection: The selected row number as a string.
+    """
     try:
         [row, issue] = ui.get_row(int(selection)-1)
         view.refresh(ViewMode.TASKVIEW, parent_issue=issue)
     except Exception as e:
         ui.error("Show task view", e)
 
-def handle_regular_commands(stdscr, ui, view, command_registry, selection):
+def handle_regular_commands(
+    stdscr: Any,
+    ui: CursesTableView,
+    view: JiraTableView,
+    command_registry: CommandRegistry,
+    selection: str
+) -> Any:
+    """
+    Execute a regular command from the command registry.
+    Args:
+        stdscr: The curses standard screen object.
+        ui: The UI object.
+        view: The JiraTableView object.
+        command_registry: The CommandRegistry object.
+        selection: The selected command key.
+    Returns:
+        The result of the command's execute method.
+    """
     command = command_registry.get_command(selection)
     return command.execute(
                 ui=ui, 
@@ -114,11 +192,26 @@ def handle_regular_commands(stdscr, ui, view, command_registry, selection):
                 config=config,
                 stdscr=stdscr)
 
-def handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection):
-    fkey = selection[4:]
+def handle_fkey_columns(
+    ui: CursesTableView,
+    view: JiraTableView,
+    possible_columns: Dict[str, Any],
+    fkey_to_column: Dict[str, str],
+    selection: str
+) -> None:
+    """
+    Handle toggling extra columns in the view using function keys.
+    Args:
+        ui: The UI object.
+        view: The JiraTableView object.
+        possible_columns: List of possible extra columns.
+        fkey_to_column: Mapping of function keys to columns.
+        selection: The selected function key string.
+    """
+    fkey: str = selection[4:]
     try:
         if fkey_to_column.get(fkey):
-            selected_column = fkey_to_column[fkey]
+            selected_column: str = fkey_to_column[fkey]
             ui.prompt(f"Toggle column {selected_column}...")
             extra_columns = view.extra_columns
             if selected_column != "" and selected_column in possible_columns:
