@@ -7,6 +7,7 @@ import os
 import datetime
 import webbrowser
 import markdown
+import yaml
 from typing import Any, Dict, List, Optional, Union
 
 class MyJira:
@@ -831,17 +832,25 @@ class MyJira:
                         clean_value = field_value.value
                     elif isinstance(field_value, list):
                         if len(field_value) > 0:
+                            # Check if it's a list of complex objects
                             if hasattr(field_value[0], 'displayName'):
                                 clean_value = ', '.join([item.displayName for item in field_value])
                             elif hasattr(field_value[0], 'name'):
                                 clean_value = ', '.join([item.name for item in field_value])
                             elif hasattr(field_value[0], 'value'):
                                 clean_value = ', '.join([item.value for item in field_value])
+                            elif isinstance(field_value[0], (dict, list)):
+                                # Format complex list as YAML
+                                try:
+                                    clean_value = f"```yaml\n{yaml.dump(field_value, default_flow_style=False, indent=2)}\n```"
+                                except:
+                                    clean_value = ', '.join([str(item) for item in field_value])
                             else:
                                 clean_value = ', '.join([str(item) for item in field_value])
                         else:
                             continue
                     elif isinstance(field_value, dict):
+                        # Check if it's a simple dict with display properties
                         if 'displayName' in field_value:
                             clean_value = field_value['displayName']
                         elif 'name' in field_value:
@@ -849,9 +858,22 @@ class MyJira:
                         elif 'value' in field_value:
                             clean_value = field_value['value']
                         else:
-                            clean_value = str(field_value)
+                            # Format complex dict as YAML
+                            try:
+                                clean_value = f"```yaml\n{yaml.dump(field_value, default_flow_style=False, indent=2)}\n```"
+                            except:
+                                clean_value = str(field_value)
                     else:
-                        clean_value = str(field_value)
+                        # Check if it's a JSON string that we can parse and format
+                        try:
+                            import json
+                            if isinstance(field_value, str) and (field_value.strip().startswith('{') or field_value.strip().startswith('[')):
+                                parsed_json = json.loads(field_value)
+                                clean_value = f"```yaml\n{yaml.dump(parsed_json, default_flow_style=False, indent=2)}\n```"
+                            else:
+                                clean_value = str(field_value)
+                        except:
+                            clean_value = str(field_value)
                         
                     # Skip if the cleaned value is empty or too short
                     if not clean_value or len(str(clean_value).strip()) < 1:
