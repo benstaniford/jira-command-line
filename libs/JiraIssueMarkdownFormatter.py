@@ -1,5 +1,6 @@
 import markdown
 import yaml
+import re
 from typing import Any, List, Optional
 from .MyJiraIssue import MyJiraIssue
 
@@ -102,6 +103,16 @@ class JiraIssueMarkdownFormatter:
             print(f"Warning: Could not retrieve additional fields: {e}")
         return whole_description
 
+    def _strip_invisible_unicode(self, text: str) -> str:
+        """
+        Remove invisible or special unicode characters (e.g., zero-width space, left-to-right mark, etc.) from the text.
+        """
+        # Remove common invisible/special unicode characters
+        invisible_pattern = (
+            r'[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060-\u206F\uFEFF]'
+        )
+        return re.sub(invisible_pattern, '', text)
+
     def format(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
         wrapped_issue = MyJiraIssue(issue, self.jira)
         whole_description = ""
@@ -125,6 +136,7 @@ class JiraIssueMarkdownFormatter:
             comments.reverse()
             for comment in comments:
                 whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment.body)
+        whole_description = self._strip_invisible_unicode(whole_description)
         if format_as_html:
             return markdown.markdown(whole_description, extensions=['fenced_code', 'tables'])
         return whole_description
