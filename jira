@@ -68,48 +68,47 @@ def main(stdscr):
 
 def run_ui_loop(stdscr, ui, view, command_registry, possible_columns, fkey_to_column, fkey_string, key_shortcuts):
     while True:
-        prompt = f"Commands F1:help, {fkey_string}\n"
-        prompt += f"  {command_registry.get_help_text()}\n"
-        prompt += "Type a number to see task details"
-        selection = ""
-        try:
-            selection = ui.prompt_get_string(prompt, key_shortcuts, '|', ('o', 'O'), '/')
-        except Exception as e:
-            ui.error("Command execution", e)
+        selection = display_prompt(ui, command_registry, fkey_string, key_shortcuts)
 
         if selection in ("KEY_F2", "KEY_F3", "KEY_F4", "KEY_F5", "KEY_F6", "KEY_F7", "KEY_F8", "KEY_F9", "KEY_F10", "KEY_F11", "KEY_F12"):
             handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection)
-        elif selection in command_registry.commands:
-            result = handle_regular_commands(stdscr, ui, view, command_registry, selection)
-            if result:  # If command returns True, exit the loop
-                return
-
-        # Show task view
+        elif selection in command_registry.commands and handle_regular_commands(stdscr, ui, view, command_registry, selection):
+            return
         elif selection.isdigit():
-            try:
-                [row, issue] = ui.get_row(int(selection)-1)
-                view.refresh(ViewMode.TASKVIEW, parent_issue=issue)
-            except Exception as e:
-                ui.error("Show task view", e)
-
-        # Escape or enter will return to previous, cached view
+            handle_task_view(ui, view, selection)
         elif selection == "":
+            # Escape or enter will return to previous, cached view
             if view.mode == ViewMode.TASKVIEW:
                 view.previous(jira=jira)
 
+def display_prompt(ui, command_registry, fkey_string, key_shortcuts):
+    prompt = f"Commands F1:help, {fkey_string}\n"
+    prompt += f"  {command_registry.get_help_text()}\n"
+    prompt += "Type a number to see task details"
+    selection = ""
+    try:
+        selection = ui.prompt_get_string(prompt, key_shortcuts, '|', ('o', 'O'), '/')
+    except Exception as e:
+        ui.error("Command execution", e)
+    return selection
+
+def handle_task_view(ui, view, selection):
+    try:
+        [row, issue] = ui.get_row(int(selection)-1)
+        view.refresh(ViewMode.TASKVIEW, parent_issue=issue)
+    except Exception as e:
+        ui.error("Show task view", e)
+
 def handle_regular_commands(stdscr, ui, view, command_registry, selection):
     command = command_registry.get_command(selection)
-    result = command.execute(
+    return command.execute(
                 ui=ui, 
                 view=view, 
                 jira=jira, 
                 mygit=mygit, 
                 mygithub=mygithub, 
                 config=config,
-                stdscr=stdscr
-            )
-    
-    return result
+                stdscr=stdscr)
 
 def handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection):
     fkey = selection[4:]
