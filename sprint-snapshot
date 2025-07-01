@@ -7,9 +7,7 @@ from libs.MyGit import MyGit
 from libs.MyGithub import MyGithub
 from libs.MyJiraConfig import MyJiraConfig
 from libs.MyEmail import MyEmail
-import json
 import argparse
-import sys
 import time
 import os
 
