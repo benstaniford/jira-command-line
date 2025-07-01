@@ -444,36 +444,219 @@ class MyJira:
         
         self.jira.add_issues_to_sprint(sprint_id, [issue.key])
 
-    def add_titled_section(self, body: str, title: str, content: Optional[str]) -> str:
-        """
-        Add a titled section to the Markdown document.
-        Args:
-            body: Existing markdown content.
-            title: Section title.
-            content: Section content.
-        Returns:
-            Updated markdown with the new section added.
-        """
-        if (content != None and content != ""):
-            # Format with markdown header style
-            body += f"## {title}\n\n{content}\n\n"
-        return body
+    class JiraIssueMarkdownFormatter:
+        def __init__(self, jira_instance: Any):
+            self.jira = jira_instance
 
-    def _add_field_section(self, wrapped_issue: Any, whole_description: str, field_name: str, section_title: str) -> str:
-        """
-        Helper method to add a field section to the description if the field exists.
-        Args:
-            wrapped_issue: MyJiraIssue wrapper object.
-            whole_description: Current markdown description.
-            field_name: Field name to check.
-            section_title: Section title for markdown.
-        Returns:
-            Updated markdown description.
-        """
-        if wrapped_issue.has_field(field_name):
-            field_value = getattr(wrapped_issue, field_name, "")
-            whole_description = self.add_titled_section(whole_description, section_title, field_value)
-        return whole_description
+        def add_titled_section(self, body: str, title: str, content: Optional[str]) -> str:
+            """
+            Add a titled section to the Markdown document.
+            Args:
+                body: Existing markdown content.
+                title: Section title.
+                content: Section content.
+            Returns:
+                Updated markdown with the new section added.
+            """
+            if (content != None and content != ""):
+                # Format with markdown header style
+                body += f"## {title}\n\n{content}\n\n"
+            return body
+
+        def _add_field_section(self, wrapped_issue: Any, whole_description: str, field_name: str, section_title: str) -> str:
+            """
+            Helper method to add a field section to the description if the field exists.
+            Args:
+                wrapped_issue: MyJiraIssue wrapper object.
+                whole_description: Current markdown description.
+                field_name: Field name to check.
+                section_title: Section title for markdown.
+            Returns:
+                Updated markdown description.
+            """
+            if wrapped_issue.has_field(field_name):
+                field_value = getattr(wrapped_issue, field_name, "")
+                whole_description = self.add_titled_section(whole_description, section_title, field_value)
+            return whole_description
+
+        def _add_additional_fields(self, wrapped_issue: Any, whole_description: str, covered_fields: List[tuple]) -> str:
+            """
+            Add any additional fields from the Jira issue that weren't covered in the predefined sections.
+            
+            Args:
+                wrapped_issue: MyJiraIssue wrapper object.
+                whole_description: Current markdown description.
+                covered_fields: List of tuples (field_name, section_title) that were already processed.
+                
+            Returns:
+                Updated markdown description with additional fields.
+            """
+            try:
+                # Get all available fields from Jira
+                all_jira_fields = self.jira.fields()
+                
+                # Create a mapping of field IDs to field names
+                field_id_to_name = {field['id']: field['name'] for field in all_jira_fields}
+                
+                # Get the list of field names that were already covered
+                covered_field_names = {field_name for field_name, _ in covered_fields}
+                
+                # Also add standard fields that we always skip
+                skip_fields = {
+                    'summary', 'description', 'issuekey', 'project', 'issuetype', 'status', 
+                    'resolution', 'created', 'updated', 'reporter', 'assignee', 'priority',
+                    'labels', 'components', 'versions', 'fixVersions', 'attachment',
+                    'comment', 'worklog', 'timetracking', 'votes', 'watches', 'subtasks',
+                    'issuelinks', 'changelog', 'transitions', 'operations', 'editmeta',
+                    'renderedFields', 'names', 'schema', 'expand'
+                }
+                
+                # Get all field IDs that have values in the issue
+                issue_fields = wrapped_issue.issue.raw.get('fields', {})
+                
+                additional_fields_added = False
+                
+                for field_id, field_value in issue_fields.items():
+                    # Skip if field has no value or is None
+                    if field_value is None or field_value == "" or field_value == []:
+                        continue
+                        
+                    # Get the field name from Jira
+                    field_name = field_id_to_name.get(field_id, field_id)
+                    
+                    # Skip if this field was already covered or should be skipped
+                    if field_id in skip_fields or any(covered_field in field_id.lower() or covered_field in field_name.lower() 
+                                                     for covered_field in covered_field_names):
+                        continue
+                    
+                    # Skip system fields and internal Jira fields
+                    if (field_id.startswith('customfield_') == False and 
+                        field_id not in ['environment', 'duedate', 'timeestimate', 'timespent']):
+                        continue
+                    
+                    # Try to get a clean field value
+                    try:
+                        if hasattr(field_value, 'displayName'):
+                            clean_value = field_value.displayName
+                        elif hasattr(field_value, 'name'):
+                            clean_value = field_value.name
+                        elif hasattr(field_value, 'value'):
+                            clean_value = field_value.value
+                        elif isinstance(field_value, list):
+                            if len(field_value) > 0:
+                                # Check if it's a list of complex objects
+                                if hasattr(field_value[0], 'displayName'):
+                                    clean_value = ', '.join([item.displayName for item in field_value])
+                                elif hasattr(field_value[0], 'name'):
+                                    clean_value = ', '.join([item.name for item in field_value])
+                                elif hasattr(field_value[0], 'value'):
+                                    clean_value = ', '.join([item.value for item in field_value])
+                                elif isinstance(field_value[0], (dict, list)):
+                                    # Format complex list as YAML
+                                    try:
+                                        clean_value = f"```yaml\n{yaml.dump(field_value, default_flow_style=False, indent=2)}\n```"
+                                    except:
+                                        clean_value = ', '.join([str(item) for item in field_value])
+                                else:
+                                    clean_value = ', '.join([str(item) for item in field_value])
+                            else:
+                                continue
+                        elif isinstance(field_value, dict):
+                            # Check if it's a simple dict with display properties
+                            if 'displayName' in field_value:
+                                clean_value = field_value['displayName']
+                            elif 'name' in field_value:
+                                clean_value = field_value['name']
+                            elif 'value' in field_value:
+                                clean_value = field_value['value']
+                            else:
+                                # Format complex dict as YAML
+                                try:
+                                    clean_value = f"```yaml\n{yaml.dump(field_value, default_flow_style=False, indent=2)}\n```"
+                                except:
+                                    clean_value = str(field_value)
+                        else:
+                            # Check if it's a JSON string that we can parse and format
+                            try:
+                                import json
+                                if isinstance(field_value, str) and (field_value.strip().startswith('{') or field_value.strip().startswith('[')):
+                                    parsed_json = json.loads(field_value)
+                                    clean_value = f"```yaml\n{yaml.dump(parsed_json, default_flow_style=False, indent=2)}\n```"
+                                else:
+                                    clean_value = str(field_value)
+                            except:
+                                clean_value = str(field_value)
+                        
+                        # Skip if the cleaned value is empty or too short
+                        if not clean_value or len(str(clean_value).strip()) < 1:
+                            continue
+                        
+                        # Add a header for additional fields if this is the first one
+                        if not additional_fields_added:
+                            whole_description += "## Additional Fields\n\n"
+                            additional_fields_added = True
+                        
+                        # Format the field name for display
+                        display_name = field_name.replace('customfield_', '').replace('_', ' ').title()
+                        whole_description = self.add_titled_section(whole_description, f"### {display_name}", clean_value)
+                        
+                    except Exception:
+                        # If we can't process a field, skip it silently
+                        continue
+                        
+            except Exception as e:
+                # If there's any error getting additional fields, don't fail the whole method
+                print(f"Warning: Could not retrieve additional fields: {e}")
+                
+            return whole_description
+
+        def format(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
+            """
+            Generate a markdown description of the issue with optional comments.
+            Args:
+                issue: The Jira issue object.
+                include_comments: Whether to include comments in the output.
+                format_as_html: Whether to convert the markdown to HTML using the markdown library.
+            Returns:
+                String containing the markdown description or HTML if format_as_html is True.
+            """
+            wrapped_issue = MyJiraIssue(issue, self.jira)
+            whole_description = ""
+            
+            # Always add the issue ID
+            whole_description = self.add_titled_section(whole_description, "Issue ID: ", issue.key)
+            
+            # Define field mappings for sections
+            field_sections = [
+                ("summary", "Summary"),
+                ("description", "Description"),
+                ("acceptance_criteria", "Acceptance Criteria"),
+                ("test_result_evidence", "Test Result and Evidence"),
+                ("repro_steps", "Reproduction Steps"),
+                ("customer_repro_steps", "Steps to Reproduce"),
+                ("relevant_environment", "Relevant Environment"),
+                ("expected_results", "Expected Results"),
+                ("actual_results", "Actual Results")
+            ]
+            
+            # Add each field section if it exists
+            for field_name, section_title in field_sections:
+                whole_description = self._add_field_section(wrapped_issue, whole_description, field_name, section_title)
+
+            # Add any additional fields that weren't covered in the predefined sections
+            whole_description = self._add_additional_fields(wrapped_issue, whole_description, field_sections)
+
+            if (include_comments):
+                comments = self.jira.comments(issue.key)
+                comments.reverse()
+                for comment in comments:
+                    whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment.body)
+
+            # Convert to HTML if requested
+            if format_as_html:
+                return markdown.markdown(whole_description, extensions=['fenced_code', 'tables'])
+            
+            return whole_description
 
     def get_body(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
         """
@@ -485,43 +668,8 @@ class MyJira:
         Returns:
             String containing the markdown description or HTML if format_as_html is True.
         """
-        wrapped_issue = MyJiraIssue(issue, self.jira)
-        whole_description = ""
-        
-        # Always add the issue ID
-        whole_description = self.add_titled_section(whole_description, "Issue ID: ", issue.key)
-        
-        # Define field mappings for sections
-        field_sections = [
-            ("summary", "Summary"),
-            ("description", "Description"),
-            ("acceptance_criteria", "Acceptance Criteria"),
-            ("test_result_evidence", "Test Result and Evidence"),
-            ("repro_steps", "Reproduction Steps"),
-            ("customer_repro_steps", "Steps to Reproduce"),
-            ("relevant_environment", "Relevant Environment"),
-            ("expected_results", "Expected Results"),
-            ("actual_results", "Actual Results")
-        ]
-        
-        # Add each field section if it exists
-        for field_name, section_title in field_sections:
-            whole_description = self._add_field_section(wrapped_issue, whole_description, field_name, section_title)
-
-        # Add any additional fields that weren't covered in the predefined sections
-        whole_description = self._add_additional_fields(wrapped_issue, whole_description, field_sections)
-
-        if (include_comments):
-            comments = self.jira.comments(issue.key)
-            comments.reverse()
-            for comment in comments:
-                whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment.body)
-
-        # Convert to HTML if requested
-        if format_as_html:
-            return markdown.markdown(whole_description, extensions=['fenced_code', 'tables'])
-        
-        return whole_description
+        formatter = self.JiraIssueMarkdownFormatter(self.jira)
+        return formatter.format(issue, include_comments=include_comments, format_as_html=format_as_html)
 
     def create_backlog_issue(self, title: str, description: str, issue_type: str) -> Any:
         """
@@ -766,134 +914,3 @@ class MyJira:
             issue_dict[ref_issue.team_fieldname] = ref_issue.team.id
 
         return issue_dict
-
-    def _add_additional_fields(self, wrapped_issue: Any, whole_description: str, covered_fields: List[tuple]) -> str:
-        """
-        Add any additional fields from the Jira issue that weren't covered in the predefined sections.
-        
-        Args:
-            wrapped_issue: MyJiraIssue wrapper object.
-            whole_description: Current markdown description.
-            covered_fields: List of tuples (field_name, section_title) that were already processed.
-            
-        Returns:
-            Updated markdown description with additional fields.
-        """
-        try:
-            # Get all available fields from Jira
-            all_jira_fields = self.jira.fields()
-            
-            # Create a mapping of field IDs to field names
-            field_id_to_name = {field['id']: field['name'] for field in all_jira_fields}
-            
-            # Get the list of field names that were already covered
-            covered_field_names = {field_name for field_name, _ in covered_fields}
-            
-            # Also add standard fields that we always skip
-            skip_fields = {
-                'summary', 'description', 'issuekey', 'project', 'issuetype', 'status', 
-                'resolution', 'created', 'updated', 'reporter', 'assignee', 'priority',
-                'labels', 'components', 'versions', 'fixVersions', 'attachment',
-                'comment', 'worklog', 'timetracking', 'votes', 'watches', 'subtasks',
-                'issuelinks', 'changelog', 'transitions', 'operations', 'editmeta',
-                'renderedFields', 'names', 'schema', 'expand'
-            }
-            
-            # Get all field IDs that have values in the issue
-            issue_fields = wrapped_issue.issue.raw.get('fields', {})
-            
-            additional_fields_added = False
-            
-            for field_id, field_value in issue_fields.items():
-                # Skip if field has no value or is None
-                if field_value is None or field_value == "" or field_value == []:
-                    continue
-                    
-                # Get the field name from Jira
-                field_name = field_id_to_name.get(field_id, field_id)
-                
-                # Skip if this field was already covered or should be skipped
-                if field_id in skip_fields or any(covered_field in field_id.lower() or covered_field in field_name.lower() 
-                                                 for covered_field in covered_field_names):
-                    continue
-                
-                # Skip system fields and internal Jira fields
-                if (field_id.startswith('customfield_') == False and 
-                    field_id not in ['environment', 'duedate', 'timeestimate', 'timespent']):
-                    continue
-                
-                # Try to get a clean field value
-                try:
-                    if hasattr(field_value, 'displayName'):
-                        clean_value = field_value.displayName
-                    elif hasattr(field_value, 'name'):
-                        clean_value = field_value.name
-                    elif hasattr(field_value, 'value'):
-                        clean_value = field_value.value
-                    elif isinstance(field_value, list):
-                        if len(field_value) > 0:
-                            # Check if it's a list of complex objects
-                            if hasattr(field_value[0], 'displayName'):
-                                clean_value = ', '.join([item.displayName for item in field_value])
-                            elif hasattr(field_value[0], 'name'):
-                                clean_value = ', '.join([item.name for item in field_value])
-                            elif hasattr(field_value[0], 'value'):
-                                clean_value = ', '.join([item.value for item in field_value])
-                            elif isinstance(field_value[0], (dict, list)):
-                                # Format complex list as YAML
-                                try:
-                                    clean_value = f"```yaml\n{yaml.dump(field_value, default_flow_style=False, indent=2)}\n```"
-                                except:
-                                    clean_value = ', '.join([str(item) for item in field_value])
-                            else:
-                                clean_value = ', '.join([str(item) for item in field_value])
-                        else:
-                            continue
-                    elif isinstance(field_value, dict):
-                        # Check if it's a simple dict with display properties
-                        if 'displayName' in field_value:
-                            clean_value = field_value['displayName']
-                        elif 'name' in field_value:
-                            clean_value = field_value['name']
-                        elif 'value' in field_value:
-                            clean_value = field_value['value']
-                        else:
-                            # Format complex dict as YAML
-                            try:
-                                clean_value = f"```yaml\n{yaml.dump(field_value, default_flow_style=False, indent=2)}\n```"
-                            except:
-                                clean_value = str(field_value)
-                    else:
-                        # Check if it's a JSON string that we can parse and format
-                        try:
-                            import json
-                            if isinstance(field_value, str) and (field_value.strip().startswith('{') or field_value.strip().startswith('[')):
-                                parsed_json = json.loads(field_value)
-                                clean_value = f"```yaml\n{yaml.dump(parsed_json, default_flow_style=False, indent=2)}\n```"
-                            else:
-                                clean_value = str(field_value)
-                        except:
-                            clean_value = str(field_value)
-                        
-                    # Skip if the cleaned value is empty or too short
-                    if not clean_value or len(str(clean_value).strip()) < 1:
-                        continue
-                        
-                    # Add a header for additional fields if this is the first one
-                    if not additional_fields_added:
-                        whole_description += "## Additional Fields\n\n"
-                        additional_fields_added = True
-                    
-                    # Format the field name for display
-                    display_name = field_name.replace('customfield_', '').replace('_', ' ').title()
-                    whole_description = self.add_titled_section(whole_description, f"### {display_name}", clean_value)
-                    
-                except Exception as e:
-                    # If we can't process a field, skip it silently
-                    continue
-                    
-        except Exception as e:
-            # If there's any error getting additional fields, don't fail the whole method
-            print(f"Warning: Could not retrieve additional fields: {e}")
-            
-        return whole_description
