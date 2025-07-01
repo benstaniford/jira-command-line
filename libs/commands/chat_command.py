@@ -61,15 +61,25 @@ class ChatCommand(BaseCommand):
     def _chat_with_pycopilot(self, ui, issues, jira):
         """Chat using pycopilot library with cached authentication"""
         try:
-            # Import pycopilot modules
-            from pycopilot import CopilotClient, AuthCache, AuthenticationError
+            from pycopilot import CopilotClient, AuthCache, CopilotAuth, AuthenticationError
             
             # Try to get cached authentication
             cache = AuthCache()
             chat_token = cache.get_valid_cached_chat_token()
             
             if not chat_token:
-                raise Exception("Auth failed, please authenticate with copilot")
+                # Try to get a new chat token from cached bearer token
+                bearer_token = cache.get_cached_bearer_token()
+                if not bearer_token:
+                    raise Exception("Auth failed, please authenticate with copilot")
+                auth = CopilotAuth()
+                try:
+                    chat_token = auth.get_chat_token_from_bearer(bearer_token)
+                    if not chat_token:
+                        raise Exception("Auth failed, please authenticate with copilot")
+                    cache.cache_chat_token(chat_token)
+                except Exception:
+                    raise Exception("Auth failed, please authenticate with copilot")
             
             # Initialize client with cached token
             client = CopilotClient()
