@@ -85,28 +85,38 @@ class ChatCommand(BaseCommand):
             client = CopilotClient()
             client.set_chat_token(chat_token)
             
-            # Add issues as context
-            for issue in issues:
-                issue_content = write_issue_for_chat(issue, jira)
-                # Create a temporary file for the issue context
-                import tempfile
-                import os
-                with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{issue.key}.txt', delete=False) as f:
-                    f.write(issue_content)
-                    temp_file = f.name
+            import tempfile
+            import os
+            temp_files = []
+            try:
+                # Add issues as context
+                for issue in issues:
+                    issue_content = write_issue_for_chat(issue, jira)
+                    # Add the content directly to the context if supported
+                    try:
+                        client.add_context(issue_content)
+                    except Exception:
+                        # Fallback: if add_context only supports file paths, use temp file
+                        with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{issue.key}.txt', delete=False) as f:
+                            f.write(issue_content)
+                            temp_file = f.name
+                            temp_files.append(temp_file)
+                        client.add_context(temp_file)
                 
-                try:
-                    client.add_context(temp_file)
-                finally:
-                    # Clean up temp file
+                # Start interactive chat
+                ui.yield_screen()
+                self._interactive_pycopilot_chat(client)
+                ui.restore_screen()
+            
+            finally:
+                # Clean up temp files
+                for temp_file in temp_files:
                     if os.path.exists(temp_file):
-                        os.unlink(temp_file)
-            
-            # Start interactive chat
-            ui.yield_screen()
-            self._interactive_pycopilot_chat(client)
-            ui.restore_screen()
-            
+                        try:
+                            os.unlink(temp_file)
+                        except Exception:
+                            pass
+        
         except AuthenticationError:
             raise Exception("Auth failed, please authenticate with copilot")
         except ImportError:

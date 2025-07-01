@@ -1,6 +1,7 @@
 import tempfile
 import json
 import os
+from pathlib import Path
 
 def show_viewer(string):
     with tempfile.NamedTemporaryFile(suffix=".json") as f:
@@ -24,11 +25,10 @@ def view_description(issue, jira):
     show_viewer(jira.get_body(issue, include_comments=True))
 
 def write_issue_for_chat(issue, jira):
-    chat_folder = "~/.jiratmp"
-    if not os.path.exists(chat_folder):
-        os.makedirs(chat_folder)
-    filename = os.path.join(chat_folder, f"{issue.key}.json")
+    chat_folder = Path.home() / ".jiratmp"
+    chat_folder.mkdir(parents=True, exist_ok=True)
+    filename = chat_folder / f"{issue.key}.json"
     with open(filename, 'w', encoding='utf-8', errors='replace') as f:
         string = jira.get_body(issue, include_comments=True)
         f.write(string)
-    return filename
+    return str(filename)
