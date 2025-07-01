@@ -143,6 +143,7 @@ def display_prompt(
     prompt: str = f"Commands F1:help, {fkey_string}\n"
     prompt += f"  {command_registry.get_help_text()}\n"
     prompt += "Type a number to see task details"
+
     selection: str = ""
     try:
         selection = ui.prompt_get_string(prompt, key_shortcuts, '|', ('o', 'O'), '/')

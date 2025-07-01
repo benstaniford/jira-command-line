@@ -1,13 +1,14 @@
 import os
 import importlib
+from typing import Dict, Tuple, Optional, Any
 from commands.base_command import BaseCommand
 
 class CommandRegistry:
-    def __init__(self):
-        self.commands = {}
+    def __init__(self) -> None:
+        self.commands: Dict[str, BaseCommand] = {}
         self.load_commands()
     
-    def load_commands(self):
+    def load_commands(self) -> None:
         """Dynamically load all command classes from the commands directory"""
         commands_dir = os.path.join(os.path.dirname(__file__), 'commands')
         
@@ -23,28 +24,28 @@ class CommandRegistry:
                         if (isinstance(attr, type) and 
                             issubclass(attr, BaseCommand) and 
                             attr != BaseCommand):
-                            command_instance = attr()
+                            command_instance: BaseCommand = attr()
                             self.commands[command_instance.shortcut] = command_instance
                             break
                 except Exception as e:
                     print(f"Failed to load command from {filename}: {e}")
     
-    def get_command(self, shortcut):
+    def get_command(self, shortcut: str) -> Optional[BaseCommand]:
         """Get a command by its shortcut"""
         return self.commands.get(shortcut)
     
-    def get_all_shortcuts(self):
+    def get_all_shortcuts(self) -> Tuple[str, ...]:
         """Get all available shortcuts"""
         return tuple(self.commands.keys())
     
-    def get_single_char_shortcuts(self):
+    def get_single_char_shortcuts(self) -> Tuple[str, ...]:
         """Get only single-character shortcuts for UI key handling"""
         return tuple(shortcut for shortcut in self.commands.keys() if len(shortcut) == 1)
     
-    def get_help_text(self):
+    def get_help_text(self) -> str:
         """Get formatted help text for all commands"""
-        help_lines = []
-        current_line = ""
+        help_lines: list[str] = []
+        current_line: str = ""
         
         for shortcut in sorted(self.commands.keys(), key=lambda x: (x.lower(), x)):
             command = self.commands[shortcut]
