@@ -151,23 +151,23 @@ class ChatCommand(BaseCommand):
             return f"{color}{text}{Style.RESET_ALL}" if COLORAMA else text
 
         def colorize_markdown(line):
-            # Inline formatting first
-            # Bold
-            line = re.sub(r"\*\*(.*?)\*\*", lambda m: c(m.group(1), Fore.YELLOW + Style.BRIGHT), line)
-            # Italic (avoid matching inside bold)
-            line = re.sub(r"(?<!\*)\*(?!\*)(.*?)\*(?!\*)", lambda m: c(m.group(1), Fore.GREEN), line)
-            # Inline code
-            line = re.sub(r"`([^`]+)`", lambda m: c(m.group(1), Fore.CYAN), line)
             # Code block (simple, not multi-line)
             if line.strip().startswith('```'):
                 return c(line, Fore.GREEN + Style.BRIGHT)
-            # Headers
+            # Headers (skip bold for headers)
             if re.match(r"^# ", line):
                 return c(line, Fore.MAGENTA + Style.BRIGHT)
             if re.match(r"^## ", line):
                 return c(line, Fore.CYAN + Style.BRIGHT)
             if re.match(r"^### ", line):
                 return c(line, Fore.BLUE + Style.BRIGHT)
+            # Inline formatting for non-headers
+            # Bold
+            line = re.sub(r"\*\*(.*?)\*\*", lambda m: c(m.group(1), Fore.YELLOW + Style.BRIGHT), line)
+            # Italic (avoid matching inside bold)
+            line = re.sub(r"(?<!\*)\*(?!\*)(.*?)\*(?!\*)", lambda m: c(m.group(1), Fore.GREEN), line)
+            # Inline code
+            line = re.sub(r"`([^`]+)`", lambda m: c(m.group(1), Fore.CYAN), line)
             # Lists (after inline formatting)
             if re.match(r"^\s*\d+\. ", line):
                 return c(line, Fore.WHITE)
