@@ -3,14 +3,11 @@
 import curses
 import argparse
 from MyJira import MyJira
-from MyJiraIssue import MyJiraIssue
 from MyGit import MyGit
 from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
 from CursesTableView import CursesTableView
-from JiraXrayIssue import JiraXrayIssue
 from JiraTableView import JiraTableView
-from MyPlotter import MyPlotter
 from view_mode import ViewMode
 from command_registry import CommandRegistry
 
@@ -58,7 +55,6 @@ def main(stdscr):
                  else ViewMode.BOARD if args.board
                  else ViewMode.BACKLOG, params=board if args.board else None)
 
-    # Column sort f-keys
     possible_columns = jira.get_optional_fields()
     fkey_to_column = {}
     for i, possible_column in enumerate(possible_columns):
@@ -68,7 +64,9 @@ def main(stdscr):
     # Get available shortcuts from command registry (only single-character ones for UI)
     key_shortcuts = command_registry.get_single_char_shortcuts()
     
-    # Keyboard input loop
+    return run_ui_loop(stdscr, ui, view, command_registry, possible_columns, fkey_to_column, fkey_string, key_shortcuts)
+
+def run_ui_loop(stdscr, ui, view, command_registry, possible_columns, fkey_to_column, fkey_string, key_shortcuts):
     while True:
         prompt = f"Commands F1:help, {fkey_string}\n"
         prompt += f"  {command_registry.get_help_text()}\n"
@@ -79,35 +77,10 @@ def main(stdscr):
         except Exception as e:
             ui.error("Command execution", e)
 
-        # Enable/Disable extra columns
         if selection in ("KEY_F2", "KEY_F3", "KEY_F4", "KEY_F5", "KEY_F6", "KEY_F7", "KEY_F8", "KEY_F9", "KEY_F10", "KEY_F11", "KEY_F12"):
-            fkey = selection[4:]
-            try:
-                if fkey_to_column.get(fkey):
-                    selected_column = fkey_to_column[fkey]
-                    ui.prompt(f"Toggle column {selected_column}...")
-                    extra_columns = view.extra_columns
-                    if selected_column != "" and selected_column in possible_columns:
-                        if selected_column not in extra_columns:
-                            extra_columns[selected_column] = possible_columns[selected_column]
-                        else:
-                            del extra_columns[selected_column]
-                    view.rebuild(extra_columns=extra_columns, jira=jira)
-            except Exception as e:
-                ui.error("Add extra columns", e)
-
-        # Handle commands from registry
+            handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection)
         elif selection in command_registry.commands:
-            command = command_registry.get_command(selection)
-            result = command.execute(
-                ui=ui, 
-                view=view, 
-                jira=jira, 
-                mygit=mygit, 
-                mygithub=mygithub, 
-                config=config,
-                stdscr=stdscr
-            )
+            result = handle_regular_commands(stdscr, ui, view, command_registry, selection)
             if result:  # If command returns True, exit the loop
                 return
 
@@ -123,6 +96,36 @@ def main(stdscr):
         elif selection == "":
             if view.mode == ViewMode.TASKVIEW:
                 view.previous(jira=jira)
+
+def handle_regular_commands(stdscr, ui, view, command_registry, selection):
+    command = command_registry.get_command(selection)
+    result = command.execute(
+                ui=ui, 
+                view=view, 
+                jira=jira, 
+                mygit=mygit, 
+                mygithub=mygithub, 
+                config=config,
+                stdscr=stdscr
+            )
+    
+    return result
+
+def handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection):
+    fkey = selection[4:]
+    try:
+        if fkey_to_column.get(fkey):
+            selected_column = fkey_to_column[fkey]
+            ui.prompt(f"Toggle column {selected_column}...")
+            extra_columns = view.extra_columns
+            if selected_column != "" and selected_column in possible_columns:
+                if selected_column not in extra_columns:
+                    extra_columns[selected_column] = possible_columns[selected_column]
+                else:
+                    del extra_columns[selected_column]
+            view.rebuild(extra_columns=extra_columns, jira=jira)
+    except Exception as e:
+        ui.error("Add extra columns", e)
 
 if __name__ == "__main__":
     curses.initscr()
