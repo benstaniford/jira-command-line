@@ -3,14 +3,14 @@
 import curses
 import argparse
 from typing import Any, Dict, Optional, List
-from MyJira import MyJira
-from MyGit import MyGit
-from MyGithub import MyGithub
-from MyJiraConfig import MyJiraConfig
-from CursesTableView import CursesTableView
-from JiraTableView import JiraTableView
-from ViewMode import ViewMode
-from CommandRegistry import CommandRegistry
+from libs.MyJira import MyJira
+from libs.MyGit import MyGit
+from libs.MyGithub import MyGithub
+from libs.MyJiraConfig import MyJiraConfig
+from libs.CursesTableView import CursesTableView
+from libs.JiraTableView import JiraTableView
+from libs.ViewMode import ViewMode
+from libs.CommandRegistry import CommandRegistry
 
 def build_arg_parser() -> argparse.ArgumentParser:
     """
