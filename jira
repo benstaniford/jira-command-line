@@ -11,28 +11,32 @@ from JiraTableView import JiraTableView
 from view_mode import ViewMode
 from command_registry import CommandRegistry
 
-# Load the config
-config_file = MyJiraConfig()
-if not config_file.exists():
-    print("Configuration file not found, generating template...")
-    print("Please edit the configuration file and generate required PAT tokens for jira and github")
-    config_file.generate_template()
-    print(f"Configuration file saved to: {config_file.get_location()}")
-    input("Press any key to exit...")
-    quit()
-config = config_file.load()
+def build_arg_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
+    parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
+    parser.add_argument("-B", "--board", help="Start in board mode, takes an index of the board to show", type=int)
+    parser.add_argument("-z", "--escalations", help="Start in escalations mode", action="store_true")
+    parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
+    return parser
+
+def load_config():
+    config_file = MyJiraConfig()
+    if not config_file.exists():
+        print("Configuration file not found, generating template...")
+        print("Please edit the configuration file and generate required PAT tokens for jira and github")
+        config_file.generate_template()
+        print(f"Configuration file saved to: {config_file.get_location()}")
+        input("Press any key to exit...")
+        quit()
+    return config_file
 
 # Global variables
+config = load_config().load()
 jira = MyJira(config.get('jira'))
 mygit = MyGit(config.get('git'))
 mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
-parser = argparse.ArgumentParser()
-parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
-parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
-parser.add_argument("-B", "--board", help="Start in board mode, takes an index of the board to show", type=int)
-parser.add_argument("-z", "--escalations", help="Start in escalations mode", action="store_true")
-parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
-args = parser.parse_args()
+args = build_arg_parser().parse_args()
 
 def main(stdscr):
     ui = CursesTableView(stdscr)
