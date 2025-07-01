@@ -1,5 +1,4 @@
-from view_mode import ViewMode
-
+from ViewMode import ViewMode
 
 class JiraTableView:
     def __init__(self, ui, jira):

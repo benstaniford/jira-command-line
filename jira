@@ -9,8 +9,8 @@ from MyGithub import MyGithub
 from MyJiraConfig import MyJiraConfig
 from CursesTableView import CursesTableView
 from JiraTableView import JiraTableView
-from view_mode import ViewMode
-from command_registry import CommandRegistry
+from ViewMode import ViewMode
+from CommandRegistry import CommandRegistry
 
 def build_arg_parser() -> argparse.ArgumentParser:
     """

@@ -1,5 +1,5 @@
 from commands.base_command import BaseCommand
-from view_mode import ViewMode
+from ViewMode import ViewMode
 from jira_utils import get_string_from_editor
 
 class CreateCommand(BaseCommand):
