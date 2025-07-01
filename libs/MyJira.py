@@ -271,6 +271,7 @@ class MyJira:
         
         # Define field mappings for sections
         field_sections = [
+            ("summary", "Summary"),
             ("description", "Description"),
             ("acceptance_criteria", "Acceptance Criteria"),
             ("test_result_evidence", "Test Result and Evidence"),
