@@ -1,10 +1,7 @@
 #!/usr/bin/python3
 
 # scriptdoc: title="Gather stats about the last two weeks", tags="bt,work,jira"
-import json
 import argparse
-import sys
-import time
 import os
 from datetime import datetime
 from MyJira import MyJira
