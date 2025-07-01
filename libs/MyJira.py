@@ -6,6 +6,7 @@ from .MyJiraIssue import MyJiraIssue
 import os
 import datetime
 import webbrowser
+import markdown
 
 class MyJira:
     def __init__(self, config):
@@ -198,8 +199,8 @@ class MyJira:
         self.get_sprint_issues()
         url = issue.fields.issuetype.self
         new_title = f"SPIKE: {issue.fields.summary}"
-        original_description = self.get_body(issue)
-        new_description = f"Spike to investigate {issue.key} : {url}\n\n**Original Description**\n\n{original_description}"
+        original_description = self.get_body(issue, format_as_html=False)
+        new_description = f"Spike to investigate {issue.key} : {url}\n\n## Original Description\n\n{original_description}"
         new_issue = self.create_sprint_issue(new_title, new_description, "Spike")
         self.jira.create_issue_link("Relates", issue, new_issue)
         return new_issue
@@ -249,8 +250,20 @@ class MyJira:
         self.jira.add_issues_to_sprint(sprint_id, [issue.key])
 
     def add_titled_section(self, body, title, content):
+        """
+        Add a titled section to the Markdown document
+        
+        Args:
+            body: Existing markdown content
+            title: Section title
+            content: Section content
+            
+        Returns:
+            Updated markdown with the new section added
+        """
         if (content != None and content != ""):
-            body += f"**{title}**\n\n{content}\n\n"
+            # Format with markdown header style
+            body += f"## {title}\n\n{content}\n\n"
         return body
 
     def _add_field_section(self, wrapped_issue, whole_description, field_name, section_title):
@@ -262,7 +275,18 @@ class MyJira:
             whole_description = self.add_titled_section(whole_description, section_title, field_value)
         return whole_description
 
-    def get_body(self, issue, include_comments=False):
+    def get_body(self, issue, include_comments=False, format_as_html=False):
+        """
+        Generate a markdown description of the issue with optional comments.
+        
+        Args:
+            issue: The Jira issue object
+            include_comments: Whether to include comments in the output
+            format_as_html: Whether to convert the markdown to HTML using the markdown library
+            
+        Returns:
+            String containing the markdown description or HTML if format_as_html is True
+        """
         wrapped_issue = MyJiraIssue(issue, self.jira)
         whole_description = ""
         
@@ -271,6 +295,7 @@ class MyJira:
         
         # Define field mappings for sections
         field_sections = [
+            ("summary", "Summary"),
             ("description", "Description"),
             ("acceptance_criteria", "Acceptance Criteria"),
             ("test_result_evidence", "Test Result and Evidence"),
@@ -291,6 +316,10 @@ class MyJira:
             for comment in comments:
                 whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment.body)
 
+        # Convert to HTML if requested
+        if format_as_html:
+            return markdown.markdown(whole_description, extensions=['fenced_code', 'tables'])
+        
         return whole_description
 
     def create_backlog_issue(self, title, description, issue_type):
