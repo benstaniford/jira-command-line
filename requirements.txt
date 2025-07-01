@@ -1,0 +1,15 @@
+markdown
+pyyaml
+jira
+requests
+gitpython
+PyGithub
+windows-curses
+sv-ttk
+sentence-transformers
+faiss-cpu
+beautifulsoup4
+ollama
+pandas
+matplotlib
+numpy
