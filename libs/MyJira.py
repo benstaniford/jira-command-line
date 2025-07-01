@@ -7,9 +7,15 @@ import os
 import datetime
 import webbrowser
 import markdown
+from typing import Any, Dict, List, Optional, Union
 
 class MyJira:
-    def __init__(self, config):
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize the MyJira instance with configuration.
+        Args:
+            config: Dictionary containing Jira and team configuration.
+        """
         self.config = config
         self.url = config["url"]
         self.password = config["password"]
@@ -39,7 +45,14 @@ class MyJira:
         self._closed_sprints_cache_timestamp = None
         self._closed_sprints_cache_duration = 3600  # Cache for 1 hour
 
-    def set_team(self, team_name):
+    def set_team(self, team_name: str) -> None:
+        """
+        Set the current team context and update related properties.
+        Args:
+            team_name: Name of the team to set.
+        Raises:
+            Exception: If the team is not found in the config.
+        """
         self.team_name = team_name
         current_team = self.config['teams'][team_name]
         if (current_team == None):
@@ -60,8 +73,10 @@ class MyJira:
         self._closed_sprints_cache = None
         self._closed_sprints_cache_timestamp = None
 
-    def clear_caches(self):
-        """Clear all caches to force fresh API calls."""
+    def clear_caches(self) -> None:
+        """
+        Clear all caches to force fresh API calls.
+        """
         self._active_sprint_cache = None
         self._active_sprint_cache_timestamp = None
         self._closed_sprints_cache = None
@@ -70,35 +85,71 @@ class MyJira:
         MyJiraIssue._field_mapping_cache = None
         MyJiraIssue._jira_fields_cache = None
 
-    def get_teams(self):
+    def get_teams(self) -> List[str]:
+        """
+        Get a list of all team names.
+        Returns:
+            List of team names.
+        """
         list_teams = []
         for team in self.config['teams']:
             list_teams.append(team)
         return list_teams
 
-    def get_boards(self):
+    def get_boards(self) -> List[str]:
+        """
+        Get a list of all board names.
+        Returns:
+            List of board names.
+        """
         list_boards = []
         for board in self.config['boards']:
             list_boards.append(board)
         return list_boards
 
-    def get_board_issues(self, board):
+    def get_board_issues(self, board: str) -> Any:
+        """
+        Get issues for a specific board.
+        Args:
+            board: Board name.
+        Returns:
+            List of issues for the board.
+        """
         self.board = board
         board = self.config['boards'][board]
         query = board["query"]
         return self.search_issues(query)
 
-    def get_age(self, issue):
+    def get_age(self, issue: Any) -> int:
+        """
+        Get the age of an issue in days.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            Age in days.
+        """
         created = datetime.datetime.strptime(issue.fields.created, '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None)
         now = datetime.datetime.now().replace(tzinfo=None)
         age = now - created
         return age.days
 
-    def transitions(self, issue):
+    def transitions(self, issue: Any) -> Any:
+        """
+        Get possible transitions for an issue.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            List of transitions.
+        """
         return self.jira.transitions(issue)
 
     # Returns a dictionary of optional field names lambda functions to get the value of each field from an issue
-    def get_optional_fields(self):
+    def get_optional_fields(self) -> Dict[str, Any]:
+        """
+        Get a dictionary of optional field names and their value functions.
+        Returns:
+            Dictionary mapping field names to lambda functions.
+        """
         optional_fields = {
                 "Assignee": lambda issue: str(issue.fields.assignee),
                 "Created": lambda issue: str(issue.fields.created[0:16].replace("T", " ")),
@@ -112,10 +163,24 @@ class MyJira:
             }
         return optional_fields
 
-    def get_subtask_count(self, issue):
+    def get_subtask_count(self, issue: Any) -> int:
+        """
+        Get the number of subtasks for an issue.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            Number of subtasks.
+        """
         return len(issue.fields.subtasks)
 
-    def get_parent_description(self, issue):
+    def get_parent_description(self, issue: Any) -> str:
+        """
+        Get a short description of the parent issue, if any.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            Short summary of the parent issue.
+        """
         issue_dict = issue.raw
         parent = issue_dict.get("fields", {}).get("parent", None)
         summary = parent.get("fields", {}).get("summary", "") if parent != None else ""
@@ -123,27 +188,72 @@ class MyJira:
             summary = summary[0:30] + "..."
         return summary
 
-    def search_issues(self, search_text, changelog=False):
+    def search_issues(self, search_text: str, changelog: bool = False) -> Any:
+        """
+        Search for issues using a JQL query.
+        Args:
+            search_text: JQL query string.
+            changelog: Whether to expand changelog.
+        Returns:
+            List of issues.
+        """
         issues = self.jira.search_issues(search_text, startAt=0, maxResults=400, expand="changelog" if changelog else None)
         self.set_reference_issue(issues)
         return issues
 
-    def get_testplan_by_name(self, name):
+    def get_testplan_by_name(self, name: str) -> Any:
+        """
+        Get test plans by name.
+        Args:
+            name: Name of the test plan.
+        Returns:
+            List of test plan issues.
+        """
         return self.jira.search_issues(f'project = {self.project_name} AND issuetype = "Test Plan" AND summary ~ "{name}" ORDER BY Rank ASC')
 
-    def get_backlog_issues(self):
+    def get_backlog_issues(self) -> Any:
+        """
+        Get backlog issues for the current team.
+        Returns:
+            List of backlog issues.
+        """
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
-    def get_windows_backlog_issues(self):
+    def get_windows_backlog_issues(self) -> Any:
+        """
+        Get backlog issues for Windows (no team assigned).
+        Returns:
+            List of backlog issues.
+        """
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]" is EMPTY AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
-    def get_sprint_issues(self, changelog=False):
+    def get_sprint_issues(self, changelog: bool = False) -> Any:
+        """
+        Get issues in the current sprint.
+        Args:
+            changelog: Whether to expand changelog.
+        Returns:
+            List of sprint issues.
+        """
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
-    def get_sprint_by_name(self, name, changelog=False):
+    def get_sprint_by_name(self, name: str, changelog: bool = False) -> Any:
+        """
+        Get issues in a sprint by sprint name.
+        Args:
+            name: Sprint name.
+            changelog: Whether to expand changelog.
+        Returns:
+            List of sprint issues.
+        """
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint="{name}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
-    def list_closed_sprints(self):
+    def list_closed_sprints(self) -> Any:
+        """
+        List closed sprints for the current board.
+        Returns:
+            List of closed sprints.
+        """
         current_time = datetime.datetime.now().timestamp()
         
         # Check if we have cached closed sprints and they're still valid
@@ -159,23 +269,50 @@ class MyJira:
             self._closed_sprints_cache_timestamp = current_time
             return closed_sprints
 
-    def get_issue_by_key(self, key):
+    def get_issue_by_key(self, key: str) -> Any:
+        """
+        Get a single issue by its key.
+        Args:
+            key: Issue key.
+        Returns:
+            Jira issue object.
+        Raises:
+            Exception: If not exactly one issue is found.
+        """
         issues = self.search_issues(f'project = {self.project_name} AND key = {key}')
         if len(issues) != 1:
             raise Exception(f"Expected 1 issue with key {key}, but found {len(issues)}")
         return issues[0]
 
-    def add_comment(self, issue, comment):
+    def add_comment(self, issue: Any, comment: str) -> None:
+        """
+        Add a comment to an issue.
+        Args:
+            issue: Jira issue object.
+            comment: Comment text.
+        """
         self.jira.add_comment(issue, comment)
 
-    def set_reference_issue(self, issues):
+    def set_reference_issue(self, issues: Any) -> None:
+        """
+        Set the reference issue for creating new issues.
+        Args:
+            issues: List of Jira issues.
+        """
         if (len(issues) > 0):
             for issue in issues:
                 potential_ref_issue = MyJiraIssue(issue, self.jira)
                 if potential_ref_issue.sprint == None or len(potential_ref_issue.sprint) == 1:
                     self.reference_issue = issue
 
-    def search_for_issue(self, search_text):
+    def search_for_issue(self, search_text: str) -> Any:
+        """
+        Search for an issue by key, id, or summary.
+        Args:
+            search_text: Search string.
+        Returns:
+            List of matching issues.
+        """
         issues = [] 
 
         if (search_text.lower().startswith("epm-") or search_text.lower().startswith("help-")):
@@ -189,12 +326,24 @@ class MyJira:
 
         return issues
 
-    def get_escalation_issues(self):
+    def get_escalation_issues(self) -> Any:
+        """
+        Get escalation issues for the current product.
+        Returns:
+            List of escalation issues.
+        """
         issues = self.jira.search_issues(f'project = HELP AND "Product[Dropdown]" in ("{self.product_name}") AND statuscategory not in (Done) ORDER BY Rank ASC')
         self.set_reference_issue(issues)
         return issues
 
-    def create_linked_issue_on_sprint(self, issue):
+    def create_linked_issue_on_sprint(self, issue: Any) -> Any:
+        """
+        Create a linked spike issue on the current sprint.
+        Args:
+            issue: Jira issue object to link from.
+        Returns:
+            The new linked issue.
+        """
         # Update ther reference issue so that we can create an issue on sprint
         self.get_sprint_issues()
         url = issue.fields.issuetype.self
@@ -205,29 +354,74 @@ class MyJira:
         self.jira.create_issue_link("Relates", issue, new_issue)
         return new_issue
 
-    def get_linked_issues(self, issue, issue_type):
+    def get_linked_issues(self, issue: Any, issue_type: str) -> Any:
+        """
+        Get issues linked to a given issue of a specific type.
+        Args:
+            issue: Jira issue object.
+            issue_type: Type of linked issues to find.
+        Returns:
+            List of linked issues.
+        """
         linked_issues = self.jira.search_issues(f'project = {self.project_name} AND "Product[Dropdown]" in ("{self.product_name}") AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
         return linked_issues
 
-    def set_story_points(self, issue, points):
+    def set_story_points(self, issue: Any, points: Union[int, float]) -> None:
+        """
+        Set the story points for an issue.
+        Args:
+            issue: Jira issue object.
+            points: Number of story points.
+        """
         wrappedIssue = MyJiraIssue(issue, self.jira)
         wrappedIssue.story_points = points
         issue.update(fields={wrappedIssue.story_points_fieldname: points})
 
-    def get_sub_tasks(self, issue):
+    def get_sub_tasks(self, issue: Any) -> Any:
+        """
+        Get sub-tasks for an issue.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            List of sub-task issues.
+        """
         sub_tasks = self.jira.search_issues(f'project = {self.project_name} AND parent={issue.key} AND (issuetype = Sub-task OR issuetype = "Sub-task Bug") ORDER BY Rank ASC')
         return sub_tasks
 
-    def set_rank_above(self, issue, above_issue):
+    def set_rank_above(self, issue: Any, above_issue: Any) -> None:
+        """
+        Rank an issue above another issue.
+        Args:
+            issue: Jira issue object to move.
+            above_issue: Jira issue object to rank above.
+        """
         self.jira.rank(issue.key, above_issue.key)
 
-    def set_rank_below(self, issue, below_issue):
+    def set_rank_below(self, issue: Any, below_issue: Any) -> None:
+        """
+        Rank an issue below another issue.
+        Args:
+            issue: Jira issue object to move.
+            below_issue: Jira issue object to rank below.
+        """
         self.jira.rank(issue.key, None, below_issue.key)
 
-    def move_to_backlog(self, issue):
+    def move_to_backlog(self, issue: Any) -> None:
+        """
+        Move an issue to the backlog.
+        Args:
+            issue: Jira issue object.
+        """
         self.jira.move_to_backlog([issue.key])
 
-    def move_to_sprint(self, issue):
+    def move_to_sprint(self, issue: Any) -> None:
+        """
+        Move an issue to the current active sprint.
+        Args:
+            issue: Jira issue object.
+        Raises:
+            Exception: If no active sprint is found.
+        """
         # Get the current sprint for my team (with caching)
         current_time = datetime.datetime.now().timestamp()
         
@@ -249,43 +443,46 @@ class MyJira:
         
         self.jira.add_issues_to_sprint(sprint_id, [issue.key])
 
-    def add_titled_section(self, body, title, content):
+    def add_titled_section(self, body: str, title: str, content: Optional[str]) -> str:
         """
-        Add a titled section to the Markdown document
-        
+        Add a titled section to the Markdown document.
         Args:
-            body: Existing markdown content
-            title: Section title
-            content: Section content
-            
+            body: Existing markdown content.
+            title: Section title.
+            content: Section content.
         Returns:
-            Updated markdown with the new section added
+            Updated markdown with the new section added.
         """
         if (content != None and content != ""):
             # Format with markdown header style
             body += f"## {title}\n\n{content}\n\n"
         return body
 
-    def _add_field_section(self, wrapped_issue, whole_description, field_name, section_title):
+    def _add_field_section(self, wrapped_issue: Any, whole_description: str, field_name: str, section_title: str) -> str:
         """
         Helper method to add a field section to the description if the field exists.
+        Args:
+            wrapped_issue: MyJiraIssue wrapper object.
+            whole_description: Current markdown description.
+            field_name: Field name to check.
+            section_title: Section title for markdown.
+        Returns:
+            Updated markdown description.
         """
         if wrapped_issue.has_field(field_name):
             field_value = getattr(wrapped_issue, field_name, "")
             whole_description = self.add_titled_section(whole_description, section_title, field_value)
         return whole_description
 
-    def get_body(self, issue, include_comments=False, format_as_html=False):
+    def get_body(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
         """
         Generate a markdown description of the issue with optional comments.
-        
         Args:
-            issue: The Jira issue object
-            include_comments: Whether to include comments in the output
-            format_as_html: Whether to convert the markdown to HTML using the markdown library
-            
+            issue: The Jira issue object.
+            include_comments: Whether to include comments in the output.
+            format_as_html: Whether to convert the markdown to HTML using the markdown library.
         Returns:
-            String containing the markdown description or HTML if format_as_html is True
+            String containing the markdown description or HTML if format_as_html is True.
         """
         wrapped_issue = MyJiraIssue(issue, self.jira)
         whole_description = ""
@@ -322,12 +519,32 @@ class MyJira:
         
         return whole_description
 
-    def create_backlog_issue(self, title, description, issue_type):
+    def create_backlog_issue(self, title: str, description: str, issue_type: str) -> Any:
+        """
+        Create a new backlog issue.
+        Args:
+            title: Issue summary.
+            description: Issue description.
+            issue_type: Type of the issue (e.g., Story, Bug).
+        Returns:
+            The new issue object.
+        """
         issue_dict = self.__build_issue(None, title, description, issue_type)
         new_issue = self.jira.create_issue(fields=issue_dict)
         return new_issue
 
-    def create_sprint_issue(self, title, description, issue_type):
+    def create_sprint_issue(self, title: str, description: str, issue_type: str) -> Any:
+        """
+        Create a new sprint issue.
+        Args:
+            title: Issue summary.
+            description: Issue description.
+            issue_type: Type of the issue (e.g., Story, Bug).
+        Returns:
+            The new issue object.
+        Raises:
+            Exception: If the reference issue has more than one sprint.
+        """
         issue_dict = self.__build_issue(None, title, description, issue_type)
         ref_issue = MyJiraIssue(self.reference_issue, self.jira)
         
@@ -338,17 +555,39 @@ class MyJira:
         new_issue = self.jira.create_issue(fields=issue_dict)
         return new_issue
 
-    def create_sub_task(self, parent_issue, title, description, issue_type = "Sub-task"):
+    def create_sub_task(self, parent_issue: Any, title: str, description: str, issue_type: str = "Sub-task") -> Any:
+        """
+        Create a new sub-task for a parent issue.
+        Args:
+            parent_issue: Parent Jira issue object.
+            title: Sub-task summary.
+            description: Sub-task description.
+            issue_type: Type of the sub-task (default: "Sub-task").
+        Returns:
+            The new sub-task issue object.
+        """
         issue_dict = self.__build_issue(parent_issue, title, description, issue_type)
         new_issue = self.jira.create_issue(fields=issue_dict)
         return new_issue
 
-    def get_possible_types(self):
+    def get_possible_types(self) -> List[Any]:
+        """
+        Get possible issue types for the current project.
+        Returns:
+            List of possible issue types.
+        """
         possible_types = self.jira.issue_types_for_project(self.reference_issue.fields.project.id)
         possible_types = [i for i in possible_types if i.name not in self.ignored_issue_types]
         return possible_types
 
-    def get_statuses(self, issue):
+    def get_statuses(self, issue: Any) -> List[Any]:
+        """
+        Get possible statuses for an issue.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            List of possible statuses.
+        """
         issuetypes = self.jira.issue_types_for_project(issue.fields.project.id)
         if issue.fields.issuetype.name == "Sub-task":
             issuetypes = [i for i in issuetypes if i.name == "Sub-task"]
@@ -358,55 +597,124 @@ class MyJira:
 
         return statuses
 
-    def change_status(self, issue, status):
+    def change_status(self, issue: Any, status: str) -> None:
+        """
+        Change the status of an issue.
+        Args:
+            issue: Jira issue object.
+            status: New status to transition to.
+        """
         self.jira.transition_issue(issue, status)
 
-    def get_story_points(self, issue):
+    def get_story_points(self, issue: Any) -> str:
+        """
+        Get the story points for an issue as a string.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            Story points as a string.
+        """
         sp = MyJiraIssue(issue, self.jira).story_points
         return str(sp) if sp != None else ""
 
-    def get_priority_score(self, issue):
+    def get_priority_score(self, issue: Any) -> str:
+        """
+        Get the priority score for an issue as a string.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            Priority score as a string.
+        """
         ps = MyJiraIssue(issue, self.jira).priority_score
         return str(ps) if ps != None else ""
 
-    def get_assignee(self, issue):
+    def get_assignee(self, issue: Any) -> str:
+        """
+        Get the assignee's display name for an issue.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            Assignee's display name or empty string if unassigned.
+        """
         if issue.fields.assignee != None:
             return issue.fields.assignee.displayName
         else:
             return ""
 
-    def assign_to_me(self, issue):
+    def assign_to_me(self, issue: Any) -> None:
+        """
+        Assign the issue to the current user.
+        Args:
+            issue: Jira issue object.
+        """
         self.jira.assign_issue(issue, self.username)
 
-    def assign_to(self, issue, shortname):
+    def assign_to(self, issue: Any, shortname: str) -> None:
+        """
+        Assign the issue to a user by shortname.
+        Args:
+            issue: Jira issue object.
+            shortname: Shortname of the user.
+        """
         username = self.short_names_to_ids[shortname]
         if username == "":
             username = None
         self.jira.assign_issue(issue, username)
 
     # Returns a dictionary of keypresses to shortnames
-    def get_user_shortnames(self):
+    def get_user_shortnames(self) -> Any:
+        """
+        Get all user shortnames for the current team.
+        Returns:
+            Iterable of user shortnames.
+        """
         return self.short_names_to_ids.keys()
 
-    def get_user_shortname_to_id(self):
+    def get_user_shortname_to_id(self) -> Dict[str, str]:
+        """
+        Get mapping from user shortnames to user IDs.
+        Returns:
+            Dictionary mapping shortnames to user IDs.
+        """
         return self.short_names_to_ids
 
-    def browse_to(self, issue):
+    def browse_to(self, issue: Any) -> None:
+        """
+        Open the issue in a web browser.
+        Args:
+            issue: Jira issue object.
+        """
         webbrowser.open(issue.permalink())
 
-    def browse_sprint_board(self):
+    def browse_sprint_board(self) -> None:
+        """
+        Open the sprint board in a web browser.
+        """
         webbrowser.open(f"{self.url}/secure/RapidBoard.jspa?rapidView={self.backlog_board_id}")
 
-    def browse_backlog_board(self):
+    def browse_backlog_board(self) -> None:
+        """
+        Open the backlog board in a web browser.
+        """
         url = f"{self.url}/secure/RapidBoard.jspa?rapidView={self.backlog_board_id}&view=planning.nodetail"
         webbrowser.open(url)
 
-    def browse_kanban_board(self):
+    def browse_kanban_board(self) -> None:
+        """
+        Open the kanban board in a web browser.
+        """
         url = f"{self.url}/secure/RapidBoard.jspa?rapidView={self.kanban_board_id}"
         webbrowser.open(url)
 
     # Downloads all attachments for the given issue to the given path, calls callback with the filename before each download
-    def download_attachments(self, issue, path, callback=None):
+    def download_attachments(self, issue: Any, path: str, callback: Optional[Any] = None) -> None:
+        """
+        Download all attachments for the given issue to the given path.
+        Args:
+            issue: Jira issue object.
+            path: Local directory to save attachments.
+            callback: Optional callback called with filename before each download.
+        """
         attachments = issue.fields.attachment
         for attachment in attachments:
             filename = attachment.filename
@@ -422,7 +730,19 @@ class MyJira:
     # If parent_issue is not None, then the new issue will be a sub-task of the parent
     # issue_type can be "Story", "Task", "Bug", etc.
     #
-    def __build_issue(self, parent_issue, title, description, issue_type):
+    def __build_issue(self, parent_issue: Optional[Any], title: str, description: str, issue_type: str) -> Dict[str, Any]:
+        """
+        Build an issue dictionary from the reference issue.
+        Args:
+            parent_issue: Parent Jira issue object, or None.
+            title: Issue summary.
+            description: Issue description.
+            issue_type: Type of the issue (e.g., Story, Bug).
+        Returns:
+            Dictionary representing the new issue fields.
+        Raises:
+            Exception: If no reference issue is set.
+        """
         if (self.reference_issue == None):
             raise Exception("No reference issue found, please call get_backlog_issues() or get_sprint_issues() first")
 
