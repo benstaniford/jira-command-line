@@ -507,6 +507,9 @@ class MyJira:
         for field_name, section_title in field_sections:
             whole_description = self._add_field_section(wrapped_issue, whole_description, field_name, section_title)
 
+        # Add any additional fields that weren't covered in the predefined sections
+        whole_description = self._add_additional_fields(wrapped_issue, whole_description, field_sections)
+
         if (include_comments):
             comments = self.jira.comments(issue.key)
             comments.reverse()
@@ -762,3 +765,113 @@ class MyJira:
             issue_dict[ref_issue.team_fieldname] = ref_issue.team.id
 
         return issue_dict
+
+    def _add_additional_fields(self, wrapped_issue: Any, whole_description: str, covered_fields: List[tuple]) -> str:
+        """
+        Add any additional fields from the Jira issue that weren't covered in the predefined sections.
+        
+        Args:
+            wrapped_issue: MyJiraIssue wrapper object.
+            whole_description: Current markdown description.
+            covered_fields: List of tuples (field_name, section_title) that were already processed.
+            
+        Returns:
+            Updated markdown description with additional fields.
+        """
+        try:
+            # Get all available fields from Jira
+            all_jira_fields = self.jira.fields()
+            
+            # Create a mapping of field IDs to field names
+            field_id_to_name = {field['id']: field['name'] for field in all_jira_fields}
+            
+            # Get the list of field names that were already covered
+            covered_field_names = {field_name for field_name, _ in covered_fields}
+            
+            # Also add standard fields that we always skip
+            skip_fields = {
+                'summary', 'description', 'issuekey', 'project', 'issuetype', 'status', 
+                'resolution', 'created', 'updated', 'reporter', 'assignee', 'priority',
+                'labels', 'components', 'versions', 'fixVersions', 'attachment',
+                'comment', 'worklog', 'timetracking', 'votes', 'watches', 'subtasks',
+                'issuelinks', 'changelog', 'transitions', 'operations', 'editmeta',
+                'renderedFields', 'names', 'schema', 'expand'
+            }
+            
+            # Get all field IDs that have values in the issue
+            issue_fields = wrapped_issue.issue.raw.get('fields', {})
+            
+            additional_fields_added = False
+            
+            for field_id, field_value in issue_fields.items():
+                # Skip if field has no value or is None
+                if field_value is None or field_value == "" or field_value == []:
+                    continue
+                    
+                # Get the field name from Jira
+                field_name = field_id_to_name.get(field_id, field_id)
+                
+                # Skip if this field was already covered or should be skipped
+                if field_id in skip_fields or any(covered_field in field_id.lower() or covered_field in field_name.lower() 
+                                                 for covered_field in covered_field_names):
+                    continue
+                
+                # Skip system fields and internal Jira fields
+                if (field_id.startswith('customfield_') == False and 
+                    field_id not in ['environment', 'duedate', 'timeestimate', 'timespent']):
+                    continue
+                
+                # Try to get a clean field value
+                try:
+                    if hasattr(field_value, 'displayName'):
+                        clean_value = field_value.displayName
+                    elif hasattr(field_value, 'name'):
+                        clean_value = field_value.name
+                    elif hasattr(field_value, 'value'):
+                        clean_value = field_value.value
+                    elif isinstance(field_value, list):
+                        if len(field_value) > 0:
+                            if hasattr(field_value[0], 'displayName'):
+                                clean_value = ', '.join([item.displayName for item in field_value])
+                            elif hasattr(field_value[0], 'name'):
+                                clean_value = ', '.join([item.name for item in field_value])
+                            elif hasattr(field_value[0], 'value'):
+                                clean_value = ', '.join([item.value for item in field_value])
+                            else:
+                                clean_value = ', '.join([str(item) for item in field_value])
+                        else:
+                            continue
+                    elif isinstance(field_value, dict):
+                        if 'displayName' in field_value:
+                            clean_value = field_value['displayName']
+                        elif 'name' in field_value:
+                            clean_value = field_value['name']
+                        elif 'value' in field_value:
+                            clean_value = field_value['value']
+                        else:
+                            clean_value = str(field_value)
+                    else:
+                        clean_value = str(field_value)
+                        
+                    # Skip if the cleaned value is empty or too short
+                    if not clean_value or len(str(clean_value).strip()) < 1:
+                        continue
+                        
+                    # Add a header for additional fields if this is the first one
+                    if not additional_fields_added:
+                        whole_description += "## Additional Fields\n\n"
+                        additional_fields_added = True
+                    
+                    # Format the field name for display
+                    display_name = field_name.replace('customfield_', '').replace('_', ' ').title()
+                    whole_description = self.add_titled_section(whole_description, f"### {display_name}", clean_value)
+                    
+                except Exception as e:
+                    # If we can't process a field, skip it silently
+                    continue
+                    
+        except Exception as e:
+            # If there's any error getting additional fields, don't fail the whole method
+            print(f"Warning: Could not retrieve additional fields: {e}")
+            
+        return whole_description
