@@ -137,15 +137,32 @@ class ChatCommand(BaseCommand):
         client.set_chat_token(chat_token)
 
     def _interactive_pycopilot_chat(self, client):
-        """Simple interactive chat loop for pycopilot, with reauth on 401 error."""
-        print("=== Copilot Chat ===")
-        print("Type 'quit' or 'exit' to end the chat session")
-        print("Context: Issues have been added to the conversation")
-        print("-" * 50)
+        """Simple interactive chat loop for pycopilot, with reauth on 401 error, with colors and emojis."""
+        try:
+            from colorama import Fore, Style, init as colorama_init
+            colorama_init(autoreset=True)
+            COLORAMA = True
+        except ImportError:
+            COLORAMA = False
+            Fore = Style = type('', (), {'RESET_ALL': '', 'BRIGHT': '', 'CYAN': '', 'GREEN': '', 'YELLOW': '', 'RED': '', 'MAGENTA': ''})()
+
+        def c(text, color):
+            return f"{color}{text}{Style.RESET_ALL}" if COLORAMA else text
+
+        assistant_emoji = "🤖"
+        user_emoji = "🧑"
+        system_emoji = "⚙️"
+        error_emoji = "❌"
+        reauth_emoji = "🔑"
+
+        print(c(f"=== {assistant_emoji} Copilot Chat ===", Fore.CYAN))
+        print(c(f"Type 'quit' or 'exit' to end the chat session", Fore.YELLOW))
+        print(c(f"Context: Issues have been added to the conversation", Fore.GREEN))
+        print(c("-" * 50, Fore.MAGENTA))
         
         while True:
             try:
-                user_input = input("\nYou: ").strip()
+                user_input = input(c(f"\n{user_emoji} You: ", Fore.YELLOW)).strip()
                 
                 if user_input.lower() in ['quit', 'exit', 'q']:
                     break
@@ -153,29 +170,29 @@ class ChatCommand(BaseCommand):
                 if not user_input:
                     continue
                 
-                print("Assistant: ", end="", flush=True)
+                print(c(f"{assistant_emoji} Assistant: ", Fore.CYAN), end="", flush=True)
                 
                 # Stream the response, with reauth on 401
                 try:
                     try:
                         for chunk in client.ask(user_input, stream=True):
-                            print(chunk, end="", flush=True)
+                            print(c(chunk, Fore.GREEN), end="", flush=True)
                         print()  # New line after response
                     except Exception as e:
                         if "401" in str(e) or "Unauthorized" in str(e):
-                            print("[Reauthenticating...]")
+                            print(c(f"[{reauth_emoji} Reauthenticating...]", Fore.YELLOW))
                             self._reauthenticate_pycopilot(client)
                             for chunk in client.ask(user_input, stream=True):
-                                print(chunk, end="", flush=True)
+                                print(c(chunk, Fore.GREEN), end="", flush=True)
                             print()
                         else:
-                            print(f"Error getting response: {e}")
+                            print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
                 except Exception as e:
-                    print(f"Error getting response: {e}")
+                    print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
                     
             except KeyboardInterrupt:
-                print("\n\nChat session ended.")
+                print(c(f"\n\n{system_emoji} Chat session ended.", Fore.MAGENTA))
                 break
             except EOFError:
-                print("\nChat session ended.")
+                print(c(f"\n{system_emoji} Chat session ended.", Fore.MAGENTA))
                 break
