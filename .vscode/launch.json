@@ -1,0 +1,53 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Jira Script (Sprint Mode)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/jira",
+            "args": ["-s"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "stopOnEntry": false,
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Jira Script (Backlog Mode)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/jira",
+            "args": ["-l"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "stopOnEntry": false,
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Jira Script (Default)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/jira",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "stopOnEntry": false,
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Jira Script (Escalations)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/jira",
+            "args": ["-z"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "stopOnEntry": false,
+            "justMyCode": true
+        }
+    ]
+}

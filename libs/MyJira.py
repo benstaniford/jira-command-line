@@ -2,46 +2,10 @@
 
 # pip install jira
 from jira import JIRA
-import json
+from .MyJiraIssue import MyJiraIssue
 import os
 import datetime
 import webbrowser
-
-# A wrapper for issues that allow us to translate atttributes to sensible names
-class MyJiraIssue:
-    def __init__(self, issue):
-        self.issue = issue
-        self.translations = {
-                "description": "description",
-                "summary": "summary",
-                "repro_steps": "customfield_10093",
-                "acceptance_criteria": "customfield_10039",
-                "actual_results": "customfield_10094",
-                "expected_results": "customfield_10095",
-                "customer_repro_steps": "customfield_10121",
-                "test_result_evidence": "customfield_10197",
-                "relevant_environment": "customfield_10134",
-                "sprint": "customfield_10020",
-                "story_points": "customfield_10028",
-                "product": "customfield_10108",
-                "test_results": "customfield_10097",
-                "team": "customfield_10001",
-                "test_steps": "customfield_10039",
-                "impact_areas": "customfield_10199",
-                "priority_score": "customfield_10718",
-            }
-
-        for key in self.translations:
-            try:
-                # Dynamically set the attribute on this object to the value of the attribute on the issue
-                setattr(self, key, getattr(issue.fields, self.translations[key]))
-                setattr(self, key + "_fieldname", self.translations[key])
-            except:
-                setattr(self, key, "")
-                setattr(self, key + "_fieldname", self.translations[key])
-
-    def is_spike(self):
-        return self.issue.fields.issuetype.name == "Spike"
 
 class MyJira:
     def __init__(self, config):
@@ -63,6 +27,16 @@ class MyJira:
 
         # We use the reference issue as a template for creating new issues/tasks
         self.reference_issue = None
+        
+        # Cache for active sprint to avoid repeated API calls
+        self._active_sprint_cache = None
+        self._active_sprint_cache_timestamp = None
+        self._active_sprint_cache_duration = 300  # Cache for 5 minutes
+        
+        # Cache for closed sprints (they don't change often)
+        self._closed_sprints_cache = None
+        self._closed_sprints_cache_timestamp = None
+        self._closed_sprints_cache_duration = 3600  # Cache for 1 hour
 
     def set_team(self, team_name):
         self.team_name = team_name
@@ -77,6 +51,23 @@ class MyJira:
         self.kanban_board_id = current_team["kanban_board_id"]
         self.backlog_board_id = current_team["backlog_board_id"]
         self.escalation_board_id = current_team["escalation_board_id"]
+        
+        # Clear active sprint cache when switching teams
+        self._active_sprint_cache = None
+        self._active_sprint_cache_timestamp = None
+        # Clear closed sprints cache when switching teams  
+        self._closed_sprints_cache = None
+        self._closed_sprints_cache_timestamp = None
+
+    def clear_caches(self):
+        """Clear all caches to force fresh API calls."""
+        self._active_sprint_cache = None
+        self._active_sprint_cache_timestamp = None
+        self._closed_sprints_cache = None
+        self._closed_sprints_cache_timestamp = None
+        # Also clear the MyJiraIssue class-level caches
+        MyJiraIssue._field_mapping_cache = None
+        MyJiraIssue._jira_fields_cache = None
 
     def get_teams(self):
         list_teams = []
@@ -152,7 +143,20 @@ class MyJira:
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint="{name}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
     def list_closed_sprints(self):
-        return self.jira.sprints(self.backlog_board_id, extended=True, startAt=0, maxResults=100, state='closed')
+        current_time = datetime.datetime.now().timestamp()
+        
+        # Check if we have cached closed sprints and they're still valid
+        if (self._closed_sprints_cache is not None and 
+            self._closed_sprints_cache_timestamp is not None and
+            current_time - self._closed_sprints_cache_timestamp < self._closed_sprints_cache_duration):
+            return self._closed_sprints_cache
+        else:
+            # Fetch closed sprints from API
+            closed_sprints = self.jira.sprints(self.backlog_board_id, extended=True, startAt=0, maxResults=100, state='closed')
+            # Cache the result
+            self._closed_sprints_cache = closed_sprints
+            self._closed_sprints_cache_timestamp = current_time
+            return closed_sprints
 
     def get_issue_by_key(self, key):
         issues = self.search_issues(f'project = {self.project_name} AND key = {key}')
@@ -166,7 +170,7 @@ class MyJira:
     def set_reference_issue(self, issues):
         if (len(issues) > 0):
             for issue in issues:
-                potential_ref_issue = MyJiraIssue(issue)
+                potential_ref_issue = MyJiraIssue(issue, self.jira)
                 if potential_ref_issue.sprint == None or len(potential_ref_issue.sprint) == 1:
                     self.reference_issue = issue
 
@@ -205,7 +209,7 @@ class MyJira:
         return linked_issues
 
     def set_story_points(self, issue, points):
-        wrappedIssue = MyJiraIssue(issue)
+        wrappedIssue = MyJiraIssue(issue, self.jira)
         wrappedIssue.story_points = points
         issue.update(fields={wrappedIssue.story_points_fieldname: points})
 
@@ -223,12 +227,24 @@ class MyJira:
         self.jira.move_to_backlog([issue.key])
 
     def move_to_sprint(self, issue):
-        # Get the current sprint for my team
-        sprints = self.jira.sprints(self.backlog_board_id, extended=True, startAt=0, maxResults=1, state='active')
-        if len(sprints) > 0:
-            sprint_id = sprints[0].id
+        # Get the current sprint for my team (with caching)
+        current_time = datetime.datetime.now().timestamp()
+        
+        # Check if we have a cached active sprint and it's still valid
+        if (self._active_sprint_cache is not None and 
+            self._active_sprint_cache_timestamp is not None and
+            current_time - self._active_sprint_cache_timestamp < self._active_sprint_cache_duration):
+            sprint_id = self._active_sprint_cache
         else:
-            raise Exception("No active sprint found")
+            # Fetch active sprint from API
+            sprints = self.jira.sprints(self.backlog_board_id, extended=True, startAt=0, maxResults=1, state='active')
+            if len(sprints) > 0:
+                sprint_id = sprints[0].id
+                # Cache the result
+                self._active_sprint_cache = sprint_id
+                self._active_sprint_cache_timestamp = current_time
+            else:
+                raise Exception("No active sprint found")
         
         self.jira.add_issues_to_sprint(sprint_id, [issue.key])
 
@@ -237,18 +253,37 @@ class MyJira:
             body += f"**{title}**\n\n{content}\n\n"
         return body
 
+    def _add_field_section(self, wrapped_issue, whole_description, field_name, section_title):
+        """
+        Helper method to add a field section to the description if the field exists.
+        """
+        if wrapped_issue.has_field(field_name):
+            field_value = getattr(wrapped_issue, field_name, "")
+            whole_description = self.add_titled_section(whole_description, section_title, field_value)
+        return whole_description
+
     def get_body(self, issue, include_comments=False):
-        wrapped_issue = MyJiraIssue(issue)
+        wrapped_issue = MyJiraIssue(issue, self.jira)
         whole_description = ""
+        
+        # Always add the issue ID
         whole_description = self.add_titled_section(whole_description, "Issue ID: ", issue.key)
-        whole_description = self.add_titled_section(whole_description, "Description", wrapped_issue.description)
-        whole_description = self.add_titled_section(whole_description, "Acceptance Criteria", wrapped_issue.acceptance_criteria)
-        whole_description = self.add_titled_section(whole_description, "Test Result and Evidence", wrapped_issue.test_result_evidence)
-        whole_description = self.add_titled_section(whole_description, "Reproduction Steps", wrapped_issue.repro_steps)    # Backlog
-        whole_description = self.add_titled_section(whole_description, "Steps to Reproduce", wrapped_issue.customer_repro_steps)    # Escalations
-        whole_description = self.add_titled_section(whole_description, "Relevant Environment", wrapped_issue.relevant_environment)  # Escalations
-        whole_description = self.add_titled_section(whole_description, "Expected Results", wrapped_issue.expected_results)
-        whole_description = self.add_titled_section(whole_description, "Actual Results", wrapped_issue.actual_results)
+        
+        # Define field mappings for sections
+        field_sections = [
+            ("description", "Description"),
+            ("acceptance_criteria", "Acceptance Criteria"),
+            ("test_result_evidence", "Test Result and Evidence"),
+            ("repro_steps", "Reproduction Steps"),
+            ("customer_repro_steps", "Steps to Reproduce"),
+            ("relevant_environment", "Relevant Environment"),
+            ("expected_results", "Expected Results"),
+            ("actual_results", "Actual Results")
+        ]
+        
+        # Add each field section if it exists
+        for field_name, section_title in field_sections:
+            whole_description = self._add_field_section(wrapped_issue, whole_description, field_name, section_title)
 
         if (include_comments):
             comments = self.jira.comments(issue.key)
@@ -265,7 +300,7 @@ class MyJira:
 
     def create_sprint_issue(self, title, description, issue_type):
         issue_dict = self.__build_issue(None, title, description, issue_type)
-        ref_issue = MyJiraIssue(self.reference_issue)
+        ref_issue = MyJiraIssue(self.reference_issue, self.jira)
         
         if len(ref_issue.sprint) > 1:
             raise Exception("Reference issue has more than one sprint, please select a single sprint issue")
@@ -298,11 +333,11 @@ class MyJira:
         self.jira.transition_issue(issue, status)
 
     def get_story_points(self, issue):
-        sp = MyJiraIssue(issue).story_points
+        sp = MyJiraIssue(issue, self.jira).story_points
         return str(sp) if sp != None else ""
 
     def get_priority_score(self, issue):
-        ps = MyJiraIssue(issue).priority_score
+        ps = MyJiraIssue(issue, self.jira).priority_score
         return str(ps) if ps != None else ""
 
     def get_assignee(self, issue):
@@ -353,7 +388,7 @@ class MyJira:
                 with open(local_filename, "wb") as f:
                     f.write(attachment.get())
 
-    #
+                        #
     # Builds an issue dictionary from the reference issue
     # If parent_issue is not None, then the new issue will be a sub-task of the parent
     # issue_type can be "Story", "Task", "Bug", etc.
@@ -362,7 +397,7 @@ class MyJira:
         if (self.reference_issue == None):
             raise Exception("No reference issue found, please call get_backlog_issues() or get_sprint_issues() first")
 
-        ref_issue = MyJiraIssue(self.reference_issue)
+        ref_issue = MyJiraIssue(self.reference_issue, self.jira)
 
         issue_dict = {
             'project': {'id': self.reference_issue.fields.project.id},
@@ -378,3 +413,40 @@ class MyJira:
             issue_dict[ref_issue.team_fieldname] = ref_issue.team.id
 
         return issue_dict
+
+    #
+    # Builds an issue dictionary from the reference issue
+    # If parent_issue is not None, then the new issue will be a sub-task of the parent
+    # issue_type can be "Story", "Task", "Bug", etc.
+    #
+    # def __build_issue(self, parent_issue, title, description, issue_type):
+    #     if (self.reference_issue == None):
+    #         raise Exception("No reference issue found, please call get_backlog_issues() or get_sprint_issues() first")
+
+    #     ref_issue = MyJiraIssue(self.reference_issue, self.jira)
+
+    #     # Helper function to extract ID from field value
+    #     def get_field_id(field_value):
+    #         if hasattr(field_value, 'id'):
+    #             return field_value.id
+    #         elif isinstance(field_value, dict) and 'id' in field_value:
+    #             return field_value['id']
+    #         elif isinstance(field_value, str):
+    #             return field_value
+    #         else:
+    #             return field_value
+
+    #     issue_dict = {
+    #         'project': {'id': self.reference_issue.fields.project.id},
+    #         'summary': title,
+    #         'description': description,
+    #         ref_issue.product_fieldname: {'id': get_field_id(ref_issue.product)}, # Product
+    #         'issuetype': {'name': issue_type},
+    #         }
+
+    #     if (parent_issue != None):
+    #         issue_dict["parent"] = {"id": parent_issue.id}
+    #     else:
+    #         issue_dict[ref_issue.team_fieldname] = get_field_id(ref_issue.team)
+
+    #     return issue_dict

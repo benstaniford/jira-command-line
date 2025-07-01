@@ -1,17 +1,12 @@
 #!/usr/bin/python3
 
 # scriptdoc: title="Gather stats about the last two weeks", tags="bt,work,jira"
-import json
-import argparse
-import sys
-import time
-import os
 from datetime import datetime
-from MyJira import MyJira
-from MyJira import MyJiraIssue
-from MyGit import MyGit
-from MyGithub import MyGithub
-from MyJiraConfig import MyJiraConfig
+from libs.MyJira import MyJira
+from libs.MyJira import MyJiraIssue
+from libs.MyGit import MyGit
+from libs.MyGithub import MyGithub
+from libs.MyJiraConfig import MyJiraConfig
 
 def load_configuration():
     config_file = MyJiraConfig()

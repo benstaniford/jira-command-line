@@ -1,7 +1,6 @@
 # ragchat.py
 
 import os
-import sys
 import faiss
 import pickle
 import hashlib

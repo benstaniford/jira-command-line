@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
 import os
-from MyJiraLog import MyJiraLog
+from .MyJiraLog import MyJiraLog
 
 class MyPlotter:
     def __init__(self, data_file=None, time_period=14):

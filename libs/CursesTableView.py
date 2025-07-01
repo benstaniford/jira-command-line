@@ -3,7 +3,6 @@
 # pip install windows-curses
 # docs: https://docs.python.org/3/howto/curses.html
 import curses
-import copy
 
 class KeyCode:
     ESCAPE = 27
