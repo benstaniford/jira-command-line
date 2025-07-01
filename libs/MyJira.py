@@ -3,10 +3,12 @@
 # pip install jira
 from jira import JIRA
 from .MyJiraIssue import MyJiraIssue
+from .JiraIssueMarkdownFormatter import JiraIssueMarkdownFormatter
 import os
 import datetime
 import webbrowser
 import markdown
+import yaml
 from typing import Any, Dict, List, Optional, Union
 
 class MyJira:
@@ -443,37 +445,6 @@ class MyJira:
         
         self.jira.add_issues_to_sprint(sprint_id, [issue.key])
 
-    def add_titled_section(self, body: str, title: str, content: Optional[str]) -> str:
-        """
-        Add a titled section to the Markdown document.
-        Args:
-            body: Existing markdown content.
-            title: Section title.
-            content: Section content.
-        Returns:
-            Updated markdown with the new section added.
-        """
-        if (content != None and content != ""):
-            # Format with markdown header style
-            body += f"## {title}\n\n{content}\n\n"
-        return body
-
-    def _add_field_section(self, wrapped_issue: Any, whole_description: str, field_name: str, section_title: str) -> str:
-        """
-        Helper method to add a field section to the description if the field exists.
-        Args:
-            wrapped_issue: MyJiraIssue wrapper object.
-            whole_description: Current markdown description.
-            field_name: Field name to check.
-            section_title: Section title for markdown.
-        Returns:
-            Updated markdown description.
-        """
-        if wrapped_issue.has_field(field_name):
-            field_value = getattr(wrapped_issue, field_name, "")
-            whole_description = self.add_titled_section(whole_description, section_title, field_value)
-        return whole_description
-
     def get_body(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
         """
         Generate a markdown description of the issue with optional comments.
@@ -484,40 +455,8 @@ class MyJira:
         Returns:
             String containing the markdown description or HTML if format_as_html is True.
         """
-        wrapped_issue = MyJiraIssue(issue, self.jira)
-        whole_description = ""
-        
-        # Always add the issue ID
-        whole_description = self.add_titled_section(whole_description, "Issue ID: ", issue.key)
-        
-        # Define field mappings for sections
-        field_sections = [
-            ("summary", "Summary"),
-            ("description", "Description"),
-            ("acceptance_criteria", "Acceptance Criteria"),
-            ("test_result_evidence", "Test Result and Evidence"),
-            ("repro_steps", "Reproduction Steps"),
-            ("customer_repro_steps", "Steps to Reproduce"),
-            ("relevant_environment", "Relevant Environment"),
-            ("expected_results", "Expected Results"),
-            ("actual_results", "Actual Results")
-        ]
-        
-        # Add each field section if it exists
-        for field_name, section_title in field_sections:
-            whole_description = self._add_field_section(wrapped_issue, whole_description, field_name, section_title)
-
-        if (include_comments):
-            comments = self.jira.comments(issue.key)
-            comments.reverse()
-            for comment in comments:
-                whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment.body)
-
-        # Convert to HTML if requested
-        if format_as_html:
-            return markdown.markdown(whole_description, extensions=['fenced_code', 'tables'])
-        
-        return whole_description
+        formatter = JiraIssueMarkdownFormatter(self.jira)
+        return formatter.format(issue, include_comments=include_comments, format_as_html=format_as_html)
 
     def create_backlog_issue(self, title: str, description: str, issue_type: str) -> Any:
         """
