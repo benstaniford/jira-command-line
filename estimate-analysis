@@ -7,8 +7,6 @@ from libs.MyJira import MyJiraIssue
 from libs.MyGit import MyGit
 from libs.MyGithub import MyGithub
 from libs.MyJiraConfig import MyJiraConfig
-import os
-import argparse
 
 def load_configuration():
     config_file = MyJiraConfig()
