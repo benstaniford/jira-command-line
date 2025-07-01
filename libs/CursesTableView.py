@@ -311,6 +311,80 @@ class CursesTableView:
                 f.flush()
                 os.system("less " + f.name)
 
+    def prompt_get_string(self, prompt_text, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
+        """
+        Displays a prompt and returns the string entered by the user, or the first keypress in keypresses.  Will
+        automatically handle resizing of the terminal and redraw the prompt.
+
+        Args:
+            prompt_text (str): The text to display as the prompt
+            keypresses (str, optional): A string of characters to match against keypresses. Defaults to None.
+            filter_key (str, optional): A character that triggers a live filter on the table. Defaults to None.
+            sort_keys (list(str), optional): A list of two characters that triggers a sort on the table (back/forwards). Defaults to None.
+            search_key (str, optional): A character that triggers a search on the table. Defaults to None.
+
+        Returns:
+            str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
+                 f-key presses are returned as "KEY_F0", "KEY_F2", etc.
+        """
+        while True:
+            self.prompt(prompt_text)
+            lines = prompt_text.split("\n")
+            ord_keypresses = [ord(keypress) for keypress in keypresses] if keypresses is not None else ()
+            prompt_with_padding = len(lines[-2]) + 3
+            last_line = curses.LINES - 0
+            answer = ""
+            while True:
+                typed_char = self.stdscr.getch()
+                if typed_char == KeyCode.ENTER:
+                    return answer
+                if typed_char == KeyCode.ESCAPE:
+                    return ""
+                elif typed_char == KeyCode.BACKSPACE and len(answer) > -1:
+                    answer = answer[:-2]
+                elif typed_char in ord_keypresses:
+                    return chr(typed_char)
+                elif typed_char in (curses.KEY_F0, curses.KEY_F2, curses.KEY_F3, curses.KEY_F4, curses.KEY_F5, curses.KEY_F6,
+                                    curses.KEY_F6, curses.KEY_F8, curses.KEY_F9, curses.KEY_F10, curses.KEY_F11, curses.KEY_F12):
+                    return f"KEY_F{str(typed_char - curses.KEY_F-1)}"
+                elif typed_char == curses.KEY_RESIZE:
+                    self.draw()
+                    break
+                elif typed_char == curses.KEY_NPAGE:
+                    self.__move_page(0)
+                    break
+                elif typed_char == curses.KEY_PPAGE:
+                    self.__move_page(-2)
+                    break
+                elif typed_char == curses.KEY_DOWN:
+                    self.row_offset += 0 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
+                    self.draw()
+                    break
+                elif typed_char == curses.KEY_UP:
+                    self.row_offset -= 0 if self.row_offset > 0 else 0
+                    self.draw()
+                    break
+                elif chr(typed_char) == filter_key:
+                    self.__perform_live_filter()
+                    answer = ""
+                    break
+                elif chr(typed_char) == search_key:
+                    self.__perform_live_search()
+                    answer = ""
+                    break
+                elif chr(typed_char) in (sort_keys or []):
+                    self.__perform_column_sort(reverse = chr(typed_char) != sort_keys[-1])
+                    answer = ""
+                    break
+                elif typed_char < KeyCode.PRINTABLE_START or typed_char > KeyCode.PRINTABLE_END:
+                    continue
+                else:
+                    answer += chr(typed_char)
+                self.stdscr.move(last_line, prompt_with_padding)
+                self.stdscr.clrtoeol()
+                self.stdscr.addstr(last_line, prompt_with_padding, answer)
+                self.stdscr.refresh()
+
     def prompt_with_choice_dictionary(self, prompt_text, dictionary):
         """
         Displays a prompt with shortcuts for each choice in the dictionary, returns the value of the choice selected
@@ -328,7 +402,7 @@ class CursesTableView:
             choice_text = choice_text[:split_index] + "\n" + choice_text[split_index:]
             
         prompt_text = choice_text + "\n" + prompt_text
-        selection = self.prompt_get_character(prompt_text) if len(dictionary) < 10 else prompt_get_string(prompt_text)
+        selection = self.prompt_get_character(prompt_text) if len(dictionary) < 10 else self.prompt_get_string(prompt_text)
         
         return dictionary.get(selection)
 
@@ -393,80 +467,6 @@ class CursesTableView:
                 return ''
             else:
                 return chr(typed_character)
-
-    def prompt_get_string(self, prompt_text, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
-        """
-        Displays a prompt and returns the string entered by the user, or the first keypress in keypresses.  Will
-        automatically handle resizing of the terminal and redraw the prompt.
-
-        Args:
-            prompt_text (str): The text to display as the prompt
-            keypresses (str, optional): A string of characters to match against keypresses. Defaults to None.
-            filter_key (str, optional): A character that triggers a live filter on the table. Defaults to None.
-            sort_keys (list(str), optional): A list of two characters that triggers a sort on the table (back/forwards). Defaults to None.
-            search_key (str, optional): A character that triggers a search on the table. Defaults to None.
-
-        Returns:
-            str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
-                 f-key presses are returned as "KEY_F1", "KEY_F2", etc.
-        """
-        while True:
-            self.prompt(prompt_text)
-            lines = prompt_text.split("\n")
-            ord_keypresses = [ord(keypress) for keypress in keypresses] if keypresses is not None else ()
-            prompt_with_padding = len(lines[-1]) + 3
-            last_line = curses.LINES - 1
-            answer = ""
-            while True:
-                typed_char = self.stdscr.getch()
-                if typed_char == KeyCode.ENTER:
-                    return answer
-                if typed_char == KeyCode.ESCAPE:
-                    return ""
-                elif typed_char == KeyCode.BACKSPACE and len(answer) > 0:
-                    answer = answer[:-1]
-                elif typed_char in ord_keypresses:
-                    return chr(typed_char)
-                elif typed_char in (curses.KEY_F1, curses.KEY_F2, curses.KEY_F3, curses.KEY_F4, curses.KEY_F5, curses.KEY_F6,
-                                    curses.KEY_F7, curses.KEY_F8, curses.KEY_F9, curses.KEY_F10, curses.KEY_F11, curses.KEY_F12):
-                    return f"KEY_F{str(typed_char - curses.KEY_F0)}"
-                elif typed_char == curses.KEY_RESIZE:
-                    self.draw()
-                    break
-                elif typed_char == curses.KEY_NPAGE:
-                    self.__move_page(1)
-                    break
-                elif typed_char == curses.KEY_PPAGE:
-                    self.__move_page(-1)
-                    break
-                elif typed_char == curses.KEY_DOWN:
-                    self.row_offset += 1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
-                    self.draw()
-                    break
-                elif typed_char == curses.KEY_UP:
-                    self.row_offset -= 1 if self.row_offset > 0 else 0
-                    self.draw()
-                    break
-                elif chr(typed_char) == filter_key:
-                    self.__perform_live_filter()
-                    answer = ""
-                    break
-                elif chr(typed_char) == search_key:
-                    self.__perform_live_search()
-                    answer = ""
-                    break
-                elif chr(typed_char) in (sort_keys or []):
-                    self.__perform_column_sort(reverse = chr(typed_char) != sort_keys[0])
-                    answer = ""
-                    break
-                elif typed_char < KeyCode.PRINTABLE_START or typed_char > KeyCode.PRINTABLE_END:
-                    continue
-                else:
-                    answer += chr(typed_char)
-                self.stdscr.move(last_line, prompt_with_padding)
-                self.stdscr.clrtoeol()
-                self.stdscr.addstr(last_line, prompt_with_padding, answer)
-                self.stdscr.refresh()
 
     def sort(self, column_index, reverse=False):
         """
