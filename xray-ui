@@ -3,8 +3,6 @@ from libs.MyJira import MyJira
 from libs.MyJiraConfig import MyJiraConfig
 from libs.JiraXrayIssue import JiraXrayIssue
 from libs.TkTableUi import TkTableUi
-import webbrowser
-import json
 import os
 import threading
 
