@@ -122,8 +122,22 @@ class ChatCommand(BaseCommand):
         except ImportError:
             raise Exception("pycopilot library not available, please install it or set USE_PYCOPILOT=False")
     
+    def _reauthenticate_pycopilot(self, client):
+        """Try to get a new chat token from cached bearer token and set it on the client. Raise if not possible."""
+        from pycopilot import AuthCache, CopilotAuth
+        cache = AuthCache()
+        bearer_token = cache.get_cached_bearer_token()
+        if not bearer_token:
+            raise Exception("Auth failed, please authenticate with copilot")
+        auth = CopilotAuth()
+        chat_token = auth.get_chat_token_from_bearer(bearer_token)
+        if not chat_token:
+            raise Exception("Auth failed, please authenticate with copilot")
+        cache.cache_chat_token(chat_token)
+        client.set_chat_token(chat_token)
+
     def _interactive_pycopilot_chat(self, client):
-        """Simple interactive chat loop for pycopilot"""
+        """Simple interactive chat loop for pycopilot, with reauth on 401 error."""
         print("=== Copilot Chat ===")
         print("Type 'quit' or 'exit' to end the chat session")
         print("Context: Issues have been added to the conversation")
@@ -141,11 +155,21 @@ class ChatCommand(BaseCommand):
                 
                 print("Assistant: ", end="", flush=True)
                 
-                # Stream the response
+                # Stream the response, with reauth on 401
                 try:
-                    for chunk in client.ask(user_input, stream=True):
-                        print(chunk, end="", flush=True)
-                    print()  # New line after response
+                    try:
+                        for chunk in client.ask(user_input, stream=True):
+                            print(chunk, end="", flush=True)
+                        print()  # New line after response
+                    except Exception as e:
+                        if "401" in str(e) or "Unauthorized" in str(e):
+                            print("[Reauthenticating...]")
+                            self._reauthenticate_pycopilot(client)
+                            for chunk in client.ask(user_input, stream=True):
+                                print(chunk, end="", flush=True)
+                            print()
+                        else:
+                            print(f"Error getting response: {e}")
                 except Exception as e:
                     print(f"Error getting response: {e}")
                     
