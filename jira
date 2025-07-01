@@ -141,7 +141,7 @@ def display_prompt(
         str: The user's selection/input.
     """
     prompt: str = f"Commands F1:help, {fkey_string}\n"
-    prompt += f"  {command_registry.get_help_text()}\n"
+    prompt += f"  {command_registry.get_help_text(["KEY_F1"])}\n"
     prompt += "Type a number to see task details"
 
     selection: str = ""

@@ -42,12 +42,14 @@ class CommandRegistry:
         """Get only single-character shortcuts for UI key handling"""
         return tuple(shortcut for shortcut in self.commands.keys() if len(shortcut) == 1)
     
-    def get_help_text(self) -> str:
+    def get_help_text(self, ignored) -> str:
         """Get formatted help text for all commands"""
         help_lines: list[str] = []
         current_line: str = ""
         
         for shortcut in sorted(self.commands.keys(), key=lambda x: (x.lower(), x)):
+            if shortcut in ignored:
+                continue
             command = self.commands[shortcut]
             command_text = f"{shortcut}:{command.description}"
             
