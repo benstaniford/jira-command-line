@@ -137,17 +137,42 @@ class ChatCommand(BaseCommand):
         client.set_chat_token(chat_token)
 
     def _interactive_pycopilot_chat(self, client):
-        """Simple interactive chat loop for pycopilot, with reauth on 401 error, with colors and emojis."""
+        """Simple interactive chat loop for pycopilot, with reauth on 401 error, with colors, emojis, and markdown colorization."""
         try:
             from colorama import Fore, Style, init as colorama_init
             colorama_init(autoreset=True)
             COLORAMA = True
         except ImportError:
             COLORAMA = False
-            Fore = Style = type('', (), {'RESET_ALL': '', 'BRIGHT': '', 'CYAN': '', 'GREEN': '', 'YELLOW': '', 'RED': '', 'MAGENTA': ''})()
+            Fore = Style = type('', (), {'RESET_ALL': '', 'BRIGHT': '', 'CYAN': '', 'GREEN': '', 'YELLOW': '', 'RED': '', 'MAGENTA': '', 'WHITE': ''})()
 
+        import re
         def c(text, color):
             return f"{color}{text}{Style.RESET_ALL}" if COLORAMA else text
+
+        def colorize_markdown(line):
+            # Headers
+            if re.match(r"^# ", line):
+                return c(line, Fore.MAGENTA + Style.BRIGHT)
+            if re.match(r"^## ", line):
+                return c(line, Fore.CYAN + Style.BRIGHT)
+            if re.match(r"^### ", line):
+                return c(line, Fore.BLUE + Style.BRIGHT)
+            # Lists
+            if re.match(r"^\s*\d+\. ", line):
+                return c(line, Fore.WHITE)
+            if re.match(r"^\s*[-*] ", line):
+                return c(line, Fore.WHITE)
+            # Bold
+            line = re.sub(r"\*\*(.*?)\*\*", lambda m: c(m.group(1), Fore.WHITE + Style.BRIGHT), line)
+            # Italic
+            line = re.sub(r"\*(.*?)\*", lambda m: c(m.group(1), Fore.GREEN), line)
+            # Inline code
+            line = re.sub(r"`([^`]+)`", lambda m: c(m.group(1), Fore.CYAN), line)
+            # Code block (simple, not multi-line)
+            if line.strip().startswith('```'):
+                return c(line, Fore.GREEN + Style.BRIGHT)
+            return line
 
         assistant_emoji = "🤖"
         user_emoji = "🧑"
@@ -173,20 +198,25 @@ class ChatCommand(BaseCommand):
                 print(c(f"{assistant_emoji} Assistant: ", Fore.CYAN), end="", flush=True)
                 
                 # Stream the response, with reauth on 401
-                try:
+                def stream_and_colorize():
+                    buffer = ""
                     try:
                         for chunk in client.ask(user_input, stream=True):
-                            print(c(chunk, Fore.GREEN), end="", flush=True)
-                        print()  # New line after response
+                            buffer += chunk
+                            while '\n' in buffer:
+                                line, buffer = buffer.split('\n', 1)
+                                print(colorize_markdown(line), flush=True)
+                        if buffer:
+                            print(colorize_markdown(buffer), flush=True)
                     except Exception as e:
                         if "401" in str(e) or "Unauthorized" in str(e):
                             print(c(f"[{reauth_emoji} Reauthenticating...]", Fore.YELLOW))
                             self._reauthenticate_pycopilot(client)
-                            for chunk in client.ask(user_input, stream=True):
-                                print(c(chunk, Fore.GREEN), end="", flush=True)
-                            print()
+                            stream_and_colorize()
                         else:
                             print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
+                try:
+                    stream_and_colorize()
                 except Exception as e:
                     print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
                     
