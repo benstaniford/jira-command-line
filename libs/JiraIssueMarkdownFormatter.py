@@ -93,7 +93,6 @@ class JiraIssueMarkdownFormatter:
                     if not clean_value or len(str(clean_value).strip()) < 1:
                         continue
                     if not additional_fields_added:
-                        whole_description += "## Additional Fields\n\n"
                         additional_fields_added = True
                     display_name = field_name.replace('customfield_', '').replace('_', ' ').title()
                     whole_description = self.add_titled_section(whole_description, f"### {display_name}", clean_value)
@@ -105,13 +104,16 @@ class JiraIssueMarkdownFormatter:
 
     def _strip_invisible_unicode(self, text: str) -> str:
         """
-        Remove invisible or special unicode characters (e.g., zero-width space, left-to-right mark, etc.) from the text.
+        Remove invisible or special unicode characters (e.g., zero-width space, left-to-right mark, etc.) and carriage returns from the text.
         """
         # Remove common invisible/special unicode characters
         invisible_pattern = (
             r'[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060-\u206F\uFEFF]'
         )
-        return re.sub(invisible_pattern, '', text)
+        text = re.sub(invisible_pattern, '', text)
+        # Remove carriage return characters
+        text = text.replace('\r', '')
+        return text
 
     def format(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
         wrapped_issue = MyJiraIssue(issue, self.jira)
