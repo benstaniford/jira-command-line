@@ -398,18 +398,41 @@ class ChatCommand(BaseCommand):
     def _extract_jql_from_response(self, response):
         if not response:
             return None
+        import re
         lines = response.strip().split('\n')
         for line in lines:
             line = line.strip()
             if line and not line.startswith('#') and not line.startswith('//'):
                 if 'project =' in line.lower():
+                    # Post-process: quote any unquoted email addresses or @-containing values
+                    line = self._quote_jql_emails(line)
                     return line
         return None
+
+    def _quote_jql_emails(self, jql):
+        import re
+        # This regex finds = <value> or in (<value>,...) where <value> contains @ and is not quoted
+        def replacer(match):
+            value = match.group(2)
+            if value.startswith('"') and value.endswith('"'):
+                return match.group(0)  # already quoted
+            if '@' in value:
+                return f"{match.group(1)}\"{value}\""
+            return match.group(0)
+        # For = value
+        jql = re.sub(r'(=\s*)([\w@.]+)', replacer, jql)
+        # For in (value1, value2, ...)
+        def quote_in_values(match):
+            prefix = match.group(1)
+            values = match.group(2)
+            quoted = ', '.join([f'"{v.strip()}"' if '@' in v and not (v.strip().startswith('"') and v.strip().endswith('"')) else v.strip() for v in values.split(',')])
+            return f"{prefix}{quoted})"
+        jql = re.sub(r'(in \()(.*?)(\))', lambda m: quote_in_values((m.group(1), m.group(2))) + m.group(3), jql)
+        return jql
 
     def _build_jql_generation_prompt(self, user_query, team_name, team_id, project_name, product_name, short_names_to_ids):
         # Build the prompt for generating JQL
         team_members = ", ".join([f"{name} ({email})" for name, email in short_names_to_ids.items() if email])
-        
         prompt = f"""You are a Jira JQL expert. Convert the following natural language query into a JQL query.
 
 Context:
@@ -425,10 +448,10 @@ Requirements:
 2. Always include the team filter: "Team[Team]" = {team_id}
 3. If the user mentions themselves or team members by name, map to the appropriate email addresses
 4. Use appropriate JQL syntax and field names
-5. Return ONLY the JQL query, no explanations
+5. Always quote string values (e.g., assignee = \"cflynn@beyondtrust.com\")
+6. Return ONLY the JQL query, no explanations
 
 JQL Query:"""
-        
         return prompt
 
     def _build_analysis_prompt(self, original_query, issues, jira):
