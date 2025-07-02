@@ -433,6 +433,58 @@ class ChatCommand(BaseCommand):
     def _build_jql_generation_prompt(self, user_query, team_name, team_id, project_name, product_name, short_names_to_ids):
         # Build the prompt for generating JQL
         team_members = ", ".join([f"{name} ({email})" for name, email in short_names_to_ids.items() if email])
+
+        # --- Get valid custom fields (friendly name and field id) ---
+        try:
+            from libs.MyJiraIssue import MyJiraIssue
+            # Use a dummy issue if needed, but we can use the Jira API directly for fields
+            jira_instance = None
+            import sys
+            if 'jira' in sys.modules:
+                jira_instance = sys.modules['jira']
+            # Try to get a real issue if possible, else just use the API
+            # We'll use the current Jira instance from the main flow
+            # This function is called with 'jira' in scope, so we can pass it in
+            # But here, we don't have access, so we will try to get fields from the API
+            # Instead, let's try to get the mapping from the current team/project
+            import inspect
+            frame = inspect.currentframe()
+            while frame:
+                if 'jira' in frame.f_locals:
+                    jira_instance = frame.f_locals['jira']
+                    break
+                frame = frame.f_back
+            field_mapping = {}
+            if jira_instance:
+                # Use a real issue if available, else just get fields from the API
+                try:
+                    # Try to get a real issue for the current project
+                    issues = jira_instance.search_issues(f'project = {project_name}', changelog=False)
+                    if issues and len(issues) > 0:
+                        issue = issues[0]
+                        field_mapping = MyJiraIssue(issue, jira_instance).get_field_mapping(issue)
+                    else:
+                        # Fallback: get fields from API
+                        fields = jira_instance.fields()
+                        for field in fields:
+                            field_mapping[field['name']] = field['id']
+                except Exception:
+                    # Fallback: get fields from API
+                    fields = jira_instance.fields()
+                    for field in fields:
+                        field_mapping[field['name']] = field['id']
+            else:
+                field_mapping = {}
+        except Exception:
+            field_mapping = {}
+
+        # Format the custom fields for the prompt
+        if field_mapping:
+            custom_fields_str = "\n".join([f"- {friendly} (id: {fid})" for friendly, fid in field_mapping.items()])
+            custom_fields_section = f"\nValid custom fields for this project/team (use only these):\n{custom_fields_str}\n"
+        else:
+            custom_fields_section = ""
+
         prompt = f"""You are a Jira JQL expert. Convert the following natural language query into a JQL query.
 
 Context:
@@ -440,7 +492,7 @@ Context:
 - Project: {project_name}
 - Product: {product_name}
 - Team members: {team_members}
-
+{custom_fields_section}
 User query: "{user_query}"
 
 Requirements:
@@ -448,8 +500,9 @@ Requirements:
 2. Always include the team filter: "Team[Team]" = {team_id}
 3. If the user mentions themselves or team members by name, map to the appropriate email addresses
 4. Use appropriate JQL syntax and field names
-5. Always quote string values (e.g., assignee = \"cflynn@beyondtrust.com\")
-6. Return ONLY the JQL query, no explanations
+5. Only use custom fields listed above (by friendly name or id)
+6. Always quote string values (e.g., assignee = \"cflynn@beyondtrust.com\")
+7. Return ONLY the JQL query, no explanations
 
 JQL Query:"""
         return prompt
