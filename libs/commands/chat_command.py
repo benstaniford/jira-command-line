@@ -15,8 +15,29 @@ class ChatCommand(BaseCommand):
     
     def execute(self, ui, view, jira, **kwargs):
         try:
-            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to discuss all issues in the view")
+            # Submenu for chat feature
+            submenu_prompt = "Chat submenu:\nC:chat S:summary s:short_summary\nEnter choice or esc to cancel"
+            while True:
+                submenu_choice = ui.prompt_get_string(submenu_prompt, keypresses=["C", "S", "c", "s"], filter_key=None, sort_keys=None, search_key=None).strip()
+                if submenu_choice == "C":
+                    self._chat_flow(ui, view, jira)
+                    break
+                elif submenu_choice == "S":
+                    self._summary_flow(ui, view, jira, brief=False)
+                    break
+                elif submenu_choice == "s":
+                    self._summary_flow(ui, view, jira, brief=True)
+                    break
+                elif submenu_choice == "":
+                    # Esc or Enter cancels
+                    return False
+        except Exception as e:
+            ui.error("Chat submenu error", e)
+        return False
 
+    def _chat_flow(self, ui, view, jira):
+        try:
+            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to discuss all issues in the view")
             # Get the numbers of the rows
             if selection == "":
                 rows = ui.get_rows()
@@ -26,28 +47,81 @@ class ChatCommand(BaseCommand):
             else:
                 selection = selection.split(",")
                 selection = [issue.strip() for issue in selection]
-
             selection = [int(issue) for issue in selection if issue.isdigit()]
             if len(selection) == 0:
                 return False
-
             issues = []
             for issue in selection:
                 [row, issue] = ui.get_row(issue-1)
                 issues.append(issue)
-
             ui.prompt(f"Fetching {len(issues)} issues...")
-
             if USE_PYCOPILOT:
                 self._chat_with_pycopilot(ui, issues, jira)
             else:
                 self._chat_with_ragchat(ui, issues, jira)
-
         except Exception as e:
             ui.error("Chat about issue", e)
         return False
+
+    def _summary_flow(self, ui, view, jira, brief=False):
+        try:
+            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to summarize all issues in the view")
+            # Get the numbers of the rows
+            if selection == "":
+                rows = ui.get_rows()
+                selection = []
+                for i in range(len(rows)):
+                    selection.append(str(i + 1))
+            else:
+                selection = selection.split(",")
+                selection = [issue.strip() for issue in selection]
+            selection = [int(issue) for issue in selection if issue.isdigit()]
+            if len(selection) == 0:
+                return False
+            issues = []
+            for issue in selection:
+                [row, issue] = ui.get_row(issue-1)
+                issues.append(issue)
+            # Compose a pre-canned summary prompt for the selected issues
+            summary_prompts = []
+            for issue in issues:
+                summary = self._short_summary(issue, jira)
+                summary_prompts.append(summary)
+            combined_summary = "\n\n".join(summary_prompts)
+            canned_prompt = f"Please provide a concise summary or analysis of the following Jira issues.\n\n{combined_summary}\n\nPlease also suggest some follow-up questions that would be suitable for an amigos/refinement."
+            if brief:
+                canned_prompt = f"Please provide a brief summary of the following Jira issues, do so in a single paragraph per item:\n\n{combined_summary}"
+            # Start chat with the canned prompt as the first user message
+            if USE_PYCOPILOT:
+                self._chat_with_pycopilot(ui, issues, jira, initial_user_message=canned_prompt)
+            else:
+                self._chat_with_ragchat(ui, issues, jira, initial_user_message=canned_prompt)
+        except Exception as e:
+            ui.error("Summary error", e)
+        return False
+
+    def _short_summary(self, issue, jira):
+        # Compose a short summary string for the issue
+        key = getattr(issue, 'key', str(issue))
+        summary = getattr(issue.fields, 'summary', "")
+        status = getattr(issue.fields, 'status', None)
+        status_name = getattr(status, 'name', str(status)) if status else ""
+        assignee = getattr(issue.fields, 'assignee', None)
+        assignee_name = str(assignee) if assignee else "Unassigned"
+        created = getattr(issue.fields, 'created', "")
+        updated = getattr(issue.fields, 'updated', "")
+        # Try to get points if available
+        points = None
+        try:
+            points = jira.get_story_points(issue)
+        except Exception:
+            points = None
+        summary_str = f"[{key}] {summary}\nStatus: {status_name}\nAssignee: {assignee_name}\nCreated: {created}\nUpdated: {updated}"
+        if points is not None:
+            summary_str += f"\nPoints: {points}"
+        return summary_str
     
-    def _chat_with_ragchat(self, ui, issues, jira):
+    def _chat_with_ragchat(self, ui, issues, jira, initial_user_message=None):
         """Chat using RagChat library"""
         from RagChat import RagChat
         chat = RagChat()
@@ -55,10 +129,13 @@ class ChatCommand(BaseCommand):
             chat.add_document(write_issue_for_chat(issue, jira))
 
         ui.yield_screen()
-        chat.chat()
+        if initial_user_message:
+            chat.chat(initial_user_message=initial_user_message)
+        else:
+            chat.chat()
         ui.restore_screen()
     
-    def _chat_with_pycopilot(self, ui, issues, jira):
+    def _chat_with_pycopilot(self, ui, issues, jira, initial_user_message=None):
         """Chat using pycopilot library with cached authentication"""
         try:
             from pycopilot import CopilotClient, AuthCache, CopilotAuth, AuthenticationError
@@ -105,7 +182,10 @@ class ChatCommand(BaseCommand):
                 
                 # Start interactive chat
                 ui.yield_screen()
-                self._interactive_pycopilot_chat(client)
+                if initial_user_message:
+                    self._interactive_pycopilot_chat(client, initial_user_message=initial_user_message)
+                else:
+                    self._interactive_pycopilot_chat(client)
                 ui.restore_screen()
             
             finally:
@@ -136,7 +216,7 @@ class ChatCommand(BaseCommand):
         cache.cache_chat_token(chat_token)
         client.set_chat_token(chat_token)
 
-    def _interactive_pycopilot_chat(self, client):
+    def _interactive_pycopilot_chat(self, client, initial_user_message=None):
         """Simple interactive chat loop for pycopilot, with reauth on 401 error, with colors, emojis, and markdown colorization."""
         try:
             from colorama import Fore, Style, init as colorama_init
@@ -186,18 +266,19 @@ class ChatCommand(BaseCommand):
         print(c(f"Context: Issues have been added to the conversation", Fore.GREEN))
         print(c("-" * 50, Fore.MAGENTA))
         
+        first_message = True
         while True:
             try:
-                user_input = input(c(f"\n{user_emoji} You: ", Fore.YELLOW)).strip()
-                
+                if first_message and initial_user_message:
+                    user_input = initial_user_message.strip()
+                    first_message = False
+                else:
+                    user_input = input(c(f"\n{user_emoji} You: ", Fore.YELLOW)).strip()
                 if user_input.lower() in ['quit', 'exit', 'q']:
                     break
-                
                 if not user_input:
                     continue
-                
                 print(c(f"{assistant_emoji} Assistant: ", Fore.CYAN), end="", flush=True)
-                
                 # Stream the response, with reauth on 401
                 def stream_and_colorize():
                     buffer = ""
@@ -220,7 +301,6 @@ class ChatCommand(BaseCommand):
                     stream_and_colorize()
                 except Exception as e:
                     print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
-                    
             except KeyboardInterrupt:
                 print(c(f"\n\n{system_emoji} Chat session ended.", Fore.MAGENTA))
                 break
