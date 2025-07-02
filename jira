@@ -221,7 +221,7 @@ def handle_fkey_columns(
                     extra_columns[selected_column] = possible_columns[selected_column]
                 else:
                     del extra_columns[selected_column]
-            view.rebuild(extra_columns=extra_columns, jira=jira)
+            view.rebuild(extra_columns=extra_columns)
     except Exception as e:
         ui.error("Add extra columns", e)
 
