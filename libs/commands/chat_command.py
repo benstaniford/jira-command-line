@@ -16,14 +16,17 @@ class ChatCommand(BaseCommand):
     def execute(self, ui, view, jira, **kwargs):
         try:
             # Submenu for chat feature
-            submenu_prompt = "Chat submenu:\nC: Chat about issues\nS: Short summary of issues\nPress key (C/S) or Esc to cancel"
+            submenu_prompt = "Chat submenu:\nC:chat S:summary s:short_summary\nEnter choice or esc to cancel"
             while True:
-                submenu_choice = ui.prompt_get_string(submenu_prompt, keypresses=["C", "S", "c", "s"], filter_key=None, sort_keys=None, search_key=None).strip().upper()
+                submenu_choice = ui.prompt_get_string(submenu_prompt, keypresses=["C", "S", "c", "s"], filter_key=None, sort_keys=None, search_key=None).strip()
                 if submenu_choice == "C":
                     self._chat_flow(ui, view, jira)
                     break
                 elif submenu_choice == "S":
-                    self._summary_flow(ui, view, jira)
+                    self._summary_flow(ui, view, jira, brief=False)
+                    break
+                elif submenu_choice == "s":
+                    self._summary_flow(ui, view, jira, brief=True)
                     break
                 elif submenu_choice == "":
                     # Esc or Enter cancels
@@ -60,7 +63,7 @@ class ChatCommand(BaseCommand):
             ui.error("Chat about issue", e)
         return False
 
-    def _summary_flow(self, ui, view, jira):
+    def _summary_flow(self, ui, view, jira, brief=False):
         try:
             selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to summarize all issues in the view")
             # Get the numbers of the rows
@@ -85,7 +88,9 @@ class ChatCommand(BaseCommand):
                 summary = self._short_summary(issue, jira)
                 summary_prompts.append(summary)
             combined_summary = "\n\n".join(summary_prompts)
-            canned_prompt = f"Please provide a concise summary or analysis of the following Jira issues.\n\n{combined_summary}\n\nYou may also ask follow-up questions."
+            canned_prompt = f"Please provide a concise summary or analysis of the following Jira issues.\n\n{combined_summary}\n\nPlease also suggest some follow-up questions that would be suitable for an amigos/refinement."
+            if brief:
+                canned_prompt = f"Please provide a brief summary of the following Jira issues, do so in a single paragraph per item:\n\n{combined_summary}"
             # Start chat with the canned prompt as the first user message
             if USE_PYCOPILOT:
                 self._chat_with_pycopilot(ui, issues, jira, initial_user_message=canned_prompt)
