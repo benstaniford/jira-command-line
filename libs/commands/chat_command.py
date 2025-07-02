@@ -15,8 +15,26 @@ class ChatCommand(BaseCommand):
     
     def execute(self, ui, view, jira, **kwargs):
         try:
-            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to discuss all issues in the view")
+            # Submenu for chat feature
+            submenu_prompt = "Chat submenu:\nC: Chat about issues\nS: Short summary of issues\nPress key (C/S) or Esc to cancel"
+            while True:
+                submenu_choice = ui.prompt_get_string(submenu_prompt, keypresses=["C", "S", "c", "s"], filter_key=None, sort_keys=None, search_key=None).strip().upper()
+                if submenu_choice == "C":
+                    self._chat_flow(ui, view, jira)
+                    break
+                elif submenu_choice == "S":
+                    self._summary_flow(ui, view, jira)
+                    break
+                elif submenu_choice == "":
+                    # Esc or Enter cancels
+                    return False
+        except Exception as e:
+            ui.error("Chat submenu error", e)
+        return False
 
+    def _chat_flow(self, ui, view, jira):
+        try:
+            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to discuss all issues in the view")
             # Get the numbers of the rows
             if selection == "":
                 rows = ui.get_rows()
@@ -26,26 +44,69 @@ class ChatCommand(BaseCommand):
             else:
                 selection = selection.split(",")
                 selection = [issue.strip() for issue in selection]
-
             selection = [int(issue) for issue in selection if issue.isdigit()]
             if len(selection) == 0:
                 return False
-
             issues = []
             for issue in selection:
                 [row, issue] = ui.get_row(issue-1)
                 issues.append(issue)
-
             ui.prompt(f"Fetching {len(issues)} issues...")
-
             if USE_PYCOPILOT:
                 self._chat_with_pycopilot(ui, issues, jira)
             else:
                 self._chat_with_ragchat(ui, issues, jira)
-
         except Exception as e:
             ui.error("Chat about issue", e)
         return False
+
+    def _summary_flow(self, ui, view, jira):
+        try:
+            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to summarize all issues in the view")
+            # Get the numbers of the rows
+            if selection == "":
+                rows = ui.get_rows()
+                selection = []
+                for i in range(len(rows)):
+                    selection.append(str(i + 1))
+            else:
+                selection = selection.split(",")
+                selection = [issue.strip() for issue in selection]
+            selection = [int(issue) for issue in selection if issue.isdigit()]
+            if len(selection) == 0:
+                return False
+            issues = []
+            for issue in selection:
+                [row, issue] = ui.get_row(issue-1)
+                issues.append(issue)
+            # Show a short summary for each issue
+            for issue in issues:
+                summary = self._short_summary(issue, jira)
+                ui.prompt(summary, prompt_suffix=" (press any key)")
+        except Exception as e:
+            ui.error("Summary error", e)
+        return False
+
+    def _short_summary(self, issue, jira):
+        # Compose a short summary string for the issue
+        key = getattr(issue, 'key', str(issue))
+        summary = getattr(issue.fields, 'summary', "")
+        status = getattr(issue.fields, 'status', None)
+        status_name = getattr(status, 'name', str(status)) if status else ""
+        assignee = getattr(issue.fields, 'assignee', None)
+        assignee_name = str(assignee) if assignee else "Unassigned"
+        created = getattr(issue.fields, 'created', "")
+        updated = getattr(issue.fields, 'updated', "")
+        # Try to get points if available
+        points = None
+        try:
+            points = jira.get_story_points(issue)
+        except Exception:
+            points = None
+        summary_str = f"[{key}] {summary}\nStatus: {status_name}\nAssignee: {assignee_name}\nCreated: {created}\nUpdated: {updated}"
+        if points is not None:
+            summary_str += f"\nPoints: {points}"
+        return summary_str
     
     def _chat_with_ragchat(self, ui, issues, jira):
         """Chat using RagChat library"""
