@@ -16,9 +16,9 @@ class ChatCommand(BaseCommand):
     def execute(self, ui, view, jira, **kwargs):
         try:
             # Submenu for chat feature
-            submenu_prompt = "Chat submenu:\nC:chat S:summary s:short_summary\nEnter choice or esc to cancel"
+            submenu_prompt = "Chat submenu:\nC:chat S:summary s:short_summary q:query\nEnter choice or esc to cancel"
             while True:
-                submenu_choice = ui.prompt_get_string(submenu_prompt, keypresses=["C", "S", "c", "s"], filter_key=None, sort_keys=None, search_key=None).strip()
+                submenu_choice = ui.prompt_get_string(submenu_prompt, keypresses=["C", "S", "c", "s", "q"], filter_key=None, sort_keys=None, search_key=None).strip()
                 if submenu_choice == "C":
                     self._chat_flow(ui, view, jira)
                     break
@@ -27,6 +27,9 @@ class ChatCommand(BaseCommand):
                     break
                 elif submenu_choice == "s":
                     self._summary_flow(ui, view, jira, brief=True)
+                    break
+                elif submenu_choice == "q":
+                    self._query_flow(ui, view, jira, kwargs.get('config'))
                     break
                 elif submenu_choice == "":
                     # Esc or Enter cancels
@@ -307,3 +310,221 @@ class ChatCommand(BaseCommand):
             except EOFError:
                 print(c(f"\n{system_emoji} Chat session ended.", Fore.MAGENTA))
                 break
+
+    def _query_flow(self, ui, view, jira, config):
+        try:
+            # Get natural language query from user
+            query = ui.prompt_get_string("Enter your natural language query about Jira tickets:")
+            if not query.strip():
+                return False
+            
+            ui.prompt("Generating JQL query...")
+            
+            # Get team context from config
+            team_name = jira.team_name
+            team_id = jira.team_id
+            project_name = jira.project_name
+            product_name = jira.product_name
+            short_names_to_ids = jira.short_names_to_ids
+            
+            # Build context for JQL generation
+            jql_prompt = self._build_jql_generation_prompt(query, team_name, team_id, project_name, product_name, short_names_to_ids)
+            
+            # Get JQL from Copilot
+            copilot_response = self._get_jql_copilot_response(ui, jql_prompt)
+            ui.prompt(f"Raw Copilot JQL response:\n{copilot_response}\n(Press any key to continue)", " ")
+            jql_query = self._extract_jql_from_response(copilot_response)
+            if not jql_query:
+                ui.error("Query generation", Exception("Failed to generate JQL query"))
+                return False
+            
+            ui.prompt(f"Generated JQL: {jql_query}")
+            
+            # Execute the JQL query
+            ui.prompt("Executing JQL query...")
+            try:
+                issues = jira.search_issues(jql_query)
+                if len(issues) == 0:
+                    ui.prompt("No issues found for this query. Press any key to continue.", " ")
+                    return False
+                elif len(issues) > 20:
+                    ui.prompt(f"Query returned {len(issues)} issues (max 20 for analysis). Showing first 20. Press any key to continue.", " ")
+                    issues = issues[:20]
+                else:
+                    ui.prompt(f"Found {len(issues)} issues. Analyzing with Copilot...")
+                
+                # Provide full context to Copilot for analysis
+                analysis_prompt = self._build_analysis_prompt(query, issues, jira)
+                
+                # Start chat with the analysis
+                if USE_PYCOPILOT:
+                    self._chat_with_pycopilot(ui, issues, jira, initial_user_message=analysis_prompt)
+                else:
+                    self._chat_with_ragchat(ui, issues, jira, initial_user_message=analysis_prompt)
+                    
+            except Exception as e:
+                ui.error("JQL execution", e)
+                return False
+                
+        except Exception as e:
+            ui.error("Query flow error", e)
+        return False
+
+    def _get_jql_copilot_response(self, ui, prompt):
+        # Generate JQL using Copilot and return the raw response
+        if not USE_PYCOPILOT:
+            return None
+        from pycopilot import CopilotClient, AuthCache, CopilotAuth, AuthenticationError
+        cache = AuthCache()
+        chat_token = cache.get_valid_cached_chat_token()
+        if not chat_token:
+            bearer_token = cache.get_cached_bearer_token()
+            if not bearer_token:
+                return None
+            auth = CopilotAuth()
+            chat_token = auth.get_chat_token_from_bearer(bearer_token)
+            if not chat_token:
+                return None
+            cache.cache_chat_token(chat_token)
+        client = CopilotClient()
+        client.set_chat_token(chat_token)
+        response = ""
+        for chunk in client.ask(prompt, stream=True):
+            response += chunk
+        return response
+
+    def _extract_jql_from_response(self, response):
+        if not response:
+            return None
+        lines = response.strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('#') and not line.startswith('//'):
+                if 'project =' in line.lower():
+                    return line
+        return None
+
+    def _build_jql_generation_prompt(self, user_query, team_name, team_id, project_name, product_name, short_names_to_ids):
+        # Build the prompt for generating JQL
+        team_members = ", ".join([f"{name} ({email})" for name, email in short_names_to_ids.items() if email])
+        
+        prompt = f"""You are a Jira JQL expert. Convert the following natural language query into a JQL query.
+
+Context:
+- Current team: {team_name} (ID: {team_id})
+- Project: {project_name}
+- Product: {product_name}
+- Team members: {team_members}
+
+User query: "{user_query}"
+
+Requirements:
+1. Always include the project filter: project = {project_name}
+2. Always include the team filter: "Team[Team]" = {team_id}
+3. If the user mentions themselves or team members by name, map to the appropriate email addresses
+4. Use appropriate JQL syntax and field names
+5. Return ONLY the JQL query, no explanations
+
+JQL Query:"""
+        
+        return prompt
+
+    def _build_analysis_prompt(self, original_query, issues, jira):
+        # Build detailed issue summaries for analysis
+        issue_summaries = []
+        for issue in issues:
+            summary = self._detailed_summary(issue, jira)
+            issue_summaries.append(summary)
+        
+        combined_issues = "\n\n".join(issue_summaries)
+        
+        prompt = f"""Based on the following Jira issues, please analyze and answer this query: "{original_query}"
+
+Issues found:
+{combined_issues}
+
+Please provide a comprehensive analysis addressing the original query. Include relevant insights, patterns, and recommendations based on the data."""
+        
+        return prompt
+
+    def _detailed_summary(self, issue, jira):
+        # Create a more detailed summary for analysis
+        key = getattr(issue, 'key', str(issue))
+        summary = getattr(issue.fields, 'summary', "")
+        status = getattr(issue.fields, 'status', None)
+        status_name = getattr(status, 'name', str(status)) if status else ""
+        assignee = getattr(issue.fields, 'assignee', None)
+        assignee_name = str(assignee) if assignee else "Unassigned"
+        created = getattr(issue.fields, 'created', "")
+        updated = getattr(issue.fields, 'updated', "")
+        issue_type = getattr(issue.fields, 'issuetype', None)
+        issue_type_name = getattr(issue_type, 'name', str(issue_type)) if issue_type else ""
+        priority = getattr(issue.fields, 'priority', None)
+        priority_name = getattr(priority, 'name', str(priority)) if priority else ""
+        
+        # Try to get additional fields
+        points = None
+        try:
+            points = jira.get_story_points(issue)
+        except Exception:
+            points = None
+            
+        description = getattr(issue.fields, 'description', "")
+        if description and len(description) > 200:
+            description = description[:200] + "..."
+        
+        summary_str = f"[{key}] {summary}"
+        summary_str += f"\nType: {issue_type_name} | Status: {status_name} | Priority: {priority_name}"
+        summary_str += f"\nAssignee: {assignee_name} | Created: {created} | Updated: {updated}"
+        if points:
+            summary_str += f"\nStory Points: {points}"
+        if description:
+            summary_str += f"\nDescription: {description}"
+            
+        return summary_str
+
+    def _get_jql_from_copilot(self, ui, prompt):
+        # Generate JQL using Copilot
+        if not USE_PYCOPILOT:
+            # Fallback - return a basic query if pycopilot not available
+            return None
+            
+        try:
+            from pycopilot import CopilotClient, AuthCache, CopilotAuth, AuthenticationError
+            
+            # Get authentication
+            cache = AuthCache()
+            chat_token = cache.get_valid_cached_chat_token()
+            
+            if not chat_token:
+                bearer_token = cache.get_cached_bearer_token()
+                if not bearer_token:
+                    return None
+                auth = CopilotAuth()
+                chat_token = auth.get_chat_token_from_bearer(bearer_token)
+                if not chat_token:
+                    return None
+                cache.cache_chat_token(chat_token)
+            
+            # Initialize client
+            client = CopilotClient()
+            client.set_chat_token(chat_token)
+            
+            # Get response
+            response = ""
+            for chunk in client.ask(prompt, stream=True):
+                response += chunk
+            
+            # Extract JQL from response (remove any extra text)
+            lines = response.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith('#') and not line.startswith('//'):
+                    # Basic validation - should contain project =
+                    if 'project =' in line.lower():
+                        return line
+            
+            return None
+            
+        except Exception as e:
+            return None
