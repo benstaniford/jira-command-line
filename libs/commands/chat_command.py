@@ -138,86 +138,66 @@ class ChatCommand(BaseCommand):
             chat.chat()
         ui.restore_screen()
     
+    def _reauthenticate(self, client=None):
+        """
+        Ensure a valid Copilot chat token is available and set on the client if provided.
+        Returns the valid chat token.
+        Raises Exception if authentication fails.
+        """
+        from pycopilot import AuthCache, CopilotAuth
+        cache = AuthCache()
+        chat_token = cache.get_valid_cached_chat_token()
+        if not chat_token:
+            bearer_token = cache.get_cached_bearer_token()
+            if not bearer_token:
+                raise Exception("Auth failed, please authenticate with copilot")
+            auth = CopilotAuth()
+            chat_token = auth.get_chat_token_from_bearer(bearer_token)
+            if not chat_token:
+                raise Exception("Auth failed, please authenticate with copilot")
+            cache.cache_chat_token(chat_token)
+        if client is not None:
+            client.set_chat_token(chat_token)
+        return chat_token
+
     def _chat_with_pycopilot(self, ui, issues, jira, initial_user_message=None):
         """Chat using pycopilot library with cached authentication"""
         try:
-            from pycopilot import CopilotClient, AuthCache, CopilotAuth, AuthenticationError
-            
-            # Try to get cached authentication
-            cache = AuthCache()
-            chat_token = cache.get_valid_cached_chat_token()
-            
-            if not chat_token:
-                # Try to get a new chat token from cached bearer token
-                bearer_token = cache.get_cached_bearer_token()
-                if not bearer_token:
-                    raise Exception("Auth failed, please authenticate with copilot")
-                auth = CopilotAuth()
-                try:
-                    chat_token = auth.get_chat_token_from_bearer(bearer_token)
-                    if not chat_token:
-                        raise Exception("Auth failed, please authenticate with copilot")
-                    cache.cache_chat_token(chat_token)
-                except Exception:
-                    raise Exception("Auth failed, please authenticate with copilot")
-            
-            # Initialize client with cached token
-            client = CopilotClient()
-            client.set_chat_token(chat_token)
-            
+            from pycopilot import CopilotClient, AuthenticationError
             import tempfile
             import os
+            client = CopilotClient()
+            self._reauthenticate(client)
             temp_files = []
             try:
                 # Add issues as context
                 for issue in issues:
                     issue_content = write_issue_for_chat(issue, jira)
-                    # Add the content directly to the context if supported
                     try:
                         client.add_context(issue_content)
                     except Exception:
-                        # Fallback: if add_context only supports file paths, use temp file
                         with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{issue.key}.txt', delete=False) as f:
                             f.write(issue_content)
                             temp_file = f.name
                             temp_files.append(temp_file)
                         client.add_context(temp_file)
-                
-                # Start interactive chat
                 ui.yield_screen()
                 if initial_user_message:
                     self._interactive_pycopilot_chat(client, initial_user_message=initial_user_message)
                 else:
                     self._interactive_pycopilot_chat(client)
                 ui.restore_screen()
-            
             finally:
-                # Clean up temp files
                 for temp_file in temp_files:
                     if os.path.exists(temp_file):
                         try:
                             os.unlink(temp_file)
                         except Exception:
                             pass
-        
         except AuthenticationError:
             raise Exception("Auth failed, please authenticate with copilot")
         except ImportError:
             raise Exception("pycopilot library not available, please install it or set USE_PYCOPILOT=False")
-    
-    def _reauthenticate_pycopilot(self, client):
-        """Try to get a new chat token from cached bearer token and set it on the client. Raise if not possible."""
-        from pycopilot import AuthCache, CopilotAuth
-        cache = AuthCache()
-        bearer_token = cache.get_cached_bearer_token()
-        if not bearer_token:
-            raise Exception("Auth failed, please authenticate with copilot")
-        auth = CopilotAuth()
-        chat_token = auth.get_chat_token_from_bearer(bearer_token)
-        if not chat_token:
-            raise Exception("Auth failed, please authenticate with copilot")
-        cache.cache_chat_token(chat_token)
-        client.set_chat_token(chat_token)
 
     def _interactive_pycopilot_chat(self, client, initial_user_message=None):
         """Simple interactive chat loop for pycopilot, with reauth on 401 error, with colors, emojis, and markdown colorization."""
@@ -296,7 +276,7 @@ class ChatCommand(BaseCommand):
                     except Exception as e:
                         if "401" in str(e) or "Unauthorized" in str(e):
                             print(c(f"[{reauth_emoji} Reauthenticating...]", Fore.YELLOW))
-                            self._reauthenticate_pycopilot(client)
+                            self._reauthenticate(client)
                             stream_and_colorize()
                         else:
                             print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
@@ -373,26 +353,27 @@ class ChatCommand(BaseCommand):
         return False
 
     def _get_jql_copilot_response(self, ui, prompt):
-        # Generate JQL using Copilot and return the raw response
+        # Generate JQL using Copilot and return the raw response, with reauth on auth error
         if not USE_PYCOPILOT:
             return None
-        from pycopilot import CopilotClient, AuthCache, CopilotAuth, AuthenticationError
-        cache = AuthCache()
-        chat_token = cache.get_valid_cached_chat_token()
-        if not chat_token:
-            bearer_token = cache.get_cached_bearer_token()
-            if not bearer_token:
-                return None
-            auth = CopilotAuth()
-            chat_token = auth.get_chat_token_from_bearer(bearer_token)
-            if not chat_token:
-                return None
-            cache.cache_chat_token(chat_token)
+        from pycopilot import CopilotClient
         client = CopilotClient()
-        client.set_chat_token(chat_token)
+        self._reauthenticate(client)
         response = ""
-        for chunk in client.ask(prompt, stream=True):
-            response += chunk
+        def try_ask():
+            nonlocal response
+            try:
+                for chunk in client.ask(prompt, stream=True):
+                    response += chunk
+            except Exception as e:
+                if "401" in str(e) or "Unauthorized" in str(e):
+                    self._reauthenticate(client)
+                    response = ""
+                    for chunk in client.ask(prompt, stream=True):
+                        response += chunk
+                else:
+                    raise
+        try_ask()
         return response
 
     def _extract_jql_from_response(self, response):
@@ -568,25 +549,11 @@ Please provide a comprehensive analysis addressing the original query. Include r
             return None
             
         try:
-            from pycopilot import CopilotClient, AuthCache, CopilotAuth, AuthenticationError
+            from pycopilot import CopilotClient, AuthenticationError
             
             # Get authentication
-            cache = AuthCache()
-            chat_token = cache.get_valid_cached_chat_token()
-            
-            if not chat_token:
-                bearer_token = cache.get_cached_bearer_token()
-                if not bearer_token:
-                    return None
-                auth = CopilotAuth()
-                chat_token = auth.get_chat_token_from_bearer(bearer_token)
-                if not chat_token:
-                    return None
-                cache.cache_chat_token(chat_token)
-            
-            # Initialize client
             client = CopilotClient()
-            client.set_chat_token(chat_token)
+            self._reauthenticate(client)
             
             # Get response
             response = ""
