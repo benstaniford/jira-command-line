@@ -332,13 +332,15 @@ class ChatCommand(BaseCommand):
             
             # Get JQL from Copilot
             copilot_response = self._get_jql_copilot_response(ui, jql_prompt)
-            ui.prompt(f"Raw Copilot JQL response:\n{copilot_response}\n(Press any key to continue)", " ")
+            print("\n===== Raw Copilot JQL response =====\n")
+            print(copilot_response)
+            print("\n===== End Copilot JQL response =====\n")
             jql_query = self._extract_jql_from_response(copilot_response)
             if not jql_query:
                 ui.error("Query generation", Exception("Failed to generate JQL query"))
                 return False
             
-            ui.prompt(f"Generated JQL: {jql_query}")
+            print(f"\nGenerated JQL: {jql_query}\n")
             
             # Execute the JQL query
             ui.prompt("Executing JQL query...")
@@ -356,12 +358,12 @@ class ChatCommand(BaseCommand):
                 # Provide full context to Copilot for analysis
                 analysis_prompt = self._build_analysis_prompt(query, issues, jira)
                 
-                # Start chat with the analysis
+                # Start chat with the analysis, then allow user to continue chatting
                 if USE_PYCOPILOT:
                     self._chat_with_pycopilot(ui, issues, jira, initial_user_message=analysis_prompt)
                 else:
                     self._chat_with_ragchat(ui, issues, jira, initial_user_message=analysis_prompt)
-                    
+                # After initial analysis, user can continue chatting as in regular chat mode
             except Exception as e:
                 ui.error("JQL execution", e)
                 return False
