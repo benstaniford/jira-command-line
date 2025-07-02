@@ -138,23 +138,26 @@ class ChatCommand(BaseCommand):
             chat.chat()
         ui.restore_screen()
     
-    def _reauthenticate(self, client=None):
+    def _reauthenticate(self, client=None, force_bearer=False):
         """
         Ensure a valid Copilot chat token is available and set on the client if provided.
+        If force_bearer is True, always use the bearer token to get a new chat token.
         Returns the valid chat token.
         Raises Exception if authentication fails.
         """
         from pycopilot import AuthCache, CopilotAuth
         cache = AuthCache()
-        chat_token = cache.get_valid_cached_chat_token()
+        chat_token = None
+        if not force_bearer:
+            chat_token = cache.get_valid_cached_chat_token()
         if not chat_token:
             bearer_token = cache.get_cached_bearer_token()
             if not bearer_token:
-                raise Exception("Auth failed, please authenticate with copilot")
+                raise Exception("Your Copilot login has expired or is missing. Please re-authenticate using the Copilot CLI or your login method.")
             auth = CopilotAuth()
             chat_token = auth.get_chat_token_from_bearer(bearer_token)
             if not chat_token:
-                raise Exception("Auth failed, please authenticate with copilot")
+                raise Exception("Your Copilot login has expired or is invalid. Please re-authenticate using the Copilot CLI or your login method.")
             cache.cache_chat_token(chat_token)
         if client is not None:
             client.set_chat_token(chat_token)
@@ -352,65 +355,6 @@ class ChatCommand(BaseCommand):
             ui.error("Query flow error", e)
         return False
 
-    def _get_jql_copilot_response(self, ui, prompt):
-        # Generate JQL using Copilot and return the raw response, with reauth on auth error
-        if not USE_PYCOPILOT:
-            return None
-        from pycopilot import CopilotClient
-        client = CopilotClient()
-        self._reauthenticate(client)
-        response = ""
-        def try_ask():
-            nonlocal response
-            try:
-                for chunk in client.ask(prompt, stream=True):
-                    response += chunk
-            except Exception as e:
-                if "401" in str(e) or "Unauthorized" in str(e):
-                    self._reauthenticate(client)
-                    response = ""
-                    for chunk in client.ask(prompt, stream=True):
-                        response += chunk
-                else:
-                    raise
-        try_ask()
-        return response
-
-    def _extract_jql_from_response(self, response):
-        if not response:
-            return None
-        import re
-        lines = response.strip().split('\n')
-        for line in lines:
-            line = line.strip()
-            if line and not line.startswith('#') and not line.startswith('//'):
-                if 'project =' in line.lower():
-                    # Post-process: quote any unquoted email addresses or @-containing values
-                    line = self._quote_jql_emails(line)
-                    return line
-        return None
-
-    def _quote_jql_emails(self, jql):
-        import re
-        # This regex finds = <value> or in (<value>,...) where <value> contains @ and is not quoted
-        def replacer(match):
-            value = match.group(2)
-            if value.startswith('"') and value.endswith('"'):
-                return match.group(0)  # already quoted
-            if '@' in value:
-                return f"{match.group(1)}\"{value}\""
-            return match.group(0)
-        # For = value
-        jql = re.sub(r'(=\s*)([\w@.]+)', replacer, jql)
-        # For in (value1, value2, ...)
-        def quote_in_values(match):
-            prefix = match.group(1)
-            values = match.group(2)
-            quoted = ', '.join([f'"{v.strip()}"' if '@' in v and not (v.strip().startswith('"') and v.strip().endswith('"')) else v.strip() for v in values.split(',')])
-            return f"{prefix}{quoted})"
-        jql = re.sub(r'(in \()(.*?)(\))', lambda m: quote_in_values((m.group(1), m.group(2))) + m.group(3), jql)
-        return jql
-
     def _build_jql_generation_prompt(self, user_query, team_name, team_id, project_name, product_name, short_names_to_ids):
         # Build the prompt for generating JQL
         team_members = ", ".join([f"{name} ({email})" for name, email in short_names_to_ids.items() if email])
@@ -418,16 +362,10 @@ class ChatCommand(BaseCommand):
         # --- Get valid custom fields (friendly name and field id) ---
         try:
             from libs.MyJiraIssue import MyJiraIssue
-            # Use a dummy issue if needed, but we can use the Jira API directly for fields
             jira_instance = None
             import sys
             if 'jira' in sys.modules:
                 jira_instance = sys.modules['jira']
-            # Try to get a real issue if possible, else just use the API
-            # We'll use the current Jira instance from the main flow
-            # This function is called with 'jira' in scope, so we can pass it in
-            # But here, we don't have access, so we will try to get fields from the API
-            # Instead, let's try to get the mapping from the current team/project
             import inspect
             frame = inspect.currentframe()
             while frame:
@@ -437,20 +375,16 @@ class ChatCommand(BaseCommand):
                 frame = frame.f_back
             field_mapping = {}
             if jira_instance:
-                # Use a real issue if available, else just get fields from the API
                 try:
-                    # Try to get a real issue for the current project
                     issues = jira_instance.search_issues(f'project = {project_name}', changelog=False)
                     if issues and len(issues) > 0:
                         issue = issues[0]
                         field_mapping = MyJiraIssue(issue, jira_instance).get_field_mapping(issue)
                     else:
-                        # Fallback: get fields from API
                         fields = jira_instance.fields()
                         for field in fields:
                             field_mapping[field['name']] = field['id']
                 except Exception:
-                    # Fallback: get fields from API
                     fields = jira_instance.fields()
                     for field in fields:
                         field_mapping[field['name']] = field['id']
@@ -488,88 +422,98 @@ Requirements:
 JQL Query:"""
         return prompt
 
-    def _build_analysis_prompt(self, original_query, issues, jira):
-        # Build detailed issue summaries for analysis
-        issue_summaries = []
-        for issue in issues:
-            summary = self._detailed_summary(issue, jira)
-            issue_summaries.append(summary)
-        
-        combined_issues = "\n\n".join(issue_summaries)
-        
-        prompt = f"""Based on the following Jira issues, please analyze and answer this query: "{original_query}"
-
-Issues found:
-{combined_issues}
-
-Please provide a comprehensive analysis addressing the original query. Include relevant insights, patterns, and recommendations based on the data."""
-        
-        return prompt
-
-    def _detailed_summary(self, issue, jira):
-        # Create a more detailed summary for analysis
-        key = getattr(issue, 'key', str(issue))
-        summary = getattr(issue.fields, 'summary', "")
-        status = getattr(issue.fields, 'status', None)
-        status_name = getattr(status, 'name', str(status)) if status else ""
-        assignee = getattr(issue.fields, 'assignee', None)
-        assignee_name = str(assignee) if assignee else "Unassigned"
-        created = getattr(issue.fields, 'created', "")
-        updated = getattr(issue.fields, 'updated', "")
-        issue_type = getattr(issue.fields, 'issuetype', None)
-        issue_type_name = getattr(issue_type, 'name', str(issue_type)) if issue_type else ""
-        priority = getattr(issue.fields, 'priority', None)
-        priority_name = getattr(priority, 'name', str(priority)) if priority else ""
-        
-        # Try to get additional fields
-        points = None
+    def _get_jql_copilot_response(self, ui, prompt):
+        # Generate JQL using Copilot and return the raw response, with robust reauth on auth error
+        if not USE_PYCOPILOT:
+            return None
+        from pycopilot import CopilotClient
         try:
-            points = jira.get_story_points(issue)
-        except Exception:
-            points = None
-            
-        description = getattr(issue.fields, 'description', "")
-        if description and len(description) > 200:
-            description = description[:200] + "..."
-        
-        summary_str = f"[{key}] {summary}"
-        summary_str += f"\nType: {issue_type_name} | Status: {status_name} | Priority: {priority_name}"
-        summary_str += f"\nAssignee: {assignee_name} | Created: {created} | Updated: {updated}"
-        if points:
-            summary_str += f"\nStory Points: {points}"
-        if description:
-            summary_str += f"\nDescription: {description}"
-            
-        return summary_str
+            from pycopilot.exceptions import APIError
+        except ImportError:
+            class APIError(Exception): pass
+        client = CopilotClient()
+        self._reauthenticate(client)
+        response = ""
+        tried_reauth = False
+        try:
+            while True:
+                try:
+                    for chunk in client.ask(prompt, stream=True):
+                        response += chunk
+                    break
+                except Exception as e:
+                    msg = str(e)
+                    is_auth = False
+                    if isinstance(e, APIError):
+                        if hasattr(e, 'status_code') and e.status_code == 401:
+                            is_auth = True
+                        elif '401' in msg or 'Unauthorized' in msg:
+                            is_auth = True
+                    elif '401' in msg or 'Unauthorized' in msg:
+                        is_auth = True
+                    if is_auth and not tried_reauth:
+                        self._reauthenticate(client, force_bearer=True)
+                        response = ""
+                        tried_reauth = True
+                        continue
+                    raise
+            return response
+        except Exception as e:
+            msg = str(e)
+            if '401' in msg or 'Unauthorized' in msg:
+                ui.error("Copilot authentication failed after retry. Please re-authenticate.", e)
+                return None
+            raise
 
     def _get_jql_from_copilot(self, ui, prompt):
-        # Generate JQL using Copilot
+        # Generate JQL using Copilot, robust reauth on auth error
         if not USE_PYCOPILOT:
-            # Fallback - return a basic query if pycopilot not available
             return None
-            
         try:
-            from pycopilot import CopilotClient, AuthenticationError
-            
-            # Get authentication
+            from pycopilot import CopilotClient
+            try:
+                from pycopilot.exceptions import APIError
+            except ImportError:
+                class APIError(Exception): pass
             client = CopilotClient()
             self._reauthenticate(client)
-            
-            # Get response
             response = ""
-            for chunk in client.ask(prompt, stream=True):
-                response += chunk
-            
-            # Extract JQL from response (remove any extra text)
-            lines = response.strip().split('\n')
-            for line in lines:
-                line = line.strip()
-                if line and not line.startswith('#') and not line.startswith('//'):
-                    # Basic validation - should contain project =
-                    if 'project =' in line.lower():
-                        return line
-            
-            return None
-            
+            tried_reauth = False
+            try:
+                while True:
+                    try:
+                        for chunk in client.ask(prompt, stream=True):
+                            response += chunk
+                        break
+                    except Exception as e:
+                        msg = str(e)
+                        is_auth = False
+                        if isinstance(e, APIError):
+                            if hasattr(e, 'status_code') and e.status_code == 401:
+                                is_auth = True
+                            elif '401' in msg or 'Unauthorized' in msg:
+                                is_auth = True
+                        elif '401' in msg or 'Unauthorized' in msg:
+                            is_auth = True
+                        if is_auth and not tried_reauth:
+                            self._reauthenticate(client, force_bearer=True)
+                            response = ""
+                            tried_reauth = True
+                            continue
+                        return None
+                # Extract JQL from response (remove any extra text)
+                lines = response.strip().split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if line and not line.startswith('#') and not line.startswith('//'):
+                        if 'project =' in line.lower():
+                            return line
+                return None
+            except Exception as e:
+                msg = str(e)
+                if '401' in msg or 'Unauthorized' in msg:
+                    ui.error("Copilot authentication failed after retry. Please re-authenticate.", e)
+                    return None
+                raise
         except Exception as e:
             return None
