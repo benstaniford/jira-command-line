@@ -148,9 +148,8 @@ class ChatCommand(BaseCommand):
         from pycopilot import AuthCache, CopilotAuth
         cache = AuthCache()
         chat_token = None
-        if not force_bearer:
-            chat_token = cache.get_valid_cached_chat_token()
-        if not chat_token:
+        if force_bearer:
+            # Always use the bearer token to get a new chat token
             bearer_token = cache.get_cached_bearer_token()
             if not bearer_token:
                 raise Exception("Your Copilot login has expired or is missing. Please re-authenticate using the Copilot CLI or your login method.")
@@ -159,6 +158,17 @@ class ChatCommand(BaseCommand):
             if not chat_token:
                 raise Exception("Your Copilot login has expired or is invalid. Please re-authenticate using the Copilot CLI or your login method.")
             cache.cache_chat_token(chat_token)
+        else:
+            chat_token = cache.get_valid_cached_chat_token()
+            if not chat_token:
+                bearer_token = cache.get_cached_bearer_token()
+                if not bearer_token:
+                    raise Exception("Your Copilot login has expired or is missing. Please re-authenticate using the Copilot CLI or your login method.")
+                auth = CopilotAuth()
+                chat_token = auth.get_chat_token_from_bearer(bearer_token)
+                if not chat_token:
+                    raise Exception("Your Copilot login has expired or is invalid. Please re-authenticate using the Copilot CLI or your login method.")
+                cache.cache_chat_token(chat_token)
         if client is not None:
             client.set_chat_token(chat_token)
         return chat_token
