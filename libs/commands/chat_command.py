@@ -1,37 +1,16 @@
 from .base_command import BaseCommand
 from jira_utils import write_issue_for_chat
+from .ai.copilot_chat import CopilotChat
+from .ai.rag_chat import RagChatWrapper
 
 # Set to True to use pycopilot, False to use RagChat
 USE_PYCOPILOT = True
 
 class ChatCommand(BaseCommand):
+    def __init__(self):
+        self.copilot = CopilotChat()
+        self.rag = RagChatWrapper()
 
-    def _copilot_ask_with_reauth(self, prompt, stream=False, client=None, max_reauth=1):
-        """
-        Wrapper for CopilotClient.ask() that transparently reauthenticates and retries on AuthenticationError.
-        Returns the full response (if stream=False) or yields chunks (if stream=True).
-        """
-        from pycopilot import AuthenticationError
-        reauths = 0
-        if client is None:
-            client = self.auth.authenticate()
-        while True:
-            try:
-                if stream:
-                    # Streaming: yield chunks
-                    for chunk in client.ask(prompt, stream=True):
-                        yield chunk
-                    break
-                else:
-                    # Non-streaming: return full response
-                    return client.ask(prompt, stream=False)
-            except AuthenticationError:
-                if reauths < max_reauth:
-                    client = self.auth.authenticate()
-                    reauths += 1
-                    continue
-                else:
-                    raise
     @property
     def shortcut(self):
         return "C"
@@ -152,52 +131,22 @@ class ChatCommand(BaseCommand):
         return summary_str
     
     def _chat_with_ragchat(self, ui, issues, jira, initial_user_message=None):
-        """Chat using RagChat library"""
-        from RagChat import RagChat
-        chat = RagChat()
-        for issue in issues:
-            chat.add_document(write_issue_for_chat(issue, jira))
-
+        chat, initial = self.rag.chat_with_issues(issues, jira, initial_user_message)
         ui.yield_screen()
-        if initial_user_message:
-            chat.chat(initial_user_message=initial_user_message)
+        if initial:
+            chat.chat(initial_user_message=initial)
         else:
             chat.chat()
         ui.restore_screen()
     
     def _chat_with_pycopilot(self, ui, issues, jira, initial_user_message=None):
-        """Chat using pycopilot library with cached authentication"""
-        from pycopilot import AuthCache
-        self.auth = AuthCache()
-        import tempfile
-        import os
-        client = self.auth.authenticate()
-        temp_files = []
-        try:
-            # Add issues as context
-            for issue in issues:
-                issue_content = write_issue_for_chat(issue, jira)
-                try:
-                    client.add_context(issue_content)
-                except Exception:
-                    with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{issue.key}.txt', delete=False) as f:
-                        f.write(issue_content)
-                        temp_file = f.name
-                        temp_files.append(temp_file)
-                    client.add_context(temp_file)
-            ui.yield_screen()
-            if initial_user_message:
-                self._interactive_pycopilot_chat(client, initial_user_message=initial_user_message)
-            else:
-                self._interactive_pycopilot_chat(client)
-            ui.restore_screen()
-        finally:
-            for temp_file in temp_files:
-                if os.path.exists(temp_file):
-                    try:
-                        os.unlink(temp_file)
-                    except Exception:
-                        pass
+        client, _ = self.copilot.chat_with_issues(issues, jira)
+        ui.yield_screen()
+        if initial_user_message:
+            self._interactive_pycopilot_chat(client, initial_user_message=initial_user_message)
+        else:
+            self._interactive_pycopilot_chat(client)
+        ui.restore_screen()
 
     def _interactive_pycopilot_chat(self, client, initial_user_message=None):
         """Simple interactive chat loop for pycopilot, with reauth on 401 error, with colors, emojis, and markdown colorization."""
