@@ -317,3 +317,56 @@ JQL Query:"""
         except Exception as e:
             ui.error("Copilot authentication failed after retry. Please re-authenticate.", e)
             return None
+
+    def _extract_jql_from_response(self, response):
+        """
+        Extracts the JQL query from a Copilot response.
+        Looks for the first line that contains 'project =' and is not a comment or markdown/code block.
+        Strips markdown/code block formatting and returns the JQL string.
+        Returns None if no JQL is found.
+        """
+        import re
+        if not response:
+            print("[DEBUG] Copilot response is empty.")
+            return None
+        # Remove all code block markers (start and end)
+        response = response.strip()
+        response = re.sub(r'^```[a-zA-Z]*', '', response)
+        response = re.sub(r'```$', '', response)
+        # Split into lines and look for JQL
+        lines = response.split('\n') if '\n' in response else response.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#') or line.startswith('//'):
+                continue
+            # Remove trailing code block markers
+            if line.endswith('```'):
+                line = line[:-3].strip()
+            # Heuristic: must contain 'project ='
+            if 'project =' in line.lower():
+                # Remove any trailing comment
+                line = line.split('//')[0].strip()
+                return line
+        print(f"[DEBUG] No JQL found in Copilot response:\n{response}")
+        return None
+
+    def _build_analysis_prompt(self, user_query, issues, jira):
+        """
+        Build a prompt for Copilot to analyze the results of a JQL query.
+        """
+        summaries = []
+        for issue in issues:
+            key = getattr(issue, 'key', str(issue))
+            summary = getattr(issue.fields, 'summary', "")
+            status = getattr(issue.fields, 'status', None)
+            status_name = getattr(status, 'name', str(status)) if status else ""
+            assignee = getattr(issue.fields, 'assignee', None)
+            assignee_name = str(assignee) if assignee else "Unassigned"
+            summaries.append(f"[{key}] {summary} (Status: {status_name}, Assignee: {assignee_name})")
+        issues_str = "\n".join(summaries)
+        prompt = (
+            f"Analyze the following Jira issues for the query: '{user_query}'.\n"
+            f"Issues:\n{issues_str}\n"
+            "Provide insights, trends, or recommendations based on these results."
+        )
+        return prompt
