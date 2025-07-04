@@ -1,4 +1,4 @@
-from RagChat import RagChat
+from ...RagChat import RagChat
 from jira_utils import write_issue_for_chat
 
 class RagChatWrapper:

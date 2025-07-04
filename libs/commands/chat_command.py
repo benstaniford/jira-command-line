@@ -7,6 +7,12 @@ from .ai.rag_chat import RagChatWrapper
 USE_PYCOPILOT = True
 
 class ChatCommand(BaseCommand):
+    def _copilot_ask_with_reauth(self, prompt, stream=False, client=None, max_reauth=1):
+        """
+        Wrapper for CopilotClient.ask() that transparently reauthenticates and retries on AuthenticationError.
+        Returns the full response (if stream=False) or yields chunks (if stream=True).
+        """
+        yield from self.copilot.ask_with_reauth(prompt, stream=stream, client=client, max_reauth=max_reauth)
     def __init__(self):
         self.copilot = CopilotChat()
         self.rag = RagChatWrapper()
