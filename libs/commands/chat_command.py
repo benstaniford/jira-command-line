@@ -141,7 +141,7 @@ class ChatCommand(BaseCommand):
     def _chat_with_pycopilot(self, ui, issues, jira, initial_user_message=None):
         """Chat using pycopilot library with cached authentication"""
         try:
-            from pycopilot import CopilotClient, AuthenticationError, AuthCache
+            from pycopilot import AuthenticationError, AuthCache
             self.auth = AuthCache()
             import tempfile
             import os
