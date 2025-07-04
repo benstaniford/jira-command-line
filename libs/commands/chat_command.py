@@ -145,8 +145,7 @@ class ChatCommand(BaseCommand):
             self.auth = AuthCache()
             import tempfile
             import os
-            client = CopilotClient()
-            self.auth.authenticate()
+            client = self.auth.authenticate()
             temp_files = []
             try:
                 # Add issues as context
@@ -255,7 +254,7 @@ class ChatCommand(BaseCommand):
                     except Exception as e:
                         if "401" in str(e) or "Unauthorized" in str(e):
                             print(c(f"[{reauth_emoji} Reauthenticating...]", Fore.YELLOW))
-                            self.auth.authenticate()
+                            client = self.auth.authenticate()
                             stream_and_colorize()
                         else:
                             print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
@@ -407,8 +406,7 @@ JQL Query:"""
             from pycopilot.exceptions import APIError
         except ImportError:
             class APIError(Exception): pass
-        client = CopilotClient()
-        self.auth.authenticate()
+        client = self.auth.authenticate()
         response = ""
         tried_reauth = False
         try:
@@ -428,7 +426,7 @@ JQL Query:"""
                     elif '401' in msg or 'Unauthorized' in msg:
                         is_auth = True
                     if is_auth and not tried_reauth:
-                        self.auth.authenticate()
+                        client = self.auth.authenticate()
                         response = ""
                         tried_reauth = True
                         continue
@@ -446,8 +444,7 @@ JQL Query:"""
         if not USE_PYCOPILOT:
             return None
         try:
-            client = CopilotClient()
-            self.auth.authenticate()
+            client = self.auth.authenticate()
             response = ""
             tried_reauth = False
             try:
@@ -467,7 +464,7 @@ JQL Query:"""
                         elif '401' in msg or 'Unauthorized' in msg:
                             is_auth = True
                         if is_auth and not tried_reauth:
-                            self.auth.authenticate()
+                            client = self.auth.authenticate()
                             response = ""
                             tried_reauth = True
                             continue
