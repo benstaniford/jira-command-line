@@ -242,6 +242,7 @@ class ChatCommand(BaseCommand):
                 print(c(f"{assistant_emoji} Assistant: ", Fore.CYAN), end="", flush=True)
                 # Stream the response, with reauth on 401
                 def stream_and_colorize():
+                    nonlocal client
                     buffer = ""
                     try:
                         for chunk in client.ask(user_input, stream=True):
