@@ -1,10 +1,7 @@
 from .base_command import BaseCommand
 from jira_utils import write_issue_for_chat
 from .ai.copilot_chat import CopilotChat
-from .ai.rag_chat import RagChatWrapper
 
-# Set to True to use pycopilot, False to use RagChat
-USE_PYCOPILOT = True
 
 class ChatCommand(BaseCommand):
     def _copilot_ask_with_reauth(self, prompt, stream=False, client=None, max_reauth=1):
@@ -15,7 +12,6 @@ class ChatCommand(BaseCommand):
         yield from self.copilot.ask_with_reauth(prompt, stream=stream, client=client, max_reauth=max_reauth)
     def __init__(self):
         self.copilot = CopilotChat()
-        self.rag = RagChatWrapper()
 
     @property
     def shortcut(self):
@@ -70,10 +66,7 @@ class ChatCommand(BaseCommand):
                 [row, issue] = ui.get_row(issue-1)
                 issues.append(issue)
             ui.prompt(f"Fetching {len(issues)} issues...")
-            if USE_PYCOPILOT:
-                self._chat_with_pycopilot(ui, issues, jira)
-            else:
-                self._chat_with_ragchat(ui, issues, jira)
+            self._chat_with_pycopilot(ui, issues, jira)
         except Exception as e:
             ui.error("Chat about issue", e)
         return False
@@ -107,10 +100,7 @@ class ChatCommand(BaseCommand):
             if brief:
                 canned_prompt = f"Please provide a brief summary of the following Jira issues, do so in a single paragraph per item:\n\n{combined_summary}"
             # Start chat with the canned prompt as the first user message
-            if USE_PYCOPILOT:
-                self._chat_with_pycopilot(ui, issues, jira, initial_user_message=canned_prompt)
-            else:
-                self._chat_with_ragchat(ui, issues, jira, initial_user_message=canned_prompt)
+            self._chat_with_pycopilot(ui, issues, jira, initial_user_message=canned_prompt)
         except Exception as e:
             ui.error("Summary error", e)
         return False
@@ -136,15 +126,7 @@ class ChatCommand(BaseCommand):
             summary_str += f"\nPoints: {points}"
         return summary_str
     
-    def _chat_with_ragchat(self, ui, issues, jira, initial_user_message=None):
-        chat, initial = self.rag.chat_with_issues(issues, jira, initial_user_message)
-        ui.yield_screen()
-        if initial:
-            chat.chat(initial_user_message=initial)
-        else:
-            chat.chat()
-        ui.restore_screen()
-    
+    # RagChat support removed
     def _chat_with_pycopilot(self, ui, issues, jira, initial_user_message=None):
         client, _ = self.copilot.chat_with_issues(issues, jira)
         ui.yield_screen()
@@ -205,10 +187,7 @@ class ChatCommand(BaseCommand):
                 analysis_prompt = self._build_analysis_prompt(query, issues, jira)
                 
                 # Start chat with the analysis, then allow user to continue chatting
-                if USE_PYCOPILOT:
-                    self._chat_with_pycopilot(ui, issues, jira, initial_user_message=analysis_prompt)
-                else:
-                    self._chat_with_ragchat(ui, issues, jira, initial_user_message=analysis_prompt)
+                self._chat_with_pycopilot(ui, issues, jira, initial_user_message=analysis_prompt)
                 # After initial analysis, user can continue chatting as in regular chat mode
             except Exception as e:
                 ui.error("JQL execution", e)
@@ -287,8 +266,6 @@ JQL Query:"""
 
     def _get_jql_copilot_response(self, ui, prompt):
         # Generate JQL using Copilot and return the raw response, with robust reauth on auth error
-        if not USE_PYCOPILOT:
-            return None
         try:
             response = ""
             for chunk in self._copilot_ask_with_reauth(prompt, stream=True):
@@ -300,8 +277,6 @@ JQL Query:"""
 
     def _get_jql_from_copilot(self, ui, prompt):
         # Generate JQL using Copilot, robust reauth on auth error
-        if not USE_PYCOPILOT:
-            return None
         try:
             response = ""
             for chunk in self._copilot_ask_with_reauth(prompt, stream=True):
