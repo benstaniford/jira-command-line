@@ -138,49 +138,15 @@ class ChatCommand(BaseCommand):
             chat.chat()
         ui.restore_screen()
     
-    def _reauthenticate(self, client=None, force_bearer=False):
-        """
-        Ensure a valid Copilot chat token is available and set on the client if provided.
-        If force_bearer is True, always use the bearer token to get a new chat token.
-        Returns the valid chat token.
-        Raises Exception if authentication fails.
-        """
-        from pycopilot import AuthCache, CopilotAuth
-        cache = AuthCache()
-        chat_token = None
-        if force_bearer:
-            # Always use the bearer token to get a new chat token
-            bearer_token = cache.get_cached_bearer_token()
-            if not bearer_token:
-                raise Exception("Your Copilot login has expired or is missing. Please re-authenticate using the Copilot CLI or your login method.")
-            auth = CopilotAuth()
-            chat_token = auth.get_chat_token_from_bearer(bearer_token)
-            if not chat_token:
-                raise Exception("Your Copilot login has expired or is invalid. Please re-authenticate using the Copilot CLI or your login method.")
-            cache.cache_chat_token(chat_token)
-        else:
-            chat_token = cache.get_valid_cached_chat_token()
-            if not chat_token:
-                bearer_token = cache.get_cached_bearer_token()
-                if not bearer_token:
-                    raise Exception("Your Copilot login has expired or is missing. Please re-authenticate using the Copilot CLI or your login method.")
-                auth = CopilotAuth()
-                chat_token = auth.get_chat_token_from_bearer(bearer_token)
-                if not chat_token:
-                    raise Exception("Your Copilot login has expired or is invalid. Please re-authenticate using the Copilot CLI or your login method.")
-                cache.cache_chat_token(chat_token)
-        if client is not None:
-            client.set_chat_token(chat_token)
-        return chat_token
-
     def _chat_with_pycopilot(self, ui, issues, jira, initial_user_message=None):
         """Chat using pycopilot library with cached authentication"""
         try:
-            from pycopilot import CopilotClient, AuthenticationError
+            from pycopilot import CopilotClient, AuthenticationError, AuthCache
+            self.auth = AuthCache()
             import tempfile
             import os
             client = CopilotClient()
-            self._reauthenticate(client)
+            self.auth.authenticate()
             temp_files = []
             try:
                 # Add issues as context
@@ -289,7 +255,7 @@ class ChatCommand(BaseCommand):
                     except Exception as e:
                         if "401" in str(e) or "Unauthorized" in str(e):
                             print(c(f"[{reauth_emoji} Reauthenticating...]", Fore.YELLOW))
-                            self._reauthenticate(client)
+                            self.auth.authenticate()
                             stream_and_colorize()
                         else:
                             print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
@@ -442,7 +408,7 @@ JQL Query:"""
         except ImportError:
             class APIError(Exception): pass
         client = CopilotClient()
-        self._reauthenticate(client)
+        self.auth.authenticate()
         response = ""
         tried_reauth = False
         try:
@@ -462,7 +428,7 @@ JQL Query:"""
                     elif '401' in msg or 'Unauthorized' in msg:
                         is_auth = True
                     if is_auth and not tried_reauth:
-                        self._reauthenticate(client, force_bearer=True)
+                        self.auth.authenticate()
                         response = ""
                         tried_reauth = True
                         continue
@@ -480,13 +446,8 @@ JQL Query:"""
         if not USE_PYCOPILOT:
             return None
         try:
-            from pycopilot import CopilotClient
-            try:
-                from pycopilot.exceptions import APIError
-            except ImportError:
-                class APIError(Exception): pass
             client = CopilotClient()
-            self._reauthenticate(client)
+            self.auth.authenticate()
             response = ""
             tried_reauth = False
             try:
@@ -506,7 +467,7 @@ JQL Query:"""
                         elif '401' in msg or 'Unauthorized' in msg:
                             is_auth = True
                         if is_auth and not tried_reauth:
-                            self._reauthenticate(client, force_bearer=True)
+                            self.auth.authenticate()
                             response = ""
                             tried_reauth = True
                             continue
