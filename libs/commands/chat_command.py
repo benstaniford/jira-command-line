@@ -5,6 +5,33 @@ from jira_utils import write_issue_for_chat
 USE_PYCOPILOT = True
 
 class ChatCommand(BaseCommand):
+
+    def _copilot_ask_with_reauth(self, prompt, stream=False, client=None, max_reauth=1):
+        """
+        Wrapper for CopilotClient.ask() that transparently reauthenticates and retries on AuthenticationError.
+        Returns the full response (if stream=False) or yields chunks (if stream=True).
+        """
+        from pycopilot import AuthenticationError
+        reauths = 0
+        if client is None:
+            client = self.auth.authenticate()
+        while True:
+            try:
+                if stream:
+                    # Streaming: yield chunks
+                    for chunk in client.ask(prompt, stream=True):
+                        yield chunk
+                    break
+                else:
+                    # Non-streaming: return full response
+                    return client.ask(prompt, stream=False)
+            except AuthenticationError:
+                if reauths < max_reauth:
+                    client = self.auth.authenticate()
+                    reauths += 1
+                    continue
+                else:
+                    raise
     @property
     def shortcut(self):
         return "C"
@@ -140,42 +167,37 @@ class ChatCommand(BaseCommand):
     
     def _chat_with_pycopilot(self, ui, issues, jira, initial_user_message=None):
         """Chat using pycopilot library with cached authentication"""
+        from pycopilot import AuthCache
+        self.auth = AuthCache()
+        import tempfile
+        import os
+        client = self.auth.authenticate()
+        temp_files = []
         try:
-            from pycopilot import AuthenticationError, AuthCache
-            self.auth = AuthCache()
-            import tempfile
-            import os
-            client = self.auth.authenticate()
-            temp_files = []
-            try:
-                # Add issues as context
-                for issue in issues:
-                    issue_content = write_issue_for_chat(issue, jira)
+            # Add issues as context
+            for issue in issues:
+                issue_content = write_issue_for_chat(issue, jira)
+                try:
+                    client.add_context(issue_content)
+                except Exception:
+                    with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{issue.key}.txt', delete=False) as f:
+                        f.write(issue_content)
+                        temp_file = f.name
+                        temp_files.append(temp_file)
+                    client.add_context(temp_file)
+            ui.yield_screen()
+            if initial_user_message:
+                self._interactive_pycopilot_chat(client, initial_user_message=initial_user_message)
+            else:
+                self._interactive_pycopilot_chat(client)
+            ui.restore_screen()
+        finally:
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
                     try:
-                        client.add_context(issue_content)
+                        os.unlink(temp_file)
                     except Exception:
-                        with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{issue.key}.txt', delete=False) as f:
-                            f.write(issue_content)
-                            temp_file = f.name
-                            temp_files.append(temp_file)
-                        client.add_context(temp_file)
-                ui.yield_screen()
-                if initial_user_message:
-                    self._interactive_pycopilot_chat(client, initial_user_message=initial_user_message)
-                else:
-                    self._interactive_pycopilot_chat(client)
-                ui.restore_screen()
-            finally:
-                for temp_file in temp_files:
-                    if os.path.exists(temp_file):
-                        try:
-                            os.unlink(temp_file)
-                        except Exception:
-                            pass
-        except AuthenticationError:
-            raise Exception("Auth failed, please authenticate with copilot")
-        except ImportError:
-            raise Exception("pycopilot library not available, please install it or set USE_PYCOPILOT=False")
+                        pass
 
     def _interactive_pycopilot_chat(self, client, initial_user_message=None):
         """Simple interactive chat loop for pycopilot, with reauth on 401 error, with colors, emojis, and markdown colorization."""
@@ -242,10 +264,9 @@ class ChatCommand(BaseCommand):
                 print(c(f"{assistant_emoji} Assistant: ", Fore.CYAN), end="", flush=True)
                 # Stream the response, with reauth on 401
                 def stream_and_colorize():
-                    nonlocal client
                     buffer = ""
                     try:
-                        for chunk in client.ask(user_input, stream=True):
+                        for chunk in self._copilot_ask_with_reauth(user_input, stream=True, client=client):
                             buffer += chunk
                             while '\n' in buffer:
                                 line, buffer = buffer.split('\n', 1)
@@ -253,12 +274,7 @@ class ChatCommand(BaseCommand):
                         if buffer:
                             print(colorize_markdown(buffer), flush=True)
                     except Exception as e:
-                        if "401" in str(e) or "Unauthorized" in str(e):
-                            print(c(f"[{reauth_emoji} Reauthenticating...]", Fore.YELLOW))
-                            client = self.auth.authenticate()
-                            stream_and_colorize()
-                        else:
-                            print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
+                        print(c(f"{error_emoji} Error getting response: {e}", Fore.RED))
                 try:
                     stream_and_colorize()
                 except Exception as e:
@@ -402,87 +418,31 @@ JQL Query:"""
         # Generate JQL using Copilot and return the raw response, with robust reauth on auth error
         if not USE_PYCOPILOT:
             return None
-        from pycopilot import CopilotClient
         try:
-            from pycopilot.exceptions import APIError
-        except ImportError:
-            class APIError(Exception): pass
-        client = self.auth.authenticate()
-        response = ""
-        tried_reauth = False
-        try:
-            while True:
-                try:
-                    for chunk in client.ask(prompt, stream=True):
-                        response += chunk
-                    break
-                except Exception as e:
-                    msg = str(e)
-                    is_auth = False
-                    if isinstance(e, APIError):
-                        if hasattr(e, 'status_code') and e.status_code == 401:
-                            is_auth = True
-                        elif '401' in msg or 'Unauthorized' in msg:
-                            is_auth = True
-                    elif '401' in msg or 'Unauthorized' in msg:
-                        is_auth = True
-                    if is_auth and not tried_reauth:
-                        client = self.auth.authenticate()
-                        response = ""
-                        tried_reauth = True
-                        continue
-                    raise
+            response = ""
+            for chunk in self._copilot_ask_with_reauth(prompt, stream=True):
+                response += chunk
             return response
         except Exception as e:
-            msg = str(e)
-            if '401' in msg or 'Unauthorized' in msg:
-                ui.error("Copilot authentication failed after retry. Please re-authenticate.", e)
-                return None
-            raise
+            ui.error("Copilot authentication failed after retry. Please re-authenticate.", e)
+            return None
 
     def _get_jql_from_copilot(self, ui, prompt):
         # Generate JQL using Copilot, robust reauth on auth error
         if not USE_PYCOPILOT:
             return None
         try:
-            client = self.auth.authenticate()
             response = ""
-            tried_reauth = False
-            try:
-                while True:
-                    try:
-                        for chunk in client.ask(prompt, stream=True):
-                            response += chunk
-                        break
-                    except Exception as e:
-                        msg = str(e)
-                        is_auth = False
-                        if isinstance(e, APIError):
-                            if hasattr(e, 'status_code') and e.status_code == 401:
-                                is_auth = True
-                            elif '401' in msg or 'Unauthorized' in msg:
-                                is_auth = True
-                        elif '401' in msg or 'Unauthorized' in msg:
-                            is_auth = True
-                        if is_auth and not tried_reauth:
-                            client = self.auth.authenticate()
-                            response = ""
-                            tried_reauth = True
-                            continue
-                        return None
-                # Extract JQL from response (remove any extra text)
-                lines = response.strip().split('\n')
-                for line in lines:
-                    line = line.strip()
-                    if line and not line.startswith('#') and not line.startswith('//'):
-                        if 'project =' in line.lower():
-                            return line
-                return None
-            except Exception as e:
-                msg = str(e)
-                if '401' in msg or 'Unauthorized' in msg:
-                    ui.error("Copilot authentication failed after retry. Please re-authenticate.", e)
-                    return None
-                raise
+            for chunk in self._copilot_ask_with_reauth(prompt, stream=True):
+                response += chunk
+            # Extract JQL from response (remove any extra text)
+            lines = response.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith('#') and not line.startswith('//'):
+                    if 'project =' in line.lower():
+                        return line
+            return None
         except Exception as e:
+            ui.error("Copilot authentication failed after retry. Please re-authenticate.", e)
             return None
