@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #scriptdoc: title="Curses based Jira team backlog/sprint", tags="bt,work,jira"
 import curses
 import argparse
