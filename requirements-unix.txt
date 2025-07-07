@@ -1,10 +1,10 @@
 markdown
+markdownify
 pyyaml
 jira
 requests
 gitpython
 PyGithub
-pycurses
 sv-ttk
 sentence-transformers
 faiss-cpu
