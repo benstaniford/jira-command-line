@@ -97,11 +97,15 @@ class MyJiraIssue:
 
     def __getattr__(self, name):
         """
-        Handle missing attributes by suggesting similar field names.
+        Handle missing attributes by suggesting similar field names, or returning None for mapped fields that are not set.
         """
         if name.startswith('_'):
             raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-            
+
+        # If the attribute is a mapped field, return None if not set
+        if hasattr(self, 'translations') and name in self.translations:
+            return None
+
         # Get all available field names from the issue
         if self._jira_fields is None:
             self._jira_fields = []
