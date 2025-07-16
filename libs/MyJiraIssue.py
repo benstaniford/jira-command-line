@@ -69,7 +69,7 @@ class MyJiraIssue:
                 
                 # Check if this field matches any of our desired mappings
                 for friendly_name, possible_names in name_mappings.items():
-                    if any(possible_name in field['name'].lower() for possible_name in possible_names) and hasattr(issue.fields, field_id) and getattr(issue.fields, field_id) is not None:
+                    if any(possible_name in field['name'].lower() for possible_name in possible_names):
                         field_mapping[friendly_name] = field_id
                         break
             
