@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 # https://docs.getxray.app/display/XRAYCLOUD/Version+2
 # https://github.com/Xray-App/xray-cloud-demo-project/blob/master/xray.py
 XRAY_API = 'https://xray.cloud.getxray.app/api/v2'
+SSL_VERIFY = False
 
 class XrayApi:
     def __init__(self, config):
@@ -22,7 +23,7 @@ class XrayApi:
 
         json_data = json.dumps({"client_id": self.client_id, "client_secret": self.client_secret})
         
-        resp = requests.post(f'{XRAY_API}/authenticate', data=json_data, headers={'Content-Type':'application/json'})
+        resp = requests.post(f'{XRAY_API}/authenticate', data=json_data, headers={'Content-Type':'application/json'}, verify=SSL_VERIFY)
         resp.raise_for_status()
         
         self.token = 'Bearer ' + resp.text.replace("\"","")
@@ -42,7 +43,7 @@ class XrayApi:
 
             json_data = f'mutation {{ createFolder( testPlanId: "{testPlanId}", path: "{path}") {{ warnings }} }}'
 
-        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
 
         resp.raise_for_status()
     
@@ -61,7 +62,7 @@ class XrayApi:
 
             json_data = f'mutation {{ addTestsToFolder( testPlanId: "{testPlanId}", path: "{path}", testIssueIds: {testIssueIds_json}) {{ warnings }} }}'
 
-        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
     
         return resp.json()
@@ -116,7 +117,7 @@ class XrayApi:
             }}
         '''
 
-        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
 
         if (resp.json().get('errors') != None):
@@ -153,7 +154,7 @@ class XrayApi:
             }}
         '''
 
-        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
     
         return resp.json()
@@ -184,7 +185,7 @@ class XrayApi:
             }}
         '''
 
-        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
     
         return resp.json()
@@ -201,7 +202,7 @@ class XrayApi:
                 }}
             }}
         '''
-        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": json_data }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
 
         if (resp.json().get('errors') != None):
@@ -249,37 +250,37 @@ class XrayApi:
     def import_xray_json_results(self, results):
         json_data = json.dumps(results)
         
-        resp = requests.post(f'{XRAY_API}/import/execution', data=json_data, headers={'Content-Type':'application/json', 'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution', data=json_data, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
         
         return resp.json()
 
     def import_cucumber_results(self, results, info):
-        resp = requests.post(f'{XRAY_API}/import/execution/cucumber/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/cucumber/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
         
         return resp.json()
 
     def import_robot_results(self, results, info):
-        resp = requests.post(f'{XRAY_API}/import/execution/robot/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/robot/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
         
         return resp.json()
 
     def import_nunit_results(self, results, info):
-        resp = requests.post(f'{XRAY_API}/import/execution/nunit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/nunit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
         
         return resp.json()
 
     def import_testng_results(self, results, info):
-        resp = requests.post(f'{XRAY_API}/import/execution/testng/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/testng/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
         
         return resp.json()
 
     def import_junit_results(self, results, info):
-        resp = requests.post(f'{XRAY_API}/import/execution/junit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token})
+        resp = requests.post(f'{XRAY_API}/import/execution/junit/multipart', files={'results': results, 'info': info}, headers={'Authorization': self.token}, verify=SSL_VERIFY)
         resp.raise_for_status()
         
         return resp.json()
