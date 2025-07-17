@@ -129,7 +129,7 @@ class MyJiraIssue:
             except:
                 pass
 
-        # Find fields that start with the same 3 letters
+        # Find fields that start with the same 3 letters or custom fields that appear to have values we don't know about
         suggestions = []
         if len(name) >= 3:
             prefix = name[:3].lower()
@@ -142,8 +142,8 @@ class MyJiraIssue:
                 # Only consider custom fields not in translations
                 if field_name.startswith('customfield_') and field_name not in self.translations.values():
                     value = getattr(self.issue.fields, field_name, None)
-                    if value is not None:
-                        suggestions.append(f"{field_name} : {str(value)[:20]}\n")
+                    if value is not None and isinstance(value, str):
+                        suggestions.append(f"{field_name} : {value[:20]}\n")
 
         # Create error message with suggestions
         error_msg = f"'{self.__class__.__name__}' object has no attribute '{name}'"
