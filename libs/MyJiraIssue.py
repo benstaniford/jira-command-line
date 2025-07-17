@@ -66,7 +66,7 @@ class MyJiraIssue:
                     'priority_score': ['priority score']
                 }
 
-                # Unfortunately we still seem to need this
+                # Unfortunately we still seem to need this for a few things
                 hard_name_mappings = {
                     'test_results': 'customfield_10097'
                 }
@@ -133,14 +133,22 @@ class MyJiraIssue:
         suggestions = []
         if len(name) >= 3:
             prefix = name[:3].lower()
+            # Add friendly names from translations that match
+            for friendly_name in self.translations.keys():
+                if friendly_name.lower().startswith(prefix) or prefix in friendly_name.lower():
+                    suggestions.append(friendly_name)
+            # Add custom fields not mapped, not None, that match
             for field_name in self._jira_fields:
-                if field_name.lower().startswith(prefix) or prefix in field_name.lower():
-                    suggestions.append(field_name)
+                # Only consider custom fields not in translations
+                if field_name.startswith('customfield_') and field_name not in self.translations.values():
+                    value = getattr(self.issue.fields, field_name, None)
+                    if value is not None:
+                        suggestions.append(f"{field_name} : {str(value)[:20]}\n")
 
         # Create error message with suggestions
         error_msg = f"'{self.__class__.__name__}' object has no attribute '{name}'"
         if suggestions:
-            error_msg += f". Did you mean one of these fields: {', '.join(suggestions[:5])}"  # Limit to 5 suggestions
+            error_msg += f". Did you mean one of these fields: {', '.join(suggestions[:25])}"  # Limit to 25 suggestions
         
         raise AttributeError(error_msg)
 
