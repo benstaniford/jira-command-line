@@ -60,11 +60,15 @@ class MyJiraIssue:
                     'sprint': ['sprint'],
                     'story_points': ['story points', 'points'],
                     'product': ['product'],
-                    'test_results': ['test results'],
                     'team': ['team'],
                     'test_steps': ['test steps'],
                     'impact_areas': ['impact areas'],
                     'priority_score': ['priority score']
+                }
+
+                # Unfortunately we still seem to need this
+                hard_name_mappings = {
+                    'test_results': 'customfield_10097'
                 }
                 
                 # Check if this field matches any of our desired mappings
@@ -72,6 +76,9 @@ class MyJiraIssue:
                     if any(possible_name in field['name'].lower() for possible_name in possible_names):
                         field_mapping[friendly_name] = field_id
                         break
+
+                for key, val in hard_name_mappings.items():
+                    field_mapping[key] = val;
             
             MyJiraIssue._field_mapping_cache = field_mapping
             return field_mapping
