@@ -365,7 +365,7 @@ class MyJira:
         Returns:
             List of linked issues.
         """
-        linked_issues = self.jira.search_issues(f'project = {self.project_name} AND "Product[Dropdown]" in ("{self.product_name}") AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
+        linked_issues = self.jira.search_issues(f'project = {self.project_name} AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
         return linked_issues
 
     def set_story_points(self, issue: Any, points: Union[int, float]) -> None:

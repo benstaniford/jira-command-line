@@ -162,6 +162,10 @@ class TkTableUi:
             if self.rightclick_menu.entrycget(index, "label") == item_name:
                 self.rightclick_menu.entryconfig(index, state="normal" if enabled else "disabled")
 
+    def show_yesnocancel_dialog(self, title, message):
+        return messagebox.askyesnocancel(title, message)
+
+
     def show_yesno_dialog(self, title, message):
         return messagebox.askyesno(title, message)
 
