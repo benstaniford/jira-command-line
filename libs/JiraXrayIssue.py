@@ -166,6 +166,18 @@ Then <Step 3>
     def delete_tests(self):
         for test in self.get_tests():
             test.delete(deleteSubtasks=True)
+    
+    def unlink_tests(self):
+        """Unlinks all tests from the current issue"""
+        self.initialize()
+        tests = self.get_tests()
+        for test in tests:
+            links = self._jira.jira.issue(self._jira_issue.key).fields.issuelinks
+            for link in links:
+                if hasattr(link, 'outwardIssue') and link.outwardIssue.key == test.key:
+                    self._jira.jira.delete_issue_link(link.id)
+                elif hasattr(link, 'inwardIssue') and link.inwardIssue.key == test.key:
+                    self._jira.jira.delete_issue_link(link.id)
 
     def parse_test_definitions(self):
         issue = MyJiraIssue(self._jira_issue, self._jira)
@@ -265,6 +277,7 @@ Then <Step 3>
         # Update some important fields to match the PBI
         sprint_issue = MyJiraIssue(self._jira_issue, self._jira)
         test_issue = MyJiraIssue(issue, self._jira)
+        
         product_name = sprint_issue.product.value
         test_issue.issue.update(fields={test_issue.product_fieldname: {"value": product_name},
             test_issue.team_fieldname: sprint_issue.team.id})

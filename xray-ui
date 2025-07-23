@@ -105,14 +105,15 @@ class XrayUi:
 
             (definitions, tests) = xray_issue.get_definitions_and_tests()
             if len(tests) > 0:
-                yes = self.ui.show_yesno_dialog("Overwrite tests", f"There are {len(tests)} xray tests already created for [{issue.key}], do you want to delete and recreate from the {len(definitions)} definitions?")
+                yes = self.ui.show_yesnocancel_dialog("Existing tests", f"There are {len(tests)} xray test(s) already created for [{issue.key}], do you want to unlink them before adding more from the {len(definitions)} definition(s)?")
+                if yes is None:
+                    return # Cancel
                 if yes:
+                    # Unlink existing tests
                     try:
-                        def delete_tests():
-                            xray_issue.delete_tests()
-                        self.ui.do_task_with_progress(delete_tests)
-                        self.create_tests(xray_issue, definitions, self.on_test_created)
-                        return
+                        def unlink_tests():
+                            xray_issue.unlink_tests()
+                        self.ui.do_task_with_progress(unlink_tests)
                     except Exception as e:
                         self.ui.show_error_dialog("Error", f"Error creating tests for {issue.key}: {e}")
             yes = self.ui.show_yesno_dialog("Create tests", f"Create {len(definitions)} new xray tests for [{issue.key}] for repository folder \"{definitions.get_folder()}\"?")
