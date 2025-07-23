@@ -276,8 +276,8 @@ Then <Step 3>
 
         # Update some important fields to match the PBI
         sprint_issue = MyJiraIssue(self._jira_issue, self._jira)
-        sprint_issue.refresh_field_mapping()
         test_issue = MyJiraIssue(issue, self._jira)
+        
         product_name = sprint_issue.product.value
         test_issue.issue.update(fields={test_issue.product_fieldname: {"value": product_name},
             test_issue.team_fieldname: sprint_issue.team.id})

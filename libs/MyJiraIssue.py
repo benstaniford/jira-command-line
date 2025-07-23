@@ -68,7 +68,9 @@ class MyJiraIssue:
 
                 # Unfortunately we still seem to need this
                 hard_name_mappings = {
-                    'test_results': 'customfield_10097'
+                    'test_results': 'customfield_10097',
+                    'product': 'customfield_10108',
+                    'team': 'customfield_10001'
                 }
                 
                 # Check if this field matches any of our desired mappings
