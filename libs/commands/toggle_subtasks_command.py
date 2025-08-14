@@ -7,7 +7,7 @@ class ToggleSubtasksCommand(BaseCommand):
     
     @property
     def description(self):
-        return "toggle_subtasks"
+        return "subtasks"
     
     def execute(self, ui, view, jira, **kwargs):
         ui.toggle_subrows()
