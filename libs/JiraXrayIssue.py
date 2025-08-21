@@ -208,9 +208,10 @@ Then <Step 3>
                                 if line_lwr_k.startswith(('given', 'and', 'when', 'then', 'but', '|', 'example')):
                                     steps.append(lines[k].strip())
                                 else:
-                                    if lines[k].lower().startswith(('  ')):
+                                    if lines[k].startswith(('  ')):
                                         steps.append(lines[k])
-                                    break
+                                    else:
+                                        break
                             break
                         elif line_lwr_j.startswith('given'):
                             # Automation style
