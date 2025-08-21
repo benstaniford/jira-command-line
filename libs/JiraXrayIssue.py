@@ -204,6 +204,7 @@ Then <Step 3>
                             description = lines[j][lines[j].index(':') + 1:].strip()
                         elif line_lwr_j.startswith('steps:'):
                             for k in range(j + 1, len(lines)):
+                                print(f"|{lines[k]}|")
                                 line_lwr_k = lines[k].lower().strip()
                                 if line_lwr_k.startswith(('given', 'and', 'when', 'then', 'but', '|', 'example')):
                                     steps.append(lines[k].strip())
@@ -211,6 +212,7 @@ Then <Step 3>
                                     if lines[k].startswith(('  ')):
                                         steps.append(lines[k])
                                     else:
+                                        print("Alternate break")
                                         break
                             break
                         elif line_lwr_j.startswith('given'):
