@@ -213,14 +213,17 @@ Then <Step 3>
                         if line_lwr_j.startswith('name:') or line_lwr_j.startswith('scenario:'):
                             break
                         elif line_lwr_j.startswith('description:'):
-                            description = lines[j].split(':')[1].strip()
+                            description = lines[j][lines[j].index(':') + 1:].strip()
                         elif line_lwr_j.startswith('steps:'):
                             for k in range(j + 1, len(lines)):
                                 line_lwr_k = lines[k].lower().strip()
                                 if line_lwr_k.startswith(('given', 'and', 'when', 'then', 'but', '|', 'example')):
                                     steps.append(lines[k].strip())
                                 else:
-                                    break
+                                    if lines[k].startswith(('  ')):
+                                        steps.append(lines[k])
+                                    else:
+                                        break
                             break
                         elif line_lwr_j.startswith('given'):
                             # Automation style
