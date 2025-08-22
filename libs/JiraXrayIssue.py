@@ -140,8 +140,8 @@ class JiraXrayIssue:
         template = """
 <begin>
 Folder: /Windows/MyTestFeature  (This is the folder in the test repository)
-Solution Test Plan: 24.X My Awesome Plan (Will create a new test plan if this name doesn't exist)
-Fix Versions: PMfW 24.3         (Comma separated list of fix versions)
+Solution Test Plan: <Major>.<Minor> My Awesome Plan (Will create a new test plan if this name doesn't exist)
+Fix Versions: PMfW <Major>.<Minor>         (Comma separated list of fix versions)
 
 Name: PMfW - <Feature> - <Summary Text>
 Description: <Description>
@@ -251,17 +251,20 @@ Then <Step 3>
         self.initialize()
 
         folder = definitions.get_folder()
-
+        print(f"Definitions: {len(definitions)}")
         if not folder.startswith('/'):
             raise ValueError(f'Folder {folder} must be a folder within the test respository and must start with a /')
         self._api.create_folder(folder)
 
         tests = []
+        c = 0
         for definition in definitions:
             test = self.create_test_case(definition, folder)
             if step_callback is not None:
                 step_callback(f"Created test case {test.key}")
             tests.append(test)
+            print(f"{c}")
+            c += 1
         return tests
 
     def create_test_case(self, definition, folder):
