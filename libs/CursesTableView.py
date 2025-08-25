@@ -313,7 +313,7 @@ class CursesTableView:
                 # first_line is a list of (text, is_red) tuples
                 col_pos = 0
                 for text, is_red in first_line:
-                    color_attr = curses.color_pair(curses.COLOR_RED + 1) | curses.A_BOLD if is_red else curses.A_NORMAL
+                    color_attr = curses.color_pair(curses.COLOR_GREEN + 1) | curses.A_BOLD if is_red else curses.A_NORMAL
                     self.stdscr.addstr(current_line, col_pos, text, color_attr)
                     col_pos += len(text)
             current_line += 1
@@ -323,7 +323,7 @@ class CursesTableView:
                 self.stdscr.addstr(current_line, 0, "  ", curses.A_NORMAL)  # 2-space indent
                 col_pos = 2
                 for text, is_red in colored_line:
-                    color_attr = curses.color_pair(curses.COLOR_RED + 1) | curses.A_BOLD if is_red else curses.A_NORMAL
+                    color_attr = curses.color_pair(curses.COLOR_GREEN + 1) | curses.A_BOLD if is_red else curses.A_NORMAL
                     self.stdscr.addstr(current_line, col_pos, text, color_attr)
                     col_pos += len(text)
                 current_line += 1
