@@ -484,12 +484,16 @@ class CursesTableView:
                 elif typed_char in (curses.KEY_F1, curses.KEY_F2, curses.KEY_F3, curses.KEY_F4, curses.KEY_F5, curses.KEY_F6,
                                     curses.KEY_F7, curses.KEY_F8, curses.KEY_F9, curses.KEY_F10, curses.KEY_F11, curses.KEY_F12):
                     return f"KEY_F{str(typed_char - curses.KEY_F0)}"
-                elif typed_char == ord(filter_key) if filter_key else False:
-                    return filter_key
+                elif chr(typed_char) == filter_key:
+                    self.__perform_live_filter()
+                    answer = ""
+                    break
                 elif sort_keys and typed_char in [ord(key) for key in sort_keys]:
                     return chr(typed_char)
-                elif typed_char == ord(search_key) if search_key else False:
-                    return search_key
+                elif chr(typed_char) == search_key:
+                    self.__perform_live_search()
+                    answer = ""
+                    break
                 elif typed_char == curses.KEY_RESIZE:
                     break  # Will redraw the prompt
                 elif chr(typed_char).isprintable():
