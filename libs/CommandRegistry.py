@@ -46,7 +46,7 @@ class CommandRegistry:
         """Collect and format command texts, excluding ignored shortcuts."""
         return [
             f"{shortcut}:{self.commands[shortcut].description}"
-            for shortcut in sorted(self.commands.keys(), key=lambda x: (x.lower(), x))
+            for shortcut in sorted(self.commands.keys(), key=lambda x: (x.lower(), x.isupper()))
             if shortcut not in ignored
         ]
 
@@ -56,28 +56,58 @@ class CommandRegistry:
         return max(1, (total_length + max_line_length - 1) // max_line_length)
 
     def _distribute_commands(self, command_texts: list[str], min_lines: int, max_line_length: int) -> list[list[str]]:
-        """Distribute commands across lines as evenly as possible."""
-        lines = [[] for _ in range(min_lines)]
-        line_lengths = [0] * min_lines
-        for command_text in command_texts:
-            min_line_idx = line_lengths.index(min(line_lengths))
-            separator_length = 2 if lines[min_line_idx] else 0
-            new_length = line_lengths[min_line_idx] + separator_length + len(command_text)
-            if new_length > max_line_length and lines[min_line_idx]:
-                best_line_idx = min_line_idx
-                for i, length in enumerate(line_lengths):
-                    sep_len = 2 if lines[i] else 0
-                    if length + sep_len + len(command_text) <= max_line_length:
-                        if length < line_lengths[best_line_idx] or line_lengths[best_line_idx] + (2 if lines[best_line_idx] else 0) + len(command_text) > max_line_length:
-                            best_line_idx = i
-                if line_lengths[best_line_idx] + (2 if lines[best_line_idx] else 0) + len(command_text) > max_line_length:
-                    lines.append([])
-                    line_lengths.append(0)
-                    best_line_idx = len(lines) - 1
-                min_line_idx = best_line_idx
-            separator_length = 2 if lines[min_line_idx] else 0
-            lines[min_line_idx].append(command_text)
-            line_lengths[min_line_idx] += separator_length + len(command_text)
+        """Distribute commands sequentially across lines, preserving order while balancing lengths."""
+        if not command_texts:
+            return []
+        
+        # Simple approach: distribute commands sequentially while trying to balance
+        commands_per_line = len(command_texts) // min_lines
+        extra_commands = len(command_texts) % min_lines
+        
+        lines = []
+        start_idx = 0
+        
+        for line_num in range(min_lines):
+            # Calculate how many commands this line should get
+            line_command_count = commands_per_line + (1 if line_num < extra_commands else 0)
+            end_idx = start_idx + line_command_count
+            
+            # Get commands for this line
+            line_commands = command_texts[start_idx:end_idx]
+            
+            # Check if line would be too long
+            line_text = ", ".join(line_commands)
+            if len(line_text) > max_line_length and len(line_commands) > 1:
+                # Try to move some commands to next lines if possible
+                while len(line_commands) > 1 and len(", ".join(line_commands)) > max_line_length:
+                    line_commands.pop()
+                    end_idx -= 1
+            
+            lines.append(line_commands)
+            start_idx = end_idx
+        
+        # If there are remaining commands due to length constraints, add them to additional lines
+        while start_idx < len(command_texts):
+            remaining = command_texts[start_idx:]
+            line_commands = []
+            current_length = 0
+            
+            for cmd in remaining:
+                test_length = current_length + (2 if line_commands else 0) + len(cmd)
+                if test_length <= max_line_length:
+                    line_commands.append(cmd)
+                    current_length = test_length
+                    start_idx += 1
+                else:
+                    break
+            
+            if line_commands:
+                lines.append(line_commands)
+            else:
+                # If even a single command is too long, add it anyway
+                lines.append([remaining[0]])
+                start_idx += 1
+        
         return [line for line in lines if line]
 
     def get_help_text(self, ignored) -> str:

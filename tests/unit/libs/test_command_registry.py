@@ -127,7 +127,7 @@ class TestCommandRegistry:
         
         result = registry._collect_command_texts([])
         
-        # Should be sorted by lowercase, then by case
+        # Should be sorted alphabetically with lowercase having higher precedence
         expected = ['a:alpha', 'B:bravo', 'Z:zulu']
         assert result == expected
     
