@@ -53,7 +53,7 @@ class CommandRegistry:
         return [
             f"{shortcut}:{self.commands[shortcut].description}"
             for shortcut in sorted(self.commands.keys(), key=sort_key)
-            if shortcut not in ignored
+            if shortcut not in ignored and shortcut != "digit"  # Suppress digit command from help
         ]
 
     def _estimate_min_lines(self, command_texts: list[str], max_line_length: int) -> int:
