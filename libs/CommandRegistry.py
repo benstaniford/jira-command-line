@@ -121,11 +121,11 @@ class CommandRegistry:
         max_line_length = 160
         command_texts = self._collect_command_texts(ignored)
         
-        # Add search and filter functionality to the help
-        command_texts.extend(["/:search", "|:filter"])
-        
         if not command_texts:
             return ""
+        
+        # Add search and filter functionality to the help
+        command_texts.extend(["/:search", "|:filter"])
         min_lines = self._estimate_min_lines(command_texts, max_line_length)
         # Prefer 3 lines for better readability while fitting in UI constraints
         # Total prompt needs: 1 (command line) + 3 (help text) + 1 (instruction) = 5 lines
@@ -143,11 +143,11 @@ class CommandRegistry:
         max_line_length = 160
         command_texts = self._collect_command_texts(ignored)
         
-        # Add search and filter functionality to the help
-        command_texts.extend(["/:search", "|:filter"])
-        
         if not command_texts:
             return []
+        
+        # Add search and filter functionality to the help
+        command_texts.extend(["/:search", "|:filter"])
         min_lines = self._estimate_min_lines(command_texts, max_line_length)
         target_lines = max(3, min_lines)
         lines = self._distribute_commands(command_texts, target_lines, max_line_length)
