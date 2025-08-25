@@ -143,7 +143,9 @@ def display_prompt(
     """
     prompt: str = f"Commands F1:help, {fkey_string}\n"
     help_text: str = command_registry.get_help_text(["KEY_F1"])
-    prompt += f"  {help_text}\n"
+    # Add 2-space indentation to each help line
+    indented_help = '\n'.join(f"  {line}" for line in help_text.split('\n'))
+    prompt += f"{indented_help}\n"
     prompt += "Type a number to see task details"
 
     selection: str = ""

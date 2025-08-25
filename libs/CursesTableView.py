@@ -43,7 +43,7 @@ class CursesTableView:
         self.header_color = None
         self.max_column_width = 80
         self.padding = 2
-        self.prompt_max = 4
+        self.prompt_max = 5
         self.row_numbers = False
         self.rows = []
         self.row_offset = 0

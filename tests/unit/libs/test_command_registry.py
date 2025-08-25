@@ -186,3 +186,59 @@ class TestCommandRegistry:
             # If there's an exception, it should not be from command loading failures
             # as those should be caught and handled
             assert False, f"CommandRegistry initialization should not raise exceptions: {e}"
+    
+    def test_get_help_text_prefers_three_lines(self):
+        """Test that get_help_text prefers 3 lines for better readability"""
+        registry = CommandRegistry()
+        
+        # Mock enough commands to test line distribution
+        mock_commands = {}
+        for shortcut, desc in [
+            ('s', 'search'), ('c', 'create'), ('e', 'edit'), ('d', 'delete'),
+            ('m', 'move'), ('a', 'assign'), ('b', 'backlog'), ('p', 'sprint'),
+            ('h', 'help'), ('q', 'quit'), ('v', 'view'), ('t', 'team')
+        ]:
+            cmd = Mock()
+            cmd.shortcut = shortcut
+            cmd.description = desc
+            mock_commands[shortcut] = cmd
+        
+        registry.commands = mock_commands
+        
+        result = registry.get_help_text([])
+        lines = result.split('\n')
+        
+        # Should prefer 3 lines for better readability
+        assert len(lines) == 3
+        
+        # Each line should have content
+        for line in lines:
+            assert len(line) > 0
+            assert ':' in line  # Should contain command:description format
+    
+    def test_get_help_text_respects_minimum_required_lines(self):
+        """Test that get_help_text doesn't go below minimum required lines"""
+        registry = CommandRegistry()
+        
+        # Create many long commands that require more than 3 lines
+        mock_commands = {}
+        for i in range(20):
+            shortcut = f"cmd{i}"
+            desc = f"very_long_description_that_takes_up_lots_of_space_{i}"
+            cmd = Mock()
+            cmd.shortcut = shortcut
+            cmd.description = desc
+            mock_commands[shortcut] = cmd
+        
+        registry.commands = mock_commands
+        
+        result = registry.get_help_text([])
+        lines = result.split('\n')
+        
+        # Should use more than 3 lines if needed to fit all commands
+        assert len(lines) >= 3
+        
+        # Verify all commands are included
+        full_text = result.replace('\n', ' ')
+        for shortcut in mock_commands.keys():
+            assert shortcut in full_text

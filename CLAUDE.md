@@ -61,6 +61,8 @@ Commands are auto-discovered from `libs/commands/` directory. Each command:
 - Is registered automatically by filename pattern `*_command.py`
 - Receives UI, view, Jira, Git, and GitHub objects for execution
 
+The command help display at the bottom of the UI is optimized for readability by preferring 3 lines of help text instead of cramming all commands into the minimum number of lines possible. The UI reserves 5 lines total at the bottom for the command prompt area. Help text lines are indented with 2 spaces for visual separation from the command line and instruction line.
+
 ### View Modes
 The application supports multiple view modes:
 - **BACKLOG**: Team backlog issues
