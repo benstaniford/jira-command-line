@@ -138,7 +138,7 @@ class CommandRegistry:
         """Get formatted help text with color information for command characters.
         
         Returns:
-            list[list[tuple[str, bool]]]: List of lines, each containing list of (text, is_red) tuples
+            list[list[tuple[str, bool]]]: List of lines, each containing list of (text, is_highlighted) tuples
         """
         max_line_length = 160
         command_texts = self._collect_command_texts(ignored)
@@ -172,3 +172,44 @@ class CommandRegistry:
             colored_lines.append(colored_line)
         
         return colored_lines
+
+    def get_full_help_with_colors(self, ignored, fkey_string: str) -> list[list[tuple[str, bool]]]:
+        """Get complete help text including first line and command help with color information.
+        
+        Args:
+            ignored: List of command shortcuts to ignore
+            fkey_string: String containing F-key mappings
+            
+        Returns:
+            list[list[tuple[str, bool]]]: List of all lines including first line, each containing list of (text, is_highlighted) tuples
+        """
+        # Create colored first line with F1 and F2 commands
+        first_line_colored = [
+            ("Commands ", False),
+            ("F1", True),
+            (":help, ", False)
+        ]
+        
+        # Add F2 and other function key commands with coloring
+        if fkey_string:
+            # Parse fkey_string to apply coloring to F-key shortcuts
+            parts = [part for part in fkey_string.split(" ") if part.strip()]  # Filter empty parts
+            for i, part in enumerate(parts):
+                if i > 0:
+                    first_line_colored.append((" ", False))
+                
+                if ":" in part:
+                    shortcut, description = part.split(":", 1)
+                    first_line_colored.append((shortcut, True))   # Green for F-key shortcut
+                    first_line_colored.append((":", False))       # Normal colon
+                    first_line_colored.append((description, False))  # Normal description
+                else:
+                    first_line_colored.append((part, False))
+        
+        # Get the command help lines
+        command_help_lines = self.get_help_text_with_colors(ignored)
+        
+        # Combine first line with command help lines
+        all_lines = [first_line_colored] + command_help_lines
+        
+        return all_lines

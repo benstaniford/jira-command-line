@@ -58,6 +58,7 @@ def main(stdscr: Any) -> Optional[None]:
     """
     ui: CursesTableView = CursesTableView(stdscr)
     ui.set_header_color(curses.COLOR_RED)
+    ui.set_help_text_color(curses.COLOR_GREEN)
     ui.set_column_colors([curses.COLOR_RED, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_BLUE, curses.COLOR_GREEN, curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_BLUE, curses.COLOR_GREEN, curses.COLOR_MAGENTA])
     ui.enable_row_numbers()
     view: JiraTableView = JiraTableView(ui, jira)
@@ -141,35 +142,13 @@ def display_prompt(
     Returns:
         str: The user's selection/input.
     """
-    # Create colored first line with F1 and F2 commands
-    first_line_colored = [
-        ("Commands ", False),
-        ("F1", True),
-        (":help, ", False)
-    ]
-    
-    # Add F2 and other function key commands with coloring
-    if fkey_string:
-        # Parse fkey_string to apply coloring to F-key shortcuts
-        parts = [part for part in fkey_string.split(" ") if part.strip()]  # Filter empty parts
-        for i, part in enumerate(parts):
-            if i > 0:
-                first_line_colored.append((" ", False))
-            
-            if ":" in part:
-                shortcut, description = part.split(":", 1)
-                first_line_colored.append((shortcut, True))   # Red for F-key shortcut
-                first_line_colored.append((":", False))       # Normal colon
-                first_line_colored.append((description, False))  # Normal description
-            else:
-                first_line_colored.append((part, False))
-    
-    colored_help_lines = command_registry.get_help_text_with_colors(["KEY_F1"])
+    # Get all colored help lines including first line
+    all_colored_lines = command_registry.get_full_help_with_colors(["KEY_F1"], fkey_string)
     last_line = "Type a number to see task details"
 
     selection: str = ""
     try:
-        selection = ui.prompt_get_string_colored(first_line_colored, colored_help_lines, last_line, key_shortcuts, '|', ('o', 'O'), '/')
+        selection = ui.prompt_get_string_colored(all_colored_lines, last_line, key_shortcuts, '|', ('o', 'O'), '/')
     except Exception as e:
         ui.error("Command execution", e)
     return selection
