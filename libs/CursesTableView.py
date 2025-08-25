@@ -285,6 +285,49 @@ class CursesTableView:
             if "addstr" in e.args[0]:
                 return
         self.stdscr.refresh()
+    
+    def prompt_with_colored_help(self, first_line, colored_help_lines, last_line, prompt_suffix=" >"):
+        """
+        Display a prompt with colored help text lines.
+        
+        Parameters:
+        - first_line (str): The first line of the prompt (e.g., "Commands F1:help, ...")
+        - colored_help_lines (list): List of lines, each containing list of (text, is_red) tuples
+        - last_line (str): The last line of the prompt (e.g., "Type a number...")
+        - prompt_suffix (str, optional): The suffix to be added to the prompt text. Default is " >".
+        """
+        curses.update_lines_cols()
+        self.clear_prompt()
+        
+        total_lines = 1 + len(colored_help_lines) + 1  # first + help + last
+        if total_lines > self.prompt_max:
+            raise Exception("Too many lines in prompt")
+        
+        try:
+            current_line = curses.LINES - total_lines
+            
+            # Display first line (normal color)
+            self.stdscr.addstr(current_line, 0, first_line, curses.A_NORMAL)
+            current_line += 1
+            
+            # Display colored help lines with indentation
+            for colored_line in colored_help_lines:
+                self.stdscr.addstr(current_line, 0, "  ", curses.A_NORMAL)  # 2-space indent
+                col_pos = 2
+                for text, is_red in colored_line:
+                    color_attr = curses.color_pair(curses.COLOR_RED + 1) | curses.A_BOLD if is_red else curses.A_NORMAL
+                    self.stdscr.addstr(current_line, col_pos, text, color_attr)
+                    col_pos += len(text)
+                current_line += 1
+            
+            # Display last line with suffix (normal color)
+            self.stdscr.addstr(current_line, 0, f"{last_line}{prompt_suffix}", curses.A_NORMAL | curses.A_BOLD)
+            
+        except Exception as e:
+            if "addstr" in str(e):
+                return
+        
+        self.stdscr.refresh()
 
     def error(self, msg, exception = None):
         """
@@ -393,6 +436,56 @@ class CursesTableView:
                 return ''
             else:
                 return chr(typed_character)
+
+    def prompt_get_string_colored(self, first_line, colored_help_lines, last_line, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
+        """
+        Displays a prompt with colored help text and returns the string entered by the user, or the first keypress in keypresses.
+        
+        Args:
+            first_line (str): The first line of the prompt
+            colored_help_lines (list): List of lines, each containing list of (text, is_red) tuples
+            last_line (str): The last line of the prompt
+            keypresses (str, optional): A string of characters to match against keypresses. Defaults to None.
+            filter_key (str, optional): A character that triggers a live filter on the table. Defaults to None.
+            sort_keys (list(str), optional): A list of two characters that triggers a sort on the table (back/forwards). Defaults to None.
+            search_key (str, optional): A character that triggers a search on the table. Defaults to None.
+
+        Returns:
+            str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
+        """
+        while True:
+            self.prompt_with_colored_help(first_line, colored_help_lines, last_line)
+            # Count total lines for positioning
+            total_lines = 1 + len(colored_help_lines) + 1
+            ord_keypresses = [ord(keypress) for keypress in keypresses] if keypresses is not None else ()
+            prompt_with_padding = len(last_line) + 3
+            last_line_pos = curses.LINES - 1
+            answer = ""
+            while True:
+                typed_char = self.stdscr.getch()
+                if typed_char == KeyCode.ENTER:
+                    return answer
+                if typed_char == KeyCode.ESCAPE:
+                    return ""
+                elif typed_char == KeyCode.BACKSPACE and len(answer) > 0:
+                    answer = answer[:-1]
+                    self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer), " ")
+                    self.stdscr.move(last_line_pos, prompt_with_padding + len(answer))
+                elif typed_char in ord_keypresses:
+                    return chr(typed_char)
+                elif typed_char in KeyCode.FUNCTION_KEYS:
+                    return KeyCode.FUNCTION_KEYS[typed_char]
+                elif typed_char == ord(filter_key) if filter_key else False:
+                    return filter_key
+                elif sort_keys and typed_char in [ord(key) for key in sort_keys]:
+                    return chr(typed_char)
+                elif typed_char == ord(search_key) if search_key else False:
+                    return search_key
+                elif typed_char == curses.KEY_RESIZE:
+                    break  # Will redraw the prompt
+                elif chr(typed_char).isprintable():
+                    answer += chr(typed_char)
+                    self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer) - 1, chr(typed_char))
 
     def prompt_get_string(self, prompt_text, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
         """

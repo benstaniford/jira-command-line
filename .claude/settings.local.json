@@ -7,7 +7,8 @@
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python -m pytest tests/ --cov=libs --cov-report=term-missing)",
       "Bash(python:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

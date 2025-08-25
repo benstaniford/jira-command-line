@@ -123,3 +123,38 @@ class CommandRegistry:
         lines = self._distribute_commands(command_texts, target_lines, max_line_length)
         help_lines = [", ".join(line) for line in lines]
         return '\n'.join(help_lines)
+    
+    def get_help_text_with_colors(self, ignored) -> list[list[tuple[str, bool]]]:
+        """Get formatted help text with color information for command characters.
+        
+        Returns:
+            list[list[tuple[str, bool]]]: List of lines, each containing list of (text, is_red) tuples
+        """
+        max_line_length = 160
+        command_texts = self._collect_command_texts(ignored)
+        if not command_texts:
+            return []
+        min_lines = self._estimate_min_lines(command_texts, max_line_length)
+        target_lines = max(3, min_lines)
+        lines = self._distribute_commands(command_texts, target_lines, max_line_length)
+        
+        colored_lines = []
+        for line in lines:
+            colored_line = []
+            for i, command_text in enumerate(line):
+                if i > 0:
+                    colored_line.append((", ", False))  # Add comma separator
+                
+                # Split command_text into parts: "shortcut:description"
+                if ":" in command_text:
+                    shortcut, description = command_text.split(":", 1)
+                    colored_line.append((shortcut, True))   # Red for command shortcut
+                    colored_line.append((":", False))       # Normal colon
+                    colored_line.append((description, False))  # Normal description
+                else:
+                    # Fallback for commands without colon
+                    colored_line.append((command_text, False))
+            
+            colored_lines.append(colored_line)
+        
+        return colored_lines

@@ -141,16 +141,13 @@ def display_prompt(
     Returns:
         str: The user's selection/input.
     """
-    prompt: str = f"Commands F1:help, {fkey_string}\n"
-    help_text: str = command_registry.get_help_text(["KEY_F1"])
-    # Add 2-space indentation to each help line
-    indented_help = '\n'.join(f"  {line}" for line in help_text.split('\n'))
-    prompt += f"{indented_help}\n"
-    prompt += "Type a number to see task details"
+    first_line = f"Commands F1:help, {fkey_string}"
+    colored_help_lines = command_registry.get_help_text_with_colors(["KEY_F1"])
+    last_line = "Type a number to see task details"
 
     selection: str = ""
     try:
-        selection = ui.prompt_get_string(prompt, key_shortcuts, '|', ('o', 'O'), '/')
+        selection = ui.prompt_get_string_colored(first_line, colored_help_lines, last_line, key_shortcuts, '|', ('o', 'O'), '/')
     except Exception as e:
         ui.error("Command execution", e)
     return selection
