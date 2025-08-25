@@ -481,8 +481,9 @@ class CursesTableView:
                     self.stdscr.move(last_line_pos, prompt_with_padding + len(answer))
                 elif typed_char in ord_keypresses:
                     return chr(typed_char)
-                elif typed_char in KeyCode.FUNCTION_KEYS:
-                    return KeyCode.FUNCTION_KEYS[typed_char]
+                elif typed_char in (curses.KEY_F1, curses.KEY_F2, curses.KEY_F3, curses.KEY_F4, curses.KEY_F5, curses.KEY_F6,
+                                    curses.KEY_F7, curses.KEY_F8, curses.KEY_F9, curses.KEY_F10, curses.KEY_F11, curses.KEY_F12):
+                    return f"KEY_F{str(typed_char - curses.KEY_F0)}"
                 elif typed_char == ord(filter_key) if filter_key else False:
                     return filter_key
                 elif sort_keys and typed_char in [ord(key) for key in sort_keys]:
