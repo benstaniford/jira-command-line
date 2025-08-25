@@ -114,6 +114,10 @@ class CommandRegistry:
         """Get formatted help text for all commands, balancing line lengths"""
         max_line_length = 160
         command_texts = self._collect_command_texts(ignored)
+        
+        # Add search and filter functionality to the help
+        command_texts.extend(["/:search", "|:filter"])
+        
         if not command_texts:
             return ""
         min_lines = self._estimate_min_lines(command_texts, max_line_length)
@@ -132,6 +136,10 @@ class CommandRegistry:
         """
         max_line_length = 160
         command_texts = self._collect_command_texts(ignored)
+        
+        # Add search and filter functionality to the help
+        command_texts.extend(["/:search", "|:filter"])
+        
         if not command_texts:
             return []
         min_lines = self._estimate_min_lines(command_texts, max_line_length)
