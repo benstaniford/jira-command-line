@@ -1,16 +1,32 @@
 version: 2
 updates:
-  # Enable version updates for Python dependencies
+  # Enable version updates for Python dependencies (Windows)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     assignees:
       - "benstaniford"
     commit-message:
       prefix: "deps"
       include: "scope"
+    # Monitor Windows requirements file
+    target-branch: "main"
+  
+  # Enable version updates for Python dependencies (Unix/CI)  
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    assignees:
+      - "benstaniford"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Monitor Unix requirements and test requirements
+    target-branch: "main"
     
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

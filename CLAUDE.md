@@ -8,10 +8,18 @@ This is a Python-based Jira command line client that requires Python 3.11 (Pytho
 
 ### Dependencies Installation
 ```bash
-pip install jira gitpython PyGithub windows-curses ttkthemes sv-ttk
-# Or use requirements.txt
+# Windows
 pip install -r requirements.txt
+
+# Unix/Linux/macOS
+pip install -r requirements-unix.txt
+
+# Manual installation
+pip install jira gitpython PyGithub windows-curses ttkthemes sv-ttk  # Windows
+pip install jira gitpython PyGithub ttkthemes sv-ttk                 # Unix
 ```
+
+**Note:** The main difference is that Windows requires `windows-curses` package while Unix systems use the built-in curses library.
 
 ### Configuration
 On first run, the tool generates a template configuration file at `~/.jira-config/config.json` that must be customized with:
