@@ -10,7 +10,7 @@ class MoveCommand(BaseCommand):
         return "move"
     
     def execute(self, ui, view, jira, **kwargs):
-        from ViewMode import ViewMode
+        from ..ViewMode import ViewMode
         
         try:
             selection = ui.prompt_get_string("Move which issue?")
