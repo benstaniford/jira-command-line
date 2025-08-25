@@ -44,9 +44,15 @@ class CommandRegistry:
     
     def _collect_command_texts(self, ignored) -> list[str]:
         """Collect and format command texts, excluding ignored shortcuts."""
+        def sort_key(shortcut):
+            # Put punctuation commands at the end
+            first_char = shortcut[0]
+            is_punctuation = not first_char.isalpha()
+            return (is_punctuation, shortcut.lower(), shortcut.isupper())
+        
         return [
             f"{shortcut}:{self.commands[shortcut].description}"
-            for shortcut in sorted(self.commands.keys(), key=lambda x: (x.lower(), x.isupper()))
+            for shortcut in sorted(self.commands.keys(), key=sort_key)
             if shortcut not in ignored
         ]
 
