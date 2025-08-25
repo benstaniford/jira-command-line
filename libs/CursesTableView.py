@@ -291,7 +291,7 @@ class CursesTableView:
         Display a prompt with colored help text lines.
         
         Parameters:
-        - first_line (str): The first line of the prompt (e.g., "Commands F1:help, ...")
+        - first_line (str|list): The first line of the prompt as string or list of (text, is_red) tuples
         - colored_help_lines (list): List of lines, each containing list of (text, is_red) tuples
         - last_line (str): The last line of the prompt (e.g., "Type a number...")
         - prompt_suffix (str, optional): The suffix to be added to the prompt text. Default is " >".
@@ -306,8 +306,16 @@ class CursesTableView:
         try:
             current_line = curses.LINES - total_lines
             
-            # Display first line (normal color)
-            self.stdscr.addstr(current_line, 0, first_line, curses.A_NORMAL)
+            # Display first line (with coloring if it's a list of tuples)
+            if isinstance(first_line, str):
+                self.stdscr.addstr(current_line, 0, first_line, curses.A_NORMAL)
+            else:
+                # first_line is a list of (text, is_red) tuples
+                col_pos = 0
+                for text, is_red in first_line:
+                    color_attr = curses.color_pair(curses.COLOR_RED + 1) | curses.A_BOLD if is_red else curses.A_NORMAL
+                    self.stdscr.addstr(current_line, col_pos, text, color_attr)
+                    col_pos += len(text)
             current_line += 1
             
             # Display colored help lines with indentation
@@ -442,7 +450,7 @@ class CursesTableView:
         Displays a prompt with colored help text and returns the string entered by the user, or the first keypress in keypresses.
         
         Args:
-            first_line (str): The first line of the prompt
+            first_line (str|list): The first line as string or list of (text, is_red) tuples
             colored_help_lines (list): List of lines, each containing list of (text, is_red) tuples
             last_line (str): The last line of the prompt
             keypresses (str, optional): A string of characters to match against keypresses. Defaults to None.

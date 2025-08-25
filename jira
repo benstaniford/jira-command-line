@@ -141,13 +141,35 @@ def display_prompt(
     Returns:
         str: The user's selection/input.
     """
-    first_line = f"Commands F1:help, {fkey_string}"
+    # Create colored first line with F1 and F2 commands
+    first_line_colored = [
+        ("Commands ", False),
+        ("F1", True),
+        (":help, ", False)
+    ]
+    
+    # Add F2 and other function key commands with coloring
+    if fkey_string:
+        # Parse fkey_string to apply coloring to F-key shortcuts
+        parts = [part for part in fkey_string.split(" ") if part.strip()]  # Filter empty parts
+        for i, part in enumerate(parts):
+            if i > 0:
+                first_line_colored.append((" ", False))
+            
+            if ":" in part:
+                shortcut, description = part.split(":", 1)
+                first_line_colored.append((shortcut, True))   # Red for F-key shortcut
+                first_line_colored.append((":", False))       # Normal colon
+                first_line_colored.append((description, False))  # Normal description
+            else:
+                first_line_colored.append((part, False))
+    
     colored_help_lines = command_registry.get_help_text_with_colors(["KEY_F1"])
     last_line = "Type a number to see task details"
 
     selection: str = ""
     try:
-        selection = ui.prompt_get_string_colored(first_line, colored_help_lines, last_line, key_shortcuts, '|', ('o', 'O'), '/')
+        selection = ui.prompt_get_string_colored(first_line_colored, colored_help_lines, last_line, key_shortcuts, '|', ('o', 'O'), '/')
     except Exception as e:
         ui.error("Command execution", e)
     return selection
