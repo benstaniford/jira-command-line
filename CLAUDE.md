@@ -77,5 +77,31 @@ The config supports multiple teams with individual settings for:
 - User name mappings for quick assignment
 - Jira and GitHub authentication tokens
 
-### No Testing/Linting Framework
-This codebase does not use any formal testing framework or linting tools. Manual testing is performed through the interactive UI.
+### Testing Framework
+The project now includes a comprehensive test suite using pytest:
+
+**Running Tests:**
+```bash
+# Run all tests
+python -m pytest tests/ -v
+
+# Run with coverage
+python -m pytest tests/ --cov=libs --cov-report=term-missing
+
+# Run specific test file
+python -m pytest tests/unit/libs/test_my_git.py -v
+```
+
+**Test Structure:**
+- `tests/unit/libs/` - Unit tests for core components
+- `tests/unit/libs/commands/` - Command-specific tests  
+- `tests/conftest.py` - Shared fixtures and test utilities
+- `requirements-test.txt` - Testing dependencies
+
+**CI/CD Pipeline:**
+- GitHub Actions workflow runs tests on every push to main and PR
+- Tests run on Python 3.11 and 3.12
+- Includes security scanning with Bandit and Safety
+- Code quality checks with Black, isort, and mypy
+- Coverage reporting to Codecov
+- Dependabot for dependency updates

@@ -5,7 +5,8 @@
       "Bash(pip install:*)",
       "Bash(python -m pytest tests/ -v)",
       "Bash(python -m pytest tests/ -v --tb=short)",
-      "Bash(python -m pytest tests/ --cov=libs --cov-report=term-missing)"
+      "Bash(python -m pytest tests/ --cov=libs --cov-report=term-missing)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

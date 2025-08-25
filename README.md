@@ -1,4 +1,8 @@
 # jira-command-line
+
+[![Tests](https://github.com/benstaniford/jira-command-line/actions/workflows/test.yml/badge.svg)](https://github.com/benstaniford/jira-command-line/actions/workflows/test.yml)
+[![Release](https://github.com/benstaniford/jira-command-line/actions/workflows/release.yml/badge.svg)](https://github.com/benstaniford/jira-command-line/actions/workflows/release.yml)
+
 A command line Jira client
 
 ## How to install jira command line on windows
