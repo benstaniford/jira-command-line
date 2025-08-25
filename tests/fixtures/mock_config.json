@@ -1,0 +1,32 @@
+{
+    "version": 1.0,
+    "jira": {
+        "url": "https://test.atlassian.net",
+        "password": "test-token",
+        "username": "test@example.com",
+        "fullname": "Test User",
+        "default_team": "TestTeam",
+        "teams": {
+            "TestTeam": {
+                "team_id": 42,
+                "project_name": "TEST",
+                "product_name": "Test Product",
+                "short_names_to_ids": {
+                    "Alice": "alice@example.com",
+                    "Bob": "bob@example.com",
+                    "Unassigned": ""
+                },
+                "kanban_board_id": 100,
+                "backlog_board_id": 101,
+                "escalation_board_id": 102
+            }
+        }
+    },
+    "github": {
+        "token": "test-github-token",
+        "org": "test-org"
+    },
+    "git": {
+        "initials": "tu"
+    }
+}
