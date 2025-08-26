@@ -513,6 +513,7 @@ class CursesTableView:
                     answer = answer[:-1]
                     self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer), " ")
                     self.stdscr.move(last_line_pos, prompt_with_padding + len(answer))
+                    continue
                 elif typed_char in ord_keypresses:
                     return chr(typed_char)
                 elif typed_char in (curses.KEY_F1, curses.KEY_F2, curses.KEY_F3, curses.KEY_F4, curses.KEY_F5, curses.KEY_F6,
@@ -531,16 +532,23 @@ class CursesTableView:
                 elif typed_char == curses.KEY_RESIZE:
                     break  # Will redraw the prompt
                 elif typed_char == curses.KEY_NPAGE:
-                    return "KEY_NPAGE"
+                    self.__move_page(1)
+                    continue
                 elif typed_char == curses.KEY_PPAGE:
-                    return "KEY_PPAGE"
+                    self.__move_page(-1)
+                    continue
                 elif typed_char == curses.KEY_DOWN:
-                    return "KEY_DOWN"
+                    self.row_offset += 1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
+                    self.draw()
+                    continue
                 elif typed_char == curses.KEY_UP:
-                    return "KEY_UP"
+                    self.row_offset += -1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
+                    self.draw()
+                    continue
                 elif chr(typed_char).isprintable():
                     answer += chr(typed_char)
                     self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer) - 1, chr(typed_char))
+                    continue
 
     def prompt_get_string(self, prompt_text, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
         """
@@ -558,33 +566,12 @@ class CursesTableView:
             str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
                  f-key presses are returned as "KEY_F1", "KEY_F2", etc.
         """
-        while True:
-            result = self.prompt_get_string_colored(
+        return self.prompt_get_string_colored(
                 prompt_text, 
                 keypresses=keypresses,
                 filter_key=filter_key,
                 sort_keys=sort_keys,
-                search_key=search_key
-            )
-            
-            # Handle navigation keys
-            if result == "KEY_NPAGE":
-                self.__move_page(1)
-                continue
-            elif result == "KEY_PPAGE":
-                self.__move_page(-1)
-                continue
-            elif result == "KEY_DOWN":
-                self.row_offset += 1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
-                self.draw()
-                continue
-            elif result == "KEY_UP":
-                self.row_offset -= 1 if self.row_offset > 0 else 0
-                self.draw()
-                continue
-            
-            # Return the result for any other case (normal input, keypresses, etc.)
-            return result
+                search_key=search_key)
 
     def sort(self, column_index, reverse=False):
         """
@@ -814,9 +801,8 @@ class CursesTableView:
             self.current_page += increment
         elif (self.current_page < total_pages and increment > 0):
             self.current_page += increment 
-        else:
-            return
 
+        # Always redraw to ensure table is visible
         self.draw()
 
     def __get_keypresses_from_names(self, list_names):
