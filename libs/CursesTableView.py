@@ -297,7 +297,7 @@ class CursesTableView:
                 return
         self.stdscr.refresh()
     
-    def prompt_with_colored_help(self, first_line, colored_help_lines, last_line, prompt_suffix=" >"):
+    def prompt_with_colored_help(self, first_line, help_lines, prompt, prompt_suffix=" >"):
         """
         Display a prompt with colored help text lines.
         
@@ -310,7 +310,7 @@ class CursesTableView:
         curses.update_lines_cols()
         self.clear_prompt()
         
-        total_lines = 1 + len(colored_help_lines) + 1  # first + help + last
+        total_lines = 1 + len(help_lines) + 1  # first + help + last
         if total_lines > self.prompt_max:
             raise Exception("Too many lines in prompt")
         
@@ -331,7 +331,7 @@ class CursesTableView:
             current_line += 1
             
             # Display colored help lines with indentation
-            for colored_line in colored_help_lines:
+            for colored_line in help_lines:
                 self.stdscr.addstr(current_line, 0, "  ", curses.A_NORMAL)  # 2-space indent
                 col_pos = 2
                 for text, is_highlighted in colored_line:
@@ -342,7 +342,7 @@ class CursesTableView:
                 current_line += 1
             
             # Display last line with suffix (normal color)
-            self.stdscr.addstr(current_line, 0, f"{last_line}{prompt_suffix}", curses.A_NORMAL | curses.A_BOLD)
+            self.stdscr.addstr(current_line, 0, f"{prompt}{prompt_suffix}", curses.A_NORMAL | curses.A_BOLD)
             
         except Exception as e:
             if "addstr" in str(e):
