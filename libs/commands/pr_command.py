@@ -15,12 +15,12 @@ class PrCommand(BaseCommand):
             if (mygithub == None):
                 ui.error("Github token not set in config, cannot create PRs")
                 return False
-            selection = ui.prompt_get_string_colored("Enter issue number")
+            selection = ui.prompt_get_string("Enter issue number")
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 [i, type_pr] = ui.prompt_with_choice_list("PR Type", ["fix", "feat", "chore", "refactor", "test"])
                 if type_pr != "":
-                    summary = ui.prompt_get_string_colored("Enter a PR summary (default is issue summary)")
+                    summary = ui.prompt_get_string("Enter a PR summary (default is issue summary)")
                     summary = summary if summary != "" else issue.fields.summary
                     title = f"{type_pr}: {summary} [{issue.key}]"
                     body = f"Jira Issue: {issue.permalink()}"

@@ -402,7 +402,7 @@ class CursesTableView:
             choice_text = choice_text[:split_index] + "\n" + choice_text[split_index:]
             
         prompt_text = choice_text + "\n" + prompt_text
-        selection = self.prompt_get_character(prompt_text) if len(dictionary) < 10 else self.prompt_get_string_colored(prompt_text)
+        selection = self.prompt_get_character(prompt_text) if len(dictionary) < 10 else self.prompt_get_string(prompt_text)
         
         return dictionary.get(selection)
 
@@ -437,7 +437,7 @@ class CursesTableView:
             choice_text = choice_text[:split_index] + "\n" + choice_text[split_index:]
 
         prompt_text = choice_text + "\n" + prompt_text
-        selection = self.prompt_get_character(prompt_text) if (len(choices) < 10 or non_numeric_keypresses) else self.prompt_get_string_colored(prompt_text)
+        selection = self.prompt_get_character(prompt_text) if (len(choices) < 10 or non_numeric_keypresses) else self.prompt_get_string(prompt_text)
         if non_numeric_keypresses:
             if selection in key_presses_to_names:
                 return (selection, key_presses_to_names[selection])
@@ -468,7 +468,7 @@ class CursesTableView:
             else:
                 return chr(typed_character)
 
-    def prompt_get_string_colored(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
+    def prompt_get_string(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
         """
         Displays a prompt with unified colored help text and returns the string entered by the user, or the first keypress in keypresses.
         

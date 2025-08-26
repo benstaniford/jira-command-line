@@ -11,7 +11,7 @@ class StatusCommand(BaseCommand):
     
     def execute(self, ui, view, jira, **kwargs):
         try:
-            selection = ui.prompt_get_string_colored("Enter issue number")
+            selection = ui.prompt_get_string("Enter issue number")
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 statuses = jira.get_statuses(issue)

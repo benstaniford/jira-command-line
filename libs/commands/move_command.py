@@ -13,7 +13,7 @@ class MoveCommand(BaseCommand):
         from ..ViewMode import ViewMode
         
         try:
-            selection = ui.prompt_get_string_colored("Move which issue?")
+            selection = ui.prompt_get_string("Move which issue?")
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 moveOptions = { 't': 'To top', 'b': 'To bottom', 'i': 'Below issue' }
@@ -33,7 +33,7 @@ class MoveCommand(BaseCommand):
                     ui.prompt(f"Moved {issue.key} to bottom...")
                     view.refresh()
                 elif selection == 'Below issue':
-                    selection = ui.prompt_get_string_colored("Enter issue number")
+                    selection = ui.prompt_get_string("Enter issue number")
                     if selection.isdigit():
                         [row, otherIssue] = ui.get_row(int(selection)-1)
                         jira.set_rank_below(issue, otherIssue)

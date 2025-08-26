@@ -148,7 +148,7 @@ def display_prompt(
 
     selection: str = ""
     try:
-        selection = ui.prompt_get_string_colored(all_colored_lines + [last_line], keypresses=key_shortcuts, filter_key='|', sort_keys=('o', 'O'), search_key='/')
+        selection = ui.prompt_get_string(all_colored_lines + [last_line], keypresses=key_shortcuts, filter_key='|', sort_keys=('o', 'O'), search_key='/')
     except Exception as e:
         ui.error("Command execution", e)
     return selection
