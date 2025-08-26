@@ -471,7 +471,7 @@ class CursesTableView:
 
     def prompt_get_string(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
         """
-        Displays a prompt with unified colored help text and returns the string entered by the user, or the first keypress in keypresses.
+        Displays a prompt with colored help text and returns the string entered by the user, or the first keypress in keypresses.
         
         Args:
             prompt (str|list): All lines in the prompt. If str, treated as simple text prompt.
