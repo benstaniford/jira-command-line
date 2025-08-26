@@ -468,13 +468,16 @@ class CursesTableView:
             else:
                 return chr(typed_character)
 
-    def prompt_get_string_colored(self, all_colored_lines, last_line, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
+    def prompt_get_string_colored(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
         """
         Displays a prompt with unified colored help text and returns the string entered by the user, or the first keypress in keypresses.
         
         Args:
-            all_colored_lines (list): List of all lines including first line, each containing list of (text, is_highlighted) tuples
-            last_line (str): The last line of the prompt
+            prompt (str|list): All lines in the prompt. If str, treated as simple text prompt.
+                              If list, can contain:
+                              - Strings for simple text lines
+                              - Lists of (text, is_highlighted) tuples for colored lines
+                              The last item should be a string for the input prompt line
             keypresses (str, optional): A string of characters to match against keypresses. Defaults to None.
             filter_key (str, optional): A character that triggers a live filter on the table. Defaults to None.
             sort_keys (list(str), optional): A list of two characters that triggers a sort on the table (back/forwards). Defaults to None.
@@ -483,8 +486,17 @@ class CursesTableView:
         Returns:
             str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
         """
+        # Convert prompt to consistent format and extract last line
+        if isinstance(prompt, str):
+            lines = prompt.split("\n")
+            all_colored_lines = lines[:-1] if len(lines) > 1 else []
+            last_line = lines[-1] if lines else ""
+        else:
+            all_colored_lines = prompt[:-1] if len(prompt) > 1 else []
+            last_line = prompt[-1] if prompt else ""
+        
         while True:
-            self.prompt_with_colored_help(all_colored_lines + [last_line])
+            self.prompt_with_colored_help(prompt)
             # Count total lines for positioning
             total_lines = len(all_colored_lines) + 1
             ord_keypresses = [ord(keypress) for keypress in keypresses] if keypresses is not None else ()
