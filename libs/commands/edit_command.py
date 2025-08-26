@@ -12,12 +12,12 @@ class EditCommand(BaseCommand):
     
     def execute(self, ui, view, jira, stdscr=None, **kwargs):
         try:
-            selection = ui.prompt_get_string_colored("Enter issue number")
+            selection = ui.prompt_get_string("Enter issue number")
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 [i, typeofedit] = ui.prompt_with_choice_list("Edit Actions", ["Comment"], non_numeric_keypresses = True)
                 if typeofedit == "Comment":
-                    comment = ui.prompt_get_string_colored("(F1 for editor)\nEnter comment")
+                    comment = ui.prompt_get_string("(F1 for editor)\nEnter comment")
                     if comment == "KEY_F1":
                         if stdscr:
                             stdscr.clear()

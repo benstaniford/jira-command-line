@@ -20,7 +20,7 @@ class ChatCommand(BaseCommand):
             # Submenu for chat feature
             submenu_prompt = "Chat submenu:\nC:chat S:summary s:short_summary q:query\nEnter choice or esc to cancel"
             while True:
-                submenu_choice = ui.prompt_get_string_colored(submenu_prompt, keypresses=["C", "S", "c", "s", "q"], filter_key=None, sort_keys=None, search_key=None).strip()
+                submenu_choice = ui.prompt_get_string(submenu_prompt, keypresses=["C", "S", "c", "s", "q"], filter_key=None, sort_keys=None, search_key=None).strip()
                 if submenu_choice == "C":
                     self._chat_flow(ui, view, jira)
                     break
@@ -42,7 +42,7 @@ class ChatCommand(BaseCommand):
 
     def _chat_flow(self, ui, view, jira):
         try:
-            selection = ui.prompt_get_string_colored("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to discuss all issues in the view")
+            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to discuss all issues in the view")
             # Get the numbers of the rows
             if selection == "":
                 rows = ui.get_rows()
@@ -67,7 +67,7 @@ class ChatCommand(BaseCommand):
 
     def _summary_flow(self, ui, view, jira, brief=False):
         try:
-            selection = ui.prompt_get_string_colored("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to summarize all issues in the view")
+            selection = ui.prompt_get_string("Enter comma separated issue numbers (e.g. 1,2,3) or hit enter to summarize all issues in the view")
             # Get the numbers of the rows
             if selection == "":
                 rows = ui.get_rows()
@@ -114,7 +114,7 @@ class ChatCommand(BaseCommand):
     def _query_flow(self, ui, view, jira, config):
         try:
             # Get natural language query from user
-            query = ui.prompt_get_string_colored("Enter your natural language query about Jira tickets:")
+            query = ui.prompt_get_string("Enter your natural language query about Jira tickets:")
             if not query.strip():
                 return False
             

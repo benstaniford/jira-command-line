@@ -12,7 +12,7 @@ class BrowseCommand(BaseCommand):
     def execute(self, ui, view, jira, **kwargs):
         try:
             keystrokes = ('s', 'l', 'k')
-            selection = ui.prompt_get_string_colored("(s:sprintboard, l:backlog, k:kanban)\nEnter issue number", keystrokes)
+            selection = ui.prompt_get_string("(s:sprintboard, l:backlog, k:kanban)\nEnter issue number", keystrokes)
             if selection == "s":
                 jira.browse_sprint_board()
             if selection == "l":
