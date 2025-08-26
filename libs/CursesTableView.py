@@ -350,7 +350,7 @@ class CursesTableView:
         
         self.stdscr.refresh()
 
-    def prompt_with_colored_help_unified(self, help_lines, prompt_line, prompt_suffix=" >"):
+    def prompt_with_colored_help(self, help_lines, prompt_line, prompt_suffix=" >"):
         """
         Display a prompt with all lines as colored text including first line.
         
@@ -517,7 +517,7 @@ class CursesTableView:
             str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
         """
         while True:
-            self.prompt_with_colored_help_unified(all_colored_lines, last_line)
+            self.prompt_with_colored_help(all_colored_lines, last_line)
             # Count total lines for positioning
             total_lines = len(all_colored_lines) + 1
             ord_keypresses = [ord(keypress) for keypress in keypresses] if keypresses is not None else ()
