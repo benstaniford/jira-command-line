@@ -511,9 +511,10 @@ class CursesTableView:
                     return ""
                 elif typed_char == KeyCode.BACKSPACE and len(answer) > 0:
                     answer = answer[:-1]
-                    self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer), " ")
-                    self.stdscr.move(last_line_pos, prompt_with_padding + len(answer))
-                    continue
+                    self.stdscr.move(last_line, prompt_with_padding)
+                    self.stdscr.clrtoeol()
+                    self.stdscr.addstr(last_line, prompt_with_padding, answer)
+                    self.stdscr.refresh()
                 elif typed_char in ord_keypresses:
                     return chr(typed_char)
                 elif typed_char in (curses.KEY_F1, curses.KEY_F2, curses.KEY_F3, curses.KEY_F4, curses.KEY_F5, curses.KEY_F6,
