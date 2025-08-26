@@ -297,95 +297,62 @@ class CursesTableView:
                 return
         self.stdscr.refresh()
     
-    def prompt_with_colored_help(self, first_line, help_lines, prompt, prompt_suffix=" >"):
+    def prompt_with_colored_help(self, prompt, prompt_suffix=" >"):
         """
         Display a prompt with colored help text lines.
         
         Parameters:
-        - first_line (str|list): The first line of the prompt as string or list of (text, is_highlighted) tuples
-        - colored_help_lines (list): List of lines, each containing list of (text, is_highlighted) tuples
-        - last_line (str): The last line of the prompt (e.g., "Type a number...")
+        - prompt (str|list): All lines in the prompt. If str, treated as simple text prompt.
+                            If list, can contain:
+                            - Strings for simple text lines
+                            - Lists of (text, is_highlighted) tuples for colored lines
+                            The last item should be a string for the input prompt line
         - prompt_suffix (str, optional): The suffix to be added to the prompt text. Default is " >".
         """
         curses.update_lines_cols()
         self.clear_prompt()
         
-        total_lines = 1 + len(help_lines) + 1  # first + help + last
+        # Convert prompt to consistent list format
+        if isinstance(prompt, str):
+            # Simple string prompt
+            lines = prompt.split("\n")
+            prompt_lines = lines[:-1]  # All but last line are help text
+            last_line = lines[-1] if lines else ""
+        else:
+            # List format - last item is the prompt line, rest are help lines
+            prompt_lines = prompt[:-1] if len(prompt) > 1 else []
+            last_line = prompt[-1] if prompt else ""
+        
+        total_lines = len(prompt_lines) + 1  # help lines + last line
         if total_lines > self.prompt_max:
             raise Exception("Too many lines in prompt")
         
         try:
             current_line = curses.LINES - total_lines
             
-            # Display first line (with coloring if it's a list of tuples)
-            if isinstance(first_line, str):
-                self.stdscr.addstr(current_line, 0, first_line, curses.A_NORMAL)
-            else:
-                # first_line is a list of (text, is_highlighted) tuples
-                col_pos = 0
-                for text, is_highlighted in first_line:
-                    help_color = self.help_text_color if self.help_text_color is not None else self.header_color
-                    color_attr = curses.color_pair(help_color + 1) | curses.A_BOLD if is_highlighted else curses.A_NORMAL
-                    self.stdscr.addstr(current_line, col_pos, text, color_attr)
-                    col_pos += len(text)
-            current_line += 1
-            
-            # Display colored help lines with indentation
-            for colored_line in help_lines:
-                self.stdscr.addstr(current_line, 0, "  ", curses.A_NORMAL)  # 2-space indent
-                col_pos = 2
-                for text, is_highlighted in colored_line:
-                    help_color = self.help_text_color if self.help_text_color is not None else self.header_color
-                    color_attr = curses.color_pair(help_color + 1) | curses.A_BOLD if is_highlighted else curses.A_NORMAL
-                    self.stdscr.addstr(current_line, col_pos, text, color_attr)
-                    col_pos += len(text)
-                current_line += 1
-            
-            # Display last line with suffix (normal color)
-            self.stdscr.addstr(current_line, 0, f"{prompt}{prompt_suffix}", curses.A_NORMAL | curses.A_BOLD)
-            
-        except Exception as e:
-            if "addstr" in str(e):
-                return
-        
-        self.stdscr.refresh()
-
-    def prompt_with_colored_help(self, help_lines, prompt_line, prompt_suffix=" >"):
-        """
-        Display a prompt with all lines as colored text including first line.
-        
-        Parameters:
-        - help_lines (list): List of all lines including first line, each containing list of (text, is_highlighted) tuples
-        - prompt_line (str): The last line of the prompt (e.g., "Type a number...")
-        - prompt_suffix (str, optional): The suffix to be added to the prompt text. Default is " >".
-        """
-        curses.update_lines_cols()
-        self.clear_prompt()
-        
-        total_lines = len(help_lines) + 1  # all colored lines + last line
-        if total_lines > self.prompt_max:
-            raise Exception("Too many lines in prompt")
-        
-        try:
-            current_line = curses.LINES - total_lines
-            
-            # Display all colored lines 
-            for i, line in enumerate(help_lines):
-                # First line has no indentation, subsequent lines get 2-space indent
+            # Display help lines
+            for i, line in enumerate(prompt_lines):
+                # First line has no indentation, subsequent lines get 2-space indent  
                 indent = 0 if i == 0 else 2
                 if indent > 0:
                     self.stdscr.addstr(current_line, 0, "  ", curses.A_NORMAL)
                 
                 col_pos = indent
-                for text, is_highlighted in line:
-                    help_color = self.help_text_color if self.help_text_color is not None else self.header_color
-                    color_attr = curses.color_pair(help_color + 1) | curses.A_BOLD if is_highlighted else curses.A_NORMAL
-                    self.stdscr.addstr(current_line, col_pos, text, color_attr)
-                    col_pos += len(text)
+                
+                if isinstance(line, str):
+                    # Simple string line
+                    self.stdscr.addstr(current_line, col_pos, line, curses.A_NORMAL)
+                else:
+                    # Colored line - list of (text, is_highlighted) tuples
+                    for text, is_highlighted in line:
+                        help_color = self.help_text_color if self.help_text_color is not None else self.header_color
+                        color_attr = curses.color_pair(help_color + 1) | curses.A_BOLD if is_highlighted else curses.A_NORMAL
+                        self.stdscr.addstr(current_line, col_pos, text, color_attr)
+                        col_pos += len(text)
                 current_line += 1
             
             # Display last line with suffix (normal color)
-            self.stdscr.addstr(current_line, 0, f"{prompt_line}{prompt_suffix}", curses.A_NORMAL | curses.A_BOLD)
+            self.stdscr.addstr(current_line, 0, f"{last_line}{prompt_suffix}", curses.A_NORMAL | curses.A_BOLD)
             
         except Exception as e:
             if "addstr" in str(e):
@@ -517,7 +484,7 @@ class CursesTableView:
             str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
         """
         while True:
-            self.prompt_with_colored_help(all_colored_lines, last_line)
+            self.prompt_with_colored_help(all_colored_lines + [last_line])
             # Count total lines for positioning
             total_lines = len(all_colored_lines) + 1
             ord_keypresses = [ord(keypress) for keypress in keypresses] if keypresses is not None else ()
