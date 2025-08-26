@@ -542,7 +542,7 @@ class CursesTableView:
                     self.draw()
                     break
                 elif typed_char == curses.KEY_UP:
-                    self.row_offset += -1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
+                    self.row_offset -= 1 if self.row_offset > 0 else 0
                     self.draw()
                     break
                 elif chr(typed_char).isprintable():
