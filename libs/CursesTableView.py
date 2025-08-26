@@ -533,18 +533,18 @@ class CursesTableView:
                     break  # Will redraw the prompt
                 elif typed_char == curses.KEY_NPAGE:
                     self.__move_page(1)
-                    continue
+                    break
                 elif typed_char == curses.KEY_PPAGE:
                     self.__move_page(-1)
-                    continue
+                    break
                 elif typed_char == curses.KEY_DOWN:
                     self.row_offset += 1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
                     self.draw()
-                    continue
+                    break
                 elif typed_char == curses.KEY_UP:
                     self.row_offset += -1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
                     self.draw()
-                    continue
+                    break
                 elif chr(typed_char).isprintable():
                     answer += chr(typed_char)
                     self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer) - 1, chr(typed_char))
