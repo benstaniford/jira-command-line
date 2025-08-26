@@ -8,7 +8,7 @@ class KeyCode:
     ESCAPE = 27
     ENTER = 10
     BACKSPACE = 8
-    BACKSPACE_ALT = 263  # DEL key, often used as backspace on Linux
+    BACKSPACE_ALT = 263  # Backspace on linux
     PRINTABLE_START = 32
     PRINTABLE_END = 126
 

@@ -10,5 +10,4 @@ class QuitCommand(BaseCommand):
         return "quit"
     
     def execute(self, ui, view, jira, **kwargs):
-        ui.close()
         return True  # Signal to exit the main loop

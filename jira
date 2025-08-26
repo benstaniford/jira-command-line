@@ -227,5 +227,4 @@ def handle_fkey_columns(
         ui.error("Add extra columns", e)
 
 if __name__ == "__main__":
-    curses.initscr()
     curses.wrapper(main)
