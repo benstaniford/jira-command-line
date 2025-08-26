@@ -8,6 +8,7 @@ class KeyCode:
     ESCAPE = 27
     ENTER = 10
     BACKSPACE = 8
+    BACKSPACE_ALT = 263  # DEL key, often used as backspace on Linux
     PRINTABLE_START = 32
     PRINTABLE_END = 126
 
@@ -509,7 +510,7 @@ class CursesTableView:
                     return answer
                 if typed_char == KeyCode.ESCAPE:
                     return ""
-                elif typed_char == KeyCode.BACKSPACE and len(answer) > 0:
+                elif typed_char in (KeyCode.BACKSPACE, KeyCode.BACKSPACE_ALT) and len(answer) > 0:
                     answer = answer[:-1]
                     self.stdscr.move(last_line_pos, prompt_with_padding)
                     self.stdscr.clrtoeol()
@@ -692,7 +693,7 @@ class CursesTableView:
                 self.current_filter = search_term if (len(search_term.strip()) > 0) else None
                 self.draw()
                 return
-            elif typed_character == KeyCode.BACKSPACE:
+            elif typed_character in (KeyCode.BACKSPACE, KeyCode.BACKSPACE_ALT):
                 if len(search_term) == 0:
                     self.current_filter = None
                     self.draw()
@@ -721,7 +722,7 @@ class CursesTableView:
                 self.current_search = search_term if (len(search_term.strip()) > 0) else None
                 self.draw()
                 return
-            elif typed_character == KeyCode.BACKSPACE:
+            elif typed_character in (KeyCode.BACKSPACE, KeyCode.BACKSPACE_ALT):
                 if len(search_term) == 0:
                     self.current_search = None
                     self.draw()
