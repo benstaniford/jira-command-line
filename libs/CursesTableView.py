@@ -402,7 +402,7 @@ class CursesTableView:
             choice_text = choice_text[:split_index] + "\n" + choice_text[split_index:]
             
         prompt_text = choice_text + "\n" + prompt_text
-        selection = self.prompt_get_character(prompt_text) if len(dictionary) < 10 else self.prompt_get_string(prompt_text)
+        selection = self.prompt_get_character(prompt_text) if len(dictionary) < 10 else self.prompt_get_string_colored(prompt_text)
         
         return dictionary.get(selection)
 
@@ -437,7 +437,7 @@ class CursesTableView:
             choice_text = choice_text[:split_index] + "\n" + choice_text[split_index:]
 
         prompt_text = choice_text + "\n" + prompt_text
-        selection = self.prompt_get_character(prompt_text) if (len(choices) < 10 or non_numeric_keypresses) else self.prompt_get_string(prompt_text)
+        selection = self.prompt_get_character(prompt_text) if (len(choices) < 10 or non_numeric_keypresses) else self.prompt_get_string_colored(prompt_text)
         if non_numeric_keypresses:
             if selection in key_presses_to_names:
                 return (selection, key_presses_to_names[selection])
@@ -550,29 +550,6 @@ class CursesTableView:
                     answer += chr(typed_char)
                     self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer) - 1, chr(typed_char))
                     continue
-
-    def prompt_get_string(self, prompt_text, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
-        """
-        Displays a prompt and returns the string entered by the user, or the first keypress in keypresses.  Will
-        automatically handle resizing of the terminal and redraw the prompt.
-
-        Args:
-            prompt_text (str): The text to display as the prompt
-            keypresses (str, optional): A string of characters to match against keypresses. Defaults to None.
-            filter_key (str, optional): A character that triggers a live filter on the table. Defaults to None.
-            sort_keys (list(str), optional): A list of two characters that triggers a sort on the table (back/forwards). Defaults to None.
-            search_key (str, optional): A character that triggers a search on the table. Defaults to None.
-
-        Returns:
-            str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
-                 f-key presses are returned as "KEY_F1", "KEY_F2", etc.
-        """
-        return self.prompt_get_string_colored(
-                prompt_text, 
-                keypresses=keypresses,
-                filter_key=filter_key,
-                sort_keys=sort_keys,
-                search_key=search_key)
 
     def sort(self, column_index, reverse=False):
         """

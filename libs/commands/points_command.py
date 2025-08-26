@@ -11,7 +11,7 @@ class PointsCommand(BaseCommand):
     
     def execute(self, ui, view, jira, **kwargs):
         try:
-            selection = ui.prompt_get_string("Enter issue number")
+            selection = ui.prompt_get_string_colored("Enter issue number")
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 [i, points] = ui.prompt_with_choice_list("Enter story points", (0.5, 1, 2, 3, 5, 8, 13))

@@ -17,7 +17,7 @@ class XrayCommand(BaseCommand):
                 ui.error("Xray client_id or client_secret not set in config, cannot create x-ray tests")
                 return False
 
-            selection = ui.prompt_get_string("Enter issue number")
+            selection = ui.prompt_get_string_colored("Enter issue number")
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 ui.prompt("Parsing test definitions...", "")

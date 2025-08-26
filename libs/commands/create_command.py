@@ -13,10 +13,10 @@ class CreateCommand(BaseCommand):
     
     def execute(self, ui, view, jira, stdscr=None, **kwargs):
         try:
-            summary = ui.prompt_get_string("Enter summary")
+            summary = ui.prompt_get_string_colored("Enter summary")
             if summary.strip() == "":
                 return False
-            description = ui.prompt_get_string("(F1 for editor, F2 to use summary)\nEnter description")
+            description = ui.prompt_get_string_colored("(F1 for editor, F2 to use summary)\nEnter description")
             if description == "KEY_F1":
                 if stdscr:
                     stdscr.clear()

@@ -12,7 +12,7 @@ class TestpilotCommand(BaseCommand):
 
     def execute(self, ui, view, jira, **kwargs):
         # Get the currently selected issue
-        selection = ui.prompt_get_string("Enter issue number")
+        selection = ui.prompt_get_string_colored("Enter issue number")
         if selection.isdigit():
             [row, issue] = ui.get_row(int(selection)-1)
             ticket_id = getattr(issue, 'key', None)

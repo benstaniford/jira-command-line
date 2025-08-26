@@ -15,7 +15,7 @@ class VisualizeCommand(BaseCommand):
         try:
             visualisationOptions = { 'p': 'By person', 'i': 'By item' }
             selection = ui.prompt_with_choice_dictionary("Visualise sprint", visualisationOptions)
-            time_period = ui.prompt_get_string("Enter time period in days (default 14 days)")
+            time_period = ui.prompt_get_string_colored("Enter time period in days (default 14 days)")
             if time_period == "":
                 time_period = 14
             else:
