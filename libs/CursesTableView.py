@@ -530,6 +530,14 @@ class CursesTableView:
                     break
                 elif typed_char == curses.KEY_RESIZE:
                     break  # Will redraw the prompt
+                elif typed_char == curses.KEY_NPAGE:
+                    return "KEY_NPAGE"
+                elif typed_char == curses.KEY_PPAGE:
+                    return "KEY_PPAGE"
+                elif typed_char == curses.KEY_DOWN:
+                    return "KEY_DOWN"
+                elif typed_char == curses.KEY_UP:
+                    return "KEY_UP"
                 elif chr(typed_char).isprintable():
                     answer += chr(typed_char)
                     self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer) - 1, chr(typed_char))
@@ -551,62 +559,32 @@ class CursesTableView:
                  f-key presses are returned as "KEY_F1", "KEY_F2", etc.
         """
         while True:
-            self.prompt(prompt_text)
-            lines = prompt_text.split("\n")
-            ord_keypresses = [ord(keypress) for keypress in keypresses] if keypresses is not None else ()
-            prompt_with_padding = len(lines[-1]) + 3
-            last_line = curses.LINES - 1
-            answer = ""
-            while True:
-                typed_char = self.stdscr.getch()
-                if typed_char == KeyCode.ENTER:
-                    return answer
-                if typed_char == KeyCode.ESCAPE:
-                    return ""
-                elif typed_char == KeyCode.BACKSPACE and len(answer) > 0:
-                    answer = answer[:-1]
-                elif typed_char in ord_keypresses:
-                    return chr(typed_char)
-                elif typed_char in (curses.KEY_F1, curses.KEY_F2, curses.KEY_F3, curses.KEY_F4, curses.KEY_F5, curses.KEY_F6,
-                                    curses.KEY_F7, curses.KEY_F8, curses.KEY_F9, curses.KEY_F10, curses.KEY_F11, curses.KEY_F12):
-                    return f"KEY_F{str(typed_char - curses.KEY_F0)}"
-                elif typed_char == curses.KEY_RESIZE:
-                    self.draw()
-                    break
-                elif typed_char == curses.KEY_NPAGE:
-                    self.__move_page(1)
-                    break
-                elif typed_char == curses.KEY_PPAGE:
-                    self.__move_page(-1)
-                    break
-                elif typed_char == curses.KEY_DOWN:
-                    self.row_offset += 1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
-                    self.draw()
-                    break
-                elif typed_char == curses.KEY_UP:
-                    self.row_offset -= 1 if self.row_offset > 0 else 0
-                    self.draw()
-                    break
-                elif chr(typed_char) == filter_key:
-                    self.__perform_live_filter()
-                    answer = ""
-                    break
-                elif chr(typed_char) == search_key:
-                    self.__perform_live_search()
-                    answer = ""
-                    break
-                elif chr(typed_char) in (sort_keys or []):
-                    self.__perform_column_sort(reverse = chr(typed_char) != sort_keys[0])
-                    answer = ""
-                    break
-                elif typed_char < KeyCode.PRINTABLE_START or typed_char > KeyCode.PRINTABLE_END:
-                    continue
-                else:
-                    answer += chr(typed_char)
-                self.stdscr.move(last_line, prompt_with_padding)
-                self.stdscr.clrtoeol()
-                self.stdscr.addstr(last_line, prompt_with_padding, answer)
-                self.stdscr.refresh()
+            result = self.prompt_get_string_colored(
+                prompt_text, 
+                keypresses=keypresses,
+                filter_key=filter_key,
+                sort_keys=sort_keys,
+                search_key=search_key
+            )
+            
+            # Handle navigation keys
+            if result == "KEY_NPAGE":
+                self.__move_page(1)
+                continue
+            elif result == "KEY_PPAGE":
+                self.__move_page(-1)
+                continue
+            elif result == "KEY_DOWN":
+                self.row_offset += 1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
+                self.draw()
+                continue
+            elif result == "KEY_UP":
+                self.row_offset -= 1 if self.row_offset > 0 else 0
+                self.draw()
+                continue
+            
+            # Return the result for any other case (normal input, keypresses, etc.)
+            return result
 
     def sort(self, column_index, reverse=False):
         """
