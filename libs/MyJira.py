@@ -148,7 +148,7 @@ class MyJira:
     # Returns a dictionary of optional field names lambda functions to get the value of each field from an issue
     def get_sprint_name(self, issue: Any) -> str:
         """
-        Get the sprint name for an issue.
+        Get the sprint name for an issue. When assigned to multiple sprints, returns the latest one.
         Args:
             issue: Jira issue object.
         Returns:
@@ -157,8 +157,9 @@ class MyJira:
         try:
             jira_issue = MyJiraIssue(issue, self.jira)
             if hasattr(jira_issue, 'sprint') and jira_issue.sprint and len(jira_issue.sprint) > 0:
-                # Get the last sprint (most recent)
-                return jira_issue.sprint[-1].name
+                # Find the sprint with the highest ID (latest sprint)
+                latest_sprint = max(jira_issue.sprint, key=lambda s: int(s.id))
+                return latest_sprint.name
             else:
                 return "No sprint"
         except:
@@ -247,7 +248,23 @@ class MyJira:
         Returns:
             List of issues ordered by sprint assignment.
         """
-        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY sprint ASC, Rank ASC')
+        # Get issues without sprint-based ordering since we'll sort them ourselves
+        issues = self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        
+        # Sort issues by latest sprint ID, with "No sprint" items at the end
+        def get_sort_key(issue):
+            try:
+                jira_issue = MyJiraIssue(issue, self.jira)
+                if hasattr(jira_issue, 'sprint') and jira_issue.sprint and len(jira_issue.sprint) > 0:
+                    # Find the sprint with the highest ID (latest sprint)
+                    latest_sprint = max(jira_issue.sprint, key=lambda s: int(s.id))
+                    return (0, int(latest_sprint.id))  # 0 ensures sprints come before no-sprint items
+                else:
+                    return (1, 0)  # 1 ensures no-sprint items come last
+            except:
+                return (1, 0)  # Treat errors as no-sprint
+        
+        return sorted(issues, key=get_sort_key)
 
     def get_windows_backlog_issues(self) -> Any:
         """
