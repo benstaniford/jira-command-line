@@ -243,11 +243,11 @@ class MyJira:
     def get_sprints_issues(self) -> Any:
         """
         Get all team issues (including backlog and future sprints) ordered by sprint assignment.
-        Issues in future sprints come first, then backlog items.
+        Issues in sprints come first (ascending order), then "No sprint" items at the bottom.
         Returns:
             List of issues ordered by sprint assignment.
         """
-        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY sprint DESC, Rank ASC')
+        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY sprint ASC, Rank ASC')
 
     def get_windows_backlog_issues(self) -> Any:
         """
