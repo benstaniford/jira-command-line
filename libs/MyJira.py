@@ -146,6 +146,24 @@ class MyJira:
         return self.jira.transitions(issue)
 
     # Returns a dictionary of optional field names lambda functions to get the value of each field from an issue
+    def get_sprint_name(self, issue: Any) -> str:
+        """
+        Get the sprint name for an issue.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            Sprint name or "No sprint" if not assigned to a sprint.
+        """
+        try:
+            jira_issue = MyJiraIssue(issue, self.jira)
+            if hasattr(jira_issue, 'sprint') and jira_issue.sprint and len(jira_issue.sprint) > 0:
+                # Get the last sprint (most recent)
+                return jira_issue.sprint[-1].name
+            else:
+                return "No sprint"
+        except:
+            return "No sprint"
+
     def get_optional_fields(self) -> Dict[str, Any]:
         """
         Get a dictionary of optional field names and their value functions.
@@ -162,6 +180,7 @@ class MyJira:
                 "Sub-Tasks": lambda issue: str(self.get_subtask_count(issue)),
                 "Parent Desc": lambda issue: self.get_parent_description(issue),
                 "Pri Score": lambda issue: str(self.get_priority_score(issue)),
+                "Sprint": lambda issue: self.get_sprint_name(issue),
             }
         return optional_fields
 
@@ -220,6 +239,15 @@ class MyJira:
             List of backlog issues.
         """
         return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+
+    def get_sprints_issues(self) -> Any:
+        """
+        Get all team issues (including backlog and future sprints) ordered by sprint assignment.
+        Issues in future sprints come first, then backlog items.
+        Returns:
+            List of issues ordered by sprint assignment.
+        """
+        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY sprint DESC, Rank ASC')
 
     def get_windows_backlog_issues(self) -> Any:
         """

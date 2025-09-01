@@ -7,3 +7,4 @@ class ViewMode:
     SEARCH = 6
     HELP = 7
     BOARD = 8
+    SPRINTS = 9

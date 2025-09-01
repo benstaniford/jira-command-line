@@ -45,6 +45,8 @@ class JiraTableView:
             self.__current_issues = self.__build(jira.get_sub_tasks(self.parent_issue))
         elif self.mode == ViewMode.BOARD:
             self.__current_issues = self.__build(jira.get_board_issues(params))
+        elif self.mode == ViewMode.SPRINTS:
+            self.__current_issues = self.__build(jira.get_sprints_issues())
 
         self.__previous_issues = self.__current_issues if self.mode != ViewMode.TASKVIEW else self.__previous_issues
 
@@ -59,6 +61,8 @@ class JiraTableView:
             extra_columns['Points'] = optional_fields['Points']
         if self.mode == ViewMode.TASKVIEW and extra_columns.get('Assignee') == None:
             extra_columns['Assignee'] = optional_fields['Assignee']
+        if self.mode == ViewMode.SPRINTS and extra_columns.get('Sprint') == None:
+            extra_columns['Sprint'] = optional_fields['Sprint']
         if len(extra_columns) > 0:
             header.extend(extra_columns.keys())
         self.ui.add_header(header)
