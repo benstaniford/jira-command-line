@@ -22,6 +22,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
     parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
+    parser.add_argument("-L", "--sprints", help="Start in sprints mode (backlog ordered by sprint)", action="store_true")
     parser.add_argument("-B", "--board", help="Start in board mode, takes an index of the board to show", type=int)
     parser.add_argument("-z", "--escalations", help="Start in escalations mode", action="store_true")
     parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
@@ -72,6 +73,7 @@ def main(stdscr: Any) -> Optional[None]:
 
     # Get the backlog issues
     view.refresh(ViewMode.SPRINT if args.sprint
+                 else ViewMode.SPRINTS if args.sprints
                  else ViewMode.ESCALATIONS if args.escalations
                  else ViewMode.WINDOWS_SHARED if args.windows_shared
                  else ViewMode.BOARD if args.board
