@@ -9,6 +9,8 @@ import datetime
 import webbrowser
 import markdown
 import yaml
+import requests
+import json
 from typing import Any, Dict, List, Optional, Union
 
 class MyJira:
@@ -23,14 +25,14 @@ class MyJira:
         self.password = config["password"]
 
         # Stuff specific to me
-        self.server = {"server": self.url}
         self.username = config["username"]
         self.fullname = config["fullname"]
 
         # Stuff specific to the team
         self.set_team(config["default_team"])
 
-        self.jira = JIRA(self.server, basic_auth=(self.username, self.password))
+        options = {"server": self.url, "rest_api_version": "3"}
+        self.jira = JIRA(options=options, basic_auth=(self.username, self.password))
         self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug")' 
         self.ignored_issue_types = {"Sub-task", "Sub-task Bug", "Test", "Test Set", "Test Plan", "Test Execution", "Precondition", "Sub Test Execution"}
 
@@ -210,16 +212,74 @@ class MyJira:
             summary = summary[0:30] + "..."
         return summary
 
+    def _search_issues_new_api(self, search_text: str, changelog: bool = False) -> Any:
+        """
+        Search for issues using the new /rest/api/3/search/jql endpoint directly.
+        This is a workaround for the deprecated /rest/api/3/search endpoint.
+        Args:
+            search_text: JQL query string.
+            changelog: Whether to expand changelog.
+        Returns:
+            List of issue objects.
+        """
+        # Construct the new API endpoint URL
+        url = f"{self.url}/rest/api/3/search/jql"
+        
+        # Prepare request parameters
+        params = {
+            "jql": search_text,
+            "startAt": 0,
+            "maxResults": 400,
+            "fields": "*all"
+        }
+        
+        if changelog:
+            params["expand"] = "changelog"
+        
+        # Make the request using the same authentication as the JIRA client
+        auth = (self.username, self.password)
+        headers = {"Accept": "application/json"}
+        
+        try:
+            response = requests.get(url, params=params, auth=auth, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            data = response.json()
+            issues_data = data.get("issues", [])
+            
+            # Convert the raw issue data to JIRA issue objects
+            issues = []
+            for issue_data in issues_data:
+                # Create a JIRA issue object from the raw data
+                issue = self.jira._get_json(f"issue/{issue_data['key']}")
+                issues.append(self.jira.issue(issue_data['key']))
+            
+            return issues
+            
+        except requests.RequestException as e:
+            # If the new API fails, fall back to the old method (for now)
+            print(f"Warning: New API failed ({e}), falling back to old search method...")
+            return self.jira.search_issues(search_text, startAt=0, maxResults=400, expand="changelog" if changelog else None)
+
     def search_issues(self, search_text: str, changelog: bool = False) -> Any:
         """
         Search for issues using a JQL query.
+        Uses the new API endpoint to avoid deprecated API errors.
         Args:
             search_text: JQL query string.
             changelog: Whether to expand changelog.
         Returns:
             List of issues.
         """
-        issues = self.jira.search_issues(search_text, startAt=0, maxResults=400, expand="changelog" if changelog else None)
+        try:
+            # Try the new API endpoint first
+            issues = self._search_issues_new_api(search_text, changelog)
+        except Exception as e:
+            print(f"Warning: New API search failed ({e}), falling back to standard library method...")
+            # Fall back to the original method if new API fails
+            issues = self.jira.search_issues(search_text, startAt=0, maxResults=400, expand="changelog" if changelog else None)
+        
         self.set_reference_issue(issues)
         return issues
 

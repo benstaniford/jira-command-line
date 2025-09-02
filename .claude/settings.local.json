@@ -9,7 +9,10 @@
       "Bash(python:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "WebFetch(domain:developer.atlassian.com)",
+      "WebSearch",
+      "Bash(pip show:*)"
     ],
     "deny": [],
     "ask": []
