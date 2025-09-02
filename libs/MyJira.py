@@ -249,11 +249,13 @@ class MyJira:
             issues_data = data.get("issues", [])
             
             # Convert the raw issue data to JIRA issue objects
+            # Use the jira library's method to create issue objects from raw data
             issues = []
             for issue_data in issues_data:
-                # Create a JIRA issue object from the raw data
-                issue = self.jira._get_json(f"issue/{issue_data['key']}")
-                issues.append(self.jira.issue(issue_data['key']))
+                # Create issue object directly from the response data (no additional API calls)
+                from jira.resources import Issue
+                issue = Issue(self.jira._options, self.jira._session, issue_data)
+                issues.append(issue)
             
             return issues
             
