@@ -260,9 +260,8 @@ class MyJira:
             return issues
             
         except requests.RequestException as e:
-            # If the new API fails, fall back to the old method (for now)
-            print(f"Warning: New API failed ({e}), falling back to old search method...")
-            return self.jira.search_issues(search_text, startAt=0, maxResults=400, expand="changelog" if changelog else None)
+            # If the new API fails, raise the error since the old API is deprecated
+            raise RuntimeError(f"New API search failed and old API is deprecated: {e}")
 
     def search_issues(self, search_text: str, changelog: bool = False) -> Any:
         """
@@ -278,9 +277,8 @@ class MyJira:
             # Try the new API endpoint first
             issues = self._search_issues_new_api(search_text, changelog)
         except Exception as e:
-            print(f"Warning: New API search failed ({e}), falling back to standard library method...")
-            # Fall back to the original method if new API fails
-            issues = self.jira.search_issues(search_text, startAt=0, maxResults=400, expand="changelog" if changelog else None)
+            # If the new API fails, raise the error since the old API is deprecated
+            raise RuntimeError(f"Search failed - new API error: {e}")
         
         self.set_reference_issue(issues)
         return issues
@@ -293,7 +291,7 @@ class MyJira:
         Returns:
             List of test plan issues.
         """
-        return self.jira.search_issues(f'project = {self.project_name} AND issuetype = "Test Plan" AND summary ~ "{name}" ORDER BY Rank ASC')
+        return self.search_issues(f'project = {self.project_name} AND issuetype = "Test Plan" AND summary ~ "{name}" ORDER BY Rank ASC')
 
     def get_backlog_issues(self) -> Any:
         """
@@ -427,9 +425,9 @@ class MyJira:
         if (search_text.lower().startswith("epm-") or search_text.lower().startswith("help-")):
             issues = [self.jira.issue(search_text)]
         elif (search_text.isdigit()):
-            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         else:
-            issues = self.jira.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
         self.set_reference_issue(issues)
 
@@ -441,7 +439,7 @@ class MyJira:
         Returns:
             List of escalation issues.
         """
-        issues = self.jira.search_issues(f'project = HELP AND "Product[Dropdown]" in ("{self.product_name}") AND statuscategory not in (Done) ORDER BY Rank ASC')
+        issues = self.search_issues(f'project = HELP AND "Product[Dropdown]" in ("{self.product_name}") AND statuscategory not in (Done) ORDER BY Rank ASC')
         self.set_reference_issue(issues)
         return issues
 
@@ -472,7 +470,7 @@ class MyJira:
         Returns:
             List of linked issues.
         """
-        linked_issues = self.jira.search_issues(f'project = {self.project_name} AND "Product[Dropdown]" in ("{self.product_name}") AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
+        linked_issues = self.search_issues(f'project = {self.project_name} AND "Product[Dropdown]" in ("{self.product_name}") AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
         return linked_issues
 
     def set_story_points(self, issue: Any, points: Union[int, float]) -> None:
@@ -494,7 +492,7 @@ class MyJira:
         Returns:
             List of sub-task issues.
         """
-        sub_tasks = self.jira.search_issues(f'project = {self.project_name} AND parent={issue.key} AND (issuetype = Sub-task OR issuetype = "Sub-task Bug") ORDER BY Rank ASC')
+        sub_tasks = self.search_issues(f'project = {self.project_name} AND parent={issue.key} AND (issuetype = Sub-task OR issuetype = "Sub-task Bug") ORDER BY Rank ASC')
         return sub_tasks
 
     def set_rank_above(self, issue: Any, above_issue: Any) -> None:
