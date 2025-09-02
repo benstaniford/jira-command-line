@@ -774,6 +774,51 @@ class MyJira:
     # If parent_issue is not None, then the new issue will be a sub-task of the parent
     # issue_type can be "Story", "Task", "Bug", etc.
     #
+    def _convert_to_adf(self, plain_text: str) -> Dict[str, Any]:
+        """
+        Convert plain text to Atlassian Document Format (ADF).
+        Args:
+            plain_text: Plain text string to convert.
+        Returns:
+            Dictionary in ADF format.
+        """
+        if not plain_text:
+            plain_text = ""
+        
+        # Split text into paragraphs (by double newlines or single newlines)
+        paragraphs = plain_text.split('\n\n') if '\n\n' in plain_text else plain_text.split('\n')
+        
+        content = []
+        for paragraph in paragraphs:
+            if paragraph.strip():  # Only add non-empty paragraphs
+                content.append({
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": paragraph.strip()
+                        }
+                    ]
+                })
+        
+        # If no content, add an empty paragraph
+        if not content:
+            content = [{
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": ""
+                    }
+                ]
+            }]
+        
+        return {
+            "type": "doc",
+            "version": 1,
+            "content": content
+        }
+
     def __build_issue(self, parent_issue: Optional[Any], title: str, description: str, issue_type: str) -> Dict[str, Any]:
         """
         Build an issue dictionary from the reference issue.
@@ -795,7 +840,7 @@ class MyJira:
         issue_dict = {
             'project': {'id': self.reference_issue.fields.project.id},
             'summary': title,
-            'description': description,
+            'description': self._convert_to_adf(description),
             ref_issue.product_fieldname: {'id': ref_issue.product.id}, # Product
             'issuetype': {'name': issue_type},
             }
