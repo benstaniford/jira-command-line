@@ -4,7 +4,7 @@ import webbrowser
 class TestpilotCommand(BaseCommand):
     @property
     def shortcut(self):
-        return "t"
+        return "P"
 
     @property
     def description(self):
