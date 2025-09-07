@@ -67,3 +67,21 @@ class MyGithub:
     def am_i_reviewer(self, pr):
         reviewers = self.get_requested_reviewers(pr)
         return self.login in reviewers
+
+    def get_pr_description(self, pr_number):
+        """Get the description/body of a pull request by PR number."""
+        repo = self.github.get_repo(f"{self.repo_owner}/{self.repo_name}")
+        pr = repo.get_pull(pr_number)
+        return pr.body
+
+    def update_pr_description(self, pr_number, new_description):
+        """Update the description/body of a pull request by PR number."""
+        repo = self.github.get_repo(f"{self.repo_owner}/{self.repo_name}")
+        pr = repo.get_pull(pr_number)
+        pr.edit(body=new_description)
+        return True
+
+    def get_pr_by_number(self, pr_number):
+        """Get full PR details by PR number."""
+        repo = self.github.get_repo(f"{self.repo_owner}/{self.repo_name}")
+        return repo.get_pull(pr_number)

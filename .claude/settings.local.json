@@ -21,7 +21,8 @@
       "mcp__Jira__search_issues",
       "mcp__Jira__get_issue",
       "mcp__Jira__add_comment",
-      "mcp__Jira__get_sprint_issues"
+      "mcp__Jira__get_sprint_issues",
+      "Bash(black:*)"
     ],
     "deny": [],
     "ask": []
