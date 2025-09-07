@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "jira": {
+      "command": "python",
+      "args": ["JiraMcpServer.py"],
+      "env": {
+        "PYTHONPATH": "."
+      }
+    }
+  }
+}

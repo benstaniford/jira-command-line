@@ -12,7 +12,12 @@
       "Bash(rg:*)",
       "WebFetch(domain:developer.atlassian.com)",
       "WebSearch",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Read(//home/ben/.claude/plugins/**)",
+      "Read(//home/ben/**)",
+      "Read(//home/ben/**)",
+      "Read(//home/ben/.config/**)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

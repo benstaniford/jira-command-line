@@ -11,3 +11,4 @@ beautifulsoup4
 pandas
 matplotlib
 numpy
+mcp>=1.0.0
