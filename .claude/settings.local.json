@@ -17,7 +17,9 @@
       "Read(//home/ben/**)",
       "Read(//home/ben/**)",
       "Read(//home/ben/.config/**)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "mcp__Jira__search_issues",
+      "mcp__Jira__get_issue"
     ],
     "deny": [],
     "ask": []
