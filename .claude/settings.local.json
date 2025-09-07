@@ -19,7 +19,9 @@
       "Read(//home/ben/.config/**)",
       "Bash(pkill:*)",
       "mcp__Jira__search_issues",
-      "mcp__Jira__get_issue"
+      "mcp__Jira__get_issue",
+      "mcp__Jira__add_comment",
+      "mcp__Jira__get_sprint_issues"
     ],
     "deny": [],
     "ask": []

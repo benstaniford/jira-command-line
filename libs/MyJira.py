@@ -395,23 +395,33 @@ class MyJira:
             issue: Jira issue object.
             comment: Comment text.
         """
-        # Convert plain text to ADF format for API v3 compatibility
-        adf_comment = {
-            "version": 1,
-            "type": "doc",
-            "content": [
-                {
-                    "type": "paragraph",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": comment
-                        }
-                    ]
-                }
-            ]
-        }
-        self.jira.add_comment(issue, {"body": adf_comment})
+        try:
+            # First try with ADF format for API v3 compatibility
+            adf_comment = {
+                "version": 1,
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": comment
+                            }
+                        ]
+                    }
+                ]
+            }
+            self.jira.add_comment(issue, adf_comment)
+        except Exception as e:
+            # Fallback to plain text if ADF format fails
+            print(f"ADF format failed, trying plain text: {e}")
+            try:
+                self.jira.add_comment(issue, comment)
+            except Exception as e2:
+                print(f"Plain text format also failed: {e2}")
+                # Try with body wrapper as fallback
+                self.jira.add_comment(issue, {"body": comment})
 
     def set_reference_issue(self, issues: Any) -> None:
         """
