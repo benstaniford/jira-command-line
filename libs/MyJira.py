@@ -395,7 +395,23 @@ class MyJira:
             issue: Jira issue object.
             comment: Comment text.
         """
-        self.jira.add_comment(issue, comment)
+        # Convert plain text to ADF format for API v3 compatibility
+        adf_comment = {
+            "version": 1,
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": comment
+                        }
+                    ]
+                }
+            ]
+        }
+        self.jira.add_comment(issue, {"body": adf_comment})
 
     def set_reference_issue(self, issues: Any) -> None:
         """
