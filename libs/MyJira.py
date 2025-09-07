@@ -7,10 +7,7 @@ from .JiraIssueMarkdownFormatter import JiraIssueMarkdownFormatter
 import os
 import datetime
 import webbrowser
-import markdown
-import yaml
 import requests
-import json
 from typing import Any, Dict, List, Optional, Union
 
 class MyJira:
