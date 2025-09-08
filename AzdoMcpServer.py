@@ -132,6 +132,30 @@ class AzdoMCPServer:
                     }
                 ),
                 Tool(
+                    name="download_build_logs",
+                    description="Download build logs to a local directory",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "build_id": {
+                                "type": "integer",
+                                "description": "The build ID"
+                            },
+                            "download_path": {
+                                "type": "string",
+                                "description": "Local path to download the logs (default: ./logs)",
+                                "default": "./logs"
+                            },
+                            "include_system_logs": {
+                                "type": "boolean",
+                                "description": "Include system/internal logs (default: false)",
+                                "default": false
+                            }
+                        },
+                        "required": ["build_id"]
+                    }
+                ),
+                Tool(
                     name="get_build_timeline",
                     description="Get the timeline/jobs for a build",
                     inputSchema={
@@ -297,6 +321,7 @@ class AzdoMCPServer:
                     "get_build_details": self._get_build_details,
                     "trigger_pipeline": self._trigger_pipeline,
                     "get_build_logs": self._get_build_logs,
+                    "download_build_logs": self._download_build_logs,
                     "get_build_timeline": self._get_build_timeline,
                     "list_build_artifacts": self._list_build_artifacts,
                     "download_artifact": self._download_artifact,
@@ -334,12 +359,14 @@ class AzdoMCPServer:
             self.session.auth = HTTPBasicAuth("", self.pat_token)
             self.session.headers.update({
                 "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "User-Agent": "mcp-azdo-server/1.0.0",
+                "X-TFS-FedAuthRedirect": "Suppress"
             })
             
             logger.info(f"Initialized Azure DevOps connection for {self.org_url}/{self.project}")
 
-    def _make_request(self, url: str, method: str = "GET", data: Optional[Dict] = None) -> Dict[str, Any]:
+    def _make_request(self, url: str, method: str = "GET", data: Optional[Dict] = None, return_raw: bool = False) -> any:
         """Make an authenticated request to Azure DevOps API."""
         try:
             if method.upper() == "GET":
@@ -352,6 +379,10 @@ class AzdoMCPServer:
                 raise ValueError(f"Unsupported HTTP method: {method}")
                 
             response.raise_for_status()
+            
+            # Return raw response if requested (for file downloads)
+            if return_raw:
+                return response
             
             # Handle empty responses
             if not response.content:
@@ -510,8 +541,8 @@ class AzdoMCPServer:
             content_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=6.0"
             
             try:
-                response = self.session.get(content_url)
-                response.raise_for_status()
+                # Use the authenticated _make_request method for consistency
+                response = self._make_request(content_url, return_raw=True)
                 
                 log_contents.append({
                     "id": log_id,
@@ -534,6 +565,88 @@ class AzdoMCPServer:
             "total_logs": len(logs),
             "showing_first": min(5, len(logs)),
             "logs": log_contents
+        }
+        
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    async def _download_build_logs(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Download build logs to a local directory."""
+        build_id = arguments["build_id"]
+        download_path = arguments.get("download_path", "./logs")
+        include_system_logs = arguments.get("include_system_logs", False)
+        
+        # Create download directory
+        os.makedirs(download_path, exist_ok=True)
+        
+        # First get the list of logs
+        logs_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/logs?api-version=6.0"
+        logs_data = self._make_request(logs_url)
+        
+        logs = logs_data.get("value", [])
+        
+        if not logs:
+            raise ValueError(f"No logs found for build {build_id}")
+        
+        downloaded_files = []
+        download_errors = []
+        
+        for log in logs:
+            log_id = log["id"]
+            log_type = log.get("type", "Unknown")
+            line_count = log.get("lineCount", 0)
+            
+            # Skip system logs unless explicitly requested
+            if not include_system_logs and log_type.lower() in ["container", "system"]:
+                continue
+            
+            # Skip empty logs
+            if line_count == 0:
+                continue
+                
+            try:
+                # Download log content with proper authentication
+                content_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=6.0"
+                
+                # Use the authenticated session to get raw content
+                response = self._make_request(content_url, return_raw=True)
+                
+                # Create filename
+                safe_type = log_type.replace("/", "_").replace("\\", "_")
+                filename = f"build_{build_id}_log_{log_id}_{safe_type}.txt"
+                filepath = os.path.join(download_path, filename)
+                
+                # Write log content to file
+                with open(filepath, "w", encoding="utf-8", errors="replace") as f:
+                    f.write(response.text)
+                
+                downloaded_files.append({
+                    "log_id": log_id,
+                    "type": log_type,
+                    "line_count": line_count,
+                    "filename": filename,
+                    "filepath": filepath,
+                    "size_bytes": len(response.content)
+                })
+                
+            except Exception as e:
+                error_msg = f"Failed to download log {log_id} ({log_type}): {str(e)}"
+                logger.error(error_msg)
+                download_errors.append({
+                    "log_id": log_id,
+                    "type": log_type,
+                    "error": error_msg
+                })
+        
+        result = {
+            "build_id": build_id,
+            "download_path": download_path,
+            "total_logs_available": len(logs),
+            "downloaded_count": len(downloaded_files),
+            "error_count": len(download_errors),
+            "include_system_logs": include_system_logs,
+            "downloaded_files": downloaded_files,
+            "errors": download_errors,
+            "message": f"Successfully downloaded {len(downloaded_files)} log files to {download_path}"
         }
         
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
