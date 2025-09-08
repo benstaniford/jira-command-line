@@ -23,7 +23,8 @@
       "mcp__Jira__add_comment",
       "mcp__Jira__get_sprint_issues",
       "Bash(black:*)",
-      "Read(//home/ben/.jira-config/**)"
+      "Read(//home/ben/.jira-config/**)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []
