@@ -824,4 +824,128 @@ class CursesTableView:
 
     def __get_subrows(self):
         return [row_container for row_container in self.rows if row_container.is_subrow()]
+
+    def prompt_fuzzy_find(self, prompt_text, choices, max_display=4):
+        """
+        Display a fuzzy find prompt with tab completion and filtered results.
+        Shows up to max_display matching choices in real-time as the user types.
+        Supports Tab completion for the current best match.
+        
+        Args:
+            prompt_text (str): The prompt text to display
+            choices (list): List of choices to search through
+            max_display (int): Maximum number of matches to display (default: 4)
+            
+        Returns:
+            str: The selected choice, or empty string if cancelled
+        """
+        import curses
+        
+        if not choices:
+            return ""
+            
+        current_input = ""
+        selected_index = 0
+        
+        def fuzzy_match(query, text):
+            """Simple fuzzy matching - case insensitive substring match"""
+            if not query:
+                return True
+            return query.lower() in text.lower()
+        
+        def get_matches(query):
+            """Get filtered matches based on current query"""
+            matches = [choice for choice in choices if fuzzy_match(query, str(choice))]
+            return matches[:max_display]
+        
+        def get_best_match(query, matches):
+            """Get the best match for tab completion"""
+            if not matches:
+                return ""
+            if not query:
+                return matches[0]
+            
+            # Find exact prefix matches first
+            exact_matches = [m for m in matches if str(m).lower().startswith(query.lower())]
+            if exact_matches:
+                return exact_matches[0]
+            return matches[0]
+        
+        while True:
+            self.clear_prompt()
+            
+            # Get current matches
+            matches = get_matches(current_input)
+            
+            # Build display lines
+            display_lines = []
+            
+            # Show matches (up to max_display)
+            for i, match in enumerate(matches):
+                is_selected = (i == selected_index % len(matches)) if matches else False
+                if is_selected:
+                    display_lines.append([(f"> {str(match)}", True)])
+                else:
+                    display_lines.append(f"  {str(match)}")
+            
+            # Pad with empty lines to maintain consistent layout
+            while len(display_lines) < max_display:
+                display_lines.append("")
+                
+            # Add the input prompt line
+            display_lines.append(f"{prompt_text}: {current_input}")
+            
+            # Display the prompt
+            try:
+                self.prompt_with_colored_help(display_lines)
+            except Exception:
+                # Fallback if too many lines
+                simple_prompt = f"{prompt_text} (matches: {len(matches)}): {current_input}"
+                self.prompt_with_colored_help(simple_prompt)
+            
+            # Position cursor at end of input
+            prompt_line_pos = curses.LINES - 1
+            cursor_pos = len(f"{prompt_text}: ") + len(current_input) 
+            self.stdscr.move(prompt_line_pos, cursor_pos)
+            self.stdscr.refresh()
+            
+            # Get user input
+            typed_char = self.stdscr.getch()
+            
+            if typed_char == curses.KEY_RESIZE:
+                continue
+                
+            elif typed_char in (10, 13):  # Enter
+                if matches and selected_index < len(matches):
+                    return str(matches[selected_index])
+                elif matches:
+                    return str(matches[0])
+                return current_input if current_input else ""
+                
+            elif typed_char == 27:  # Escape
+                return ""
+                
+            elif typed_char in (curses.KEY_BACKSPACE, 127, 8):  # Backspace
+                if current_input:
+                    current_input = current_input[:-1]
+                    selected_index = 0
+                    
+            elif typed_char == 9:  # Tab - autocomplete
+                if matches:
+                    best_match = get_best_match(current_input, matches)
+                    if best_match:
+                        current_input = str(best_match)
+                        selected_index = 0
+                        
+            elif typed_char == curses.KEY_DOWN:
+                if matches:
+                    selected_index = (selected_index + 1) % len(matches)
+                    
+            elif typed_char == curses.KEY_UP:
+                if matches:
+                    selected_index = (selected_index - 1) % len(matches)
+                    
+            elif 32 <= typed_char <= 126:  # Printable characters
+                current_input += chr(typed_char)
+                selected_index = 0
             

@@ -51,14 +51,14 @@ class CreateCommand(BaseCommand):
                     if found_in_build and found_in_build.strip() == "":
                         found_in_build = None
                     
-                    # Get Component selection
+                    # Get Component selection using fuzzy find
                     try:
                         # Get available components for the project
                         if jira.reference_issue:
                             project_components = jira.jira.project_components(jira.reference_issue.fields.project.id)
                             if project_components:
                                 component_names = ["(Skip - No Component)"] + [comp.name for comp in project_components]
-                                [index, component_name] = ui.prompt_with_choice_list("Select component", component_names)
+                                component_name = ui.prompt_fuzzy_find("Select component (ESC to skip)", component_names)
                                 if component_name and component_name.strip() and component_name != "(Skip - No Component)":
                                     # Find the component ID
                                     for comp in project_components:
