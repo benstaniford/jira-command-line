@@ -586,33 +586,37 @@ class MyJira:
         formatter = JiraIssueMarkdownFormatter(self.jira)
         return formatter.format(issue, include_comments=include_comments, format_as_html=format_as_html)
 
-    def create_backlog_issue(self, title: str, description: str, issue_type: str) -> Any:
+    def create_backlog_issue(self, title: str, description: str, issue_type: str, found_in_build: str = None, component_id: str = None) -> Any:
         """
         Create a new backlog issue.
         Args:
             title: Issue summary.
             description: Issue description.
             issue_type: Type of the issue (e.g., Story, Bug).
+            found_in_build: Optional build number where issue was found.
+            component_id: Optional component ID.
         Returns:
             The new issue object.
         """
-        issue_dict = self.__build_issue(None, title, description, issue_type)
+        issue_dict = self.__build_issue(None, title, description, issue_type, found_in_build, component_id)
         new_issue = self.jira.create_issue(fields=issue_dict)
         return new_issue
 
-    def create_sprint_issue(self, title: str, description: str, issue_type: str) -> Any:
+    def create_sprint_issue(self, title: str, description: str, issue_type: str, found_in_build: str = None, component_id: str = None) -> Any:
         """
         Create a new sprint issue.
         Args:
             title: Issue summary.
             description: Issue description.
             issue_type: Type of the issue (e.g., Story, Bug).
+            found_in_build: Optional build number where issue was found.
+            component_id: Optional component ID.
         Returns:
             The new issue object.
         Raises:
             Exception: If the reference issue has more than one sprint.
         """
-        issue_dict = self.__build_issue(None, title, description, issue_type)
+        issue_dict = self.__build_issue(None, title, description, issue_type, found_in_build, component_id)
         ref_issue = MyJiraIssue(self.reference_issue, self.jira)
         
         if len(ref_issue.sprint) > 1:
@@ -842,7 +846,7 @@ class MyJira:
             "content": content
         }
 
-    def __build_issue(self, parent_issue: Optional[Any], title: str, description: str, issue_type: str) -> Dict[str, Any]:
+    def __build_issue(self, parent_issue: Optional[Any], title: str, description: str, issue_type: str, found_in_build: str = None, component_id: str = None) -> Dict[str, Any]:
         """
         Build an issue dictionary from the reference issue.
         Args:
@@ -850,6 +854,8 @@ class MyJira:
             title: Issue summary.
             description: Issue description.
             issue_type: Type of the issue (e.g., Story, Bug).
+            found_in_build: Optional build number where issue was found.
+            component_id: Optional component ID.
         Returns:
             Dictionary representing the new issue fields.
         Raises:
@@ -872,5 +878,13 @@ class MyJira:
             issue_dict["parent"] = {"id": parent_issue.id}
         else:
             issue_dict[ref_issue.team_fieldname] = ref_issue.team.id
+
+        # Add Found In build number if provided
+        if found_in_build and found_in_build.strip():
+            issue_dict['customfield_10100'] = found_in_build.strip()
+
+        # Add Component if provided
+        if component_id:
+            issue_dict['components'] = [{'id': component_id}]
 
         return issue_dict

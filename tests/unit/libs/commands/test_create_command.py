@@ -18,8 +18,13 @@ class TestCreateCommand:
     def test_execute_backlog_issue_creation(self, mock_ui, mock_view, mock_jira_api):
         """Test creating a backlog issue"""
         mock_view.mode = ViewMode.BACKLOG
-        mock_ui.prompt_get_string.side_effect = ["Test Summary", "Test Description"]
-        mock_ui.prompt_with_choice_list.return_value = [0, "Story"]
+        mock_ui.prompt_get_string.side_effect = ["Test Summary", "Test Description", ""]  # Empty Found In build
+        mock_ui.prompt_with_choice_list.side_effect = [[0, "(Skip - No Component)"], [0, "Story"]]  # Component then issue type
+        
+        # Mock reference issue and project components
+        mock_jira_api.reference_issue = Mock()
+        mock_jira_api.reference_issue.fields.project.id = "12345"
+        mock_jira_api.jira.project_components.return_value = []
         
         mock_issue = Mock()
         mock_issue.key = "TEST-123"
@@ -29,7 +34,7 @@ class TestCreateCommand:
         command = CreateCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
         
-        mock_jira_api.create_backlog_issue.assert_called_once_with("Test Summary", "Test Description", "Story")
+        mock_jira_api.create_backlog_issue.assert_called_once_with("Test Summary", "Test Description", "Story", None, None)
         mock_ui.prompt.assert_called_with("Created TEST-123...")
         mock_view.refresh.assert_called_once()
         assert result is False
@@ -37,8 +42,13 @@ class TestCreateCommand:
     def test_execute_sprint_issue_creation(self, mock_ui, mock_view, mock_jira_api):
         """Test creating a sprint issue"""
         mock_view.mode = ViewMode.SPRINT
-        mock_ui.prompt_get_string.side_effect = ["Sprint Summary", "Sprint Description"]
-        mock_ui.prompt_with_choice_list.return_value = [1, "Bug"]
+        mock_ui.prompt_get_string.side_effect = ["Sprint Summary", "Sprint Description", "1.2.3"]  # With Found In build
+        mock_ui.prompt_with_choice_list.side_effect = [[0, "(Skip - No Component)"], [1, "Bug"]]  # Component then issue type
+        
+        # Mock reference issue and project components  
+        mock_jira_api.reference_issue = Mock()
+        mock_jira_api.reference_issue.fields.project.id = "12345"
+        mock_jira_api.jira.project_components.return_value = []
         
         mock_issue = Mock()
         mock_issue.key = "TEST-456"
@@ -48,7 +58,7 @@ class TestCreateCommand:
         command = CreateCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
         
-        mock_jira_api.create_sprint_issue.assert_called_once_with("Sprint Summary", "Sprint Description", "Bug")
+        mock_jira_api.create_sprint_issue.assert_called_once_with("Sprint Summary", "Sprint Description", "Bug", "1.2.3", None)
         mock_ui.prompt.assert_called_with("Created TEST-456...")
         mock_view.refresh.assert_called_once()
         assert result is False
