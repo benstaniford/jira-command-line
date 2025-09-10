@@ -445,11 +445,22 @@ class MyJira:
         """
         issues = [] 
 
-        if (search_text.lower().startswith("epm-") or search_text.lower().startswith("help-")):
-            issues = [self.jira.issue(search_text)]
+        # Check if it's a ticket key format (letters followed by dash and numbers)
+        import re
+        ticket_pattern = re.match(r'^([A-Za-z]+)-(\d+)$', search_text.strip())
+        
+        if ticket_pattern:
+            # If it matches ticket format (e.g., BIPS-26707, EPM-1234, HELP-456), search globally
+            try:
+                issues = [self.jira.issue(search_text)]
+            except:
+                # If direct lookup fails, try broader search across all projects
+                issues = self.search_issues(f'key = "{search_text}" ORDER BY Rank ASC')
         elif (search_text.isdigit()):
+            # For pure numbers, default to current project prefix (existing behavior)
             issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         else:
+            # For text searches, search in summary (existing behavior)
             issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
         self.set_reference_issue(issues)
