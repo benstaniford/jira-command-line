@@ -532,6 +532,7 @@ class CursesTableView:
                     answer = ""
                     break
                 elif typed_char == curses.KEY_RESIZE:
+                    self.draw()  # Redraw the table before continuing
                     break  # Will redraw the prompt
                 elif typed_char == curses.KEY_NPAGE:
                     self.__move_page(1)
@@ -598,6 +599,7 @@ class CursesTableView:
             Raises:
                 Exception: If an error occurs during the drawing process.
             """
+        curses.update_lines_cols()  # Ensure terminal dimensions are current
         if (self.row_numbers):
             self.__renumber_active_rows()
         self.stdscr.clear()
@@ -700,7 +702,8 @@ class CursesTableView:
                     return
                 search_term = search_term[:-1]
             elif typed_character == curses.KEY_RESIZE:
-                pass
+                self.draw()
+                continue
             elif typed_character < KeyCode.PRINTABLE_START or typed_character > KeyCode.PRINTABLE_END:
                 continue
             else:
@@ -729,7 +732,8 @@ class CursesTableView:
                     return
                 search_term = search_term[:-1]
             elif typed_character == curses.KEY_RESIZE:
-                pass
+                self.draw()
+                continue
             elif typed_character < KeyCode.PRINTABLE_START or typed_character > KeyCode.PRINTABLE_END:
                 continue
             else:
