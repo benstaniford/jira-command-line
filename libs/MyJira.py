@@ -627,6 +627,15 @@ class MyJira:
         Raises:
             Exception: If the reference issue has more than one sprint.
         """
+        # Automatically retrieve reference issue if not cached
+        if self.reference_issue is None:
+            # Get current sprint issues to set reference issue
+            self.get_sprint_issues()
+            
+            # If still no reference issue after getting sprint issues, raise an error
+            if self.reference_issue is None:
+                raise Exception("No reference issue available and no sprint issues found to use as reference")
+        
         issue_dict = self.__build_issue(None, title, description, issue_type, found_in_build, component_id)
         ref_issue = MyJiraIssue(self.reference_issue, self.jira)
         
