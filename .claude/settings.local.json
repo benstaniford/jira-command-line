@@ -27,7 +27,8 @@
       "Bash(chmod:*)",
       "Read(//tmp/**)",
       "Read(//tmp/**)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": [],
