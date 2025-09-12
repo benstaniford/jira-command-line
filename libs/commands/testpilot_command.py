@@ -22,4 +22,4 @@ class TestpilotCommand(BaseCommand):
             url = f"https://testpilot/jira-search?ticket={ticket_id}"
             webbrowser.open(url)
             ui.prompt(f"Opened Testpilot for {ticket_id} in browser.")
-        return True
+        return False

@@ -383,7 +383,7 @@ class MyJira:
         Raises:
             Exception: If not exactly one issue is found.
         """
-        issues = self.search_issues(f'project = {self.project_name} AND key = {key}')
+        issues = self.search_issues(f'key = {key}')
         if len(issues) != 1:
             raise Exception(f"Expected 1 issue with key {key}, but found {len(issues)}")
         return issues[0]
