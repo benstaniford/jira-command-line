@@ -444,6 +444,10 @@ class MyJira:
             List of matching issues.
         """
         issues = [] 
+        
+        # Handle None or empty search text
+        if not search_text:
+            return issues
 
         # Check if it's a ticket key format (letters followed by dash and numbers)
         import re
