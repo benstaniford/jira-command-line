@@ -11,3 +11,4 @@ pandas
 matplotlib
 numpy
 mcp>=1.0.0
+atlassian-python-api
