@@ -8,6 +8,8 @@ import os
 import datetime
 import webbrowser
 import requests
+import subprocess
+import platform
 from typing import Any, Dict, List, Optional, Union
 
 class MyJira:
@@ -773,33 +775,51 @@ class MyJira:
         """
         return self.short_names_to_ids
 
+    def _open_url(self, url: str) -> None:
+        """
+        Open a URL in a browser. On Linux without UI, use external 'browse' command.
+        Args:
+            url: URL to open.
+        """
+        # Check if we're on Linux and DISPLAY is not set (no UI available)
+        if platform.system() == "Linux" and not os.environ.get("DISPLAY"):
+            # Use external browse command
+            try:
+                subprocess.run(["browse", url], check=True)
+            except FileNotFoundError:
+                # Fallback to webbrowser if browse command not found
+                webbrowser.open(url)
+        else:
+            # Use standard webbrowser module
+            webbrowser.open(url)
+
     def browse_to(self, issue: Any) -> None:
         """
         Open the issue in a web browser.
         Args:
             issue: Jira issue object.
         """
-        webbrowser.open(issue.permalink())
+        self._open_url(issue.permalink())
 
     def browse_sprint_board(self) -> None:
         """
         Open the sprint board in a web browser.
         """
-        webbrowser.open(f"{self.url}/secure/RapidBoard.jspa?rapidView={self.backlog_board_id}")
+        self._open_url(f"{self.url}/secure/RapidBoard.jspa?rapidView={self.backlog_board_id}")
 
     def browse_backlog_board(self) -> None:
         """
         Open the backlog board in a web browser.
         """
         url = f"{self.url}/secure/RapidBoard.jspa?rapidView={self.backlog_board_id}&view=planning.nodetail"
-        webbrowser.open(url)
+        self._open_url(url)
 
     def browse_kanban_board(self) -> None:
         """
         Open the kanban board in a web browser.
         """
         url = f"{self.url}/secure/RapidBoard.jspa?rapidView={self.kanban_board_id}"
-        webbrowser.open(url)
+        self._open_url(url)
 
     # Downloads all attachments for the given issue to the given path, calls callback with the filename before each download
     def download_attachments(self, issue: Any, path: str, callback: Optional[Any] = None) -> None:
