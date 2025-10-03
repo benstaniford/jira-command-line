@@ -1,0 +1,574 @@
+#!/usr/bin/env python3
+"""
+Azure DevOps Pipeline Run Viewer
+Shows recent runregression pipeline results with interactive selection
+"""
+
+import curses
+import os
+import sys
+import json
+from datetime import datetime
+from pathlib import Path
+import requests
+from requests.auth import HTTPBasicAuth
+
+class AzDoClient:
+    def __init__(self):
+        self.pat_token = os.getenv("AZURE_DEVOPS_EXT_PAT")
+        self.org_url = os.getenv("AZ_ORG")
+        self.project = os.getenv("AZ_PROJECT")
+
+        if not all([self.pat_token, self.org_url, self.project]):
+            raise ValueError("Missing required environment variables: AZURE_DEVOPS_EXT_PAT, AZ_ORG, AZ_PROJECT")
+
+        self.session = requests.Session()
+        self.session.auth = HTTPBasicAuth("", self.pat_token)
+        self.session.headers.update({
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        })
+
+    def _make_request(self, url):
+        """Make an authenticated request to Azure DevOps API."""
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Request failed: {e}")
+
+    def find_pipeline(self, name_filter):
+        """Find a pipeline by name filter."""
+        url = f"{self.org_url}/{self.project}/_apis/build/definitions?api-version=6.0"
+        data = self._make_request(url)
+        pipelines = data.get("value", [])
+
+        # Find pipeline matching the filter
+        for pipeline in pipelines:
+            if name_filter.lower() in pipeline["name"].lower():
+                return pipeline
+        return None
+
+    def get_pipeline_runs(self, pipeline_id, top=50):
+        """Get recent runs for a specific pipeline."""
+        url = f"{self.org_url}/{self.project}/_apis/build/builds?definitions={pipeline_id}&$top={top}&api-version=6.0"
+        data = self._make_request(url)
+        return data.get("value", [])
+
+    def get_build_logs(self, build_id):
+        """Get list of logs for a build."""
+        url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/logs?api-version=6.0"
+        data = self._make_request(url)
+        return data.get("value", [])
+
+    def download_log(self, build_id, log_id):
+        """Download a specific log file content."""
+        url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=6.0"
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            return f"Error downloading log: {e}"
+
+    def get_test_results(self, build_id, progress_callback=None):
+        """Get test results for a build - proper workflow using runs then results."""
+        # Step 1: Get test runs for this build
+        runs_url = f"{self.org_url}/{self.project}/_apis/test/runs?buildIds={build_id}&api-version=7.1"
+
+        if progress_callback:
+            progress_callback("Fetching test runs...")
+
+        runs_data = self._make_request(runs_url)
+        test_runs = runs_data.get("value", [])
+
+        if not test_runs:
+            return []
+
+        if progress_callback:
+            progress_callback(f"Found {len(test_runs)} test run(s), checking for failures...")
+
+        # Step 2: For each run, get the failed test results
+        all_failed_results = []
+        for idx, run in enumerate(test_runs):
+            run_id = run["id"]
+            run_name = run.get("name", f"Run {run_id}")
+
+            if progress_callback:
+                progress_callback(f"Checking run {idx+1}/{len(test_runs)}: {run_name[:40]}...")
+
+            # Get failed test results for this run
+            results_url = f"{self.org_url}/{self.project}/_apis/test/Runs/{run_id}/results?outcomes=Failed&api-version=7.1"
+            try:
+                results_data = self._make_request(results_url)
+                results = results_data.get("value", [])
+
+                if progress_callback and results:
+                    progress_callback(f"Found {len(results)} failed test(s) in this run...")
+
+                for result in results:
+                    all_failed_results.append({
+                        "test_id": result.get("id"),
+                        "test_case_title": result.get("testCaseTitle", result.get("automatedTestName", "Unknown")),
+                        "outcome": result.get("outcome"),
+                        "state": result.get("state"),
+                        "priority": result.get("priority"),
+                        "duration": result.get("durationInMs"),
+                        "error_message": result.get("errorMessage"),
+                        "stack_trace": result.get("stackTrace"),
+                        "automated_test_name": result.get("automatedTestName"),
+                        "test_run": {
+                            "id": run_id,
+                            "name": run.get("name")
+                        },
+                        "build": {
+                            "id": result.get("build", {}).get("id") if result.get("build") else build_id
+                        }
+                    })
+            except Exception as e:
+                # If we can't get results for this run, continue to next run
+                if progress_callback:
+                    progress_callback(f"Error fetching results for run {run_id}: {str(e)[:40]}...")
+                continue
+
+        if progress_callback:
+            progress_callback(f"Total failed tests found: {len(all_failed_results)}")
+
+        return all_failed_results
+
+def format_timestamp(timestamp_str):
+    """Format ISO timestamp to readable format."""
+    if not timestamp_str:
+        return "N/A"
+    try:
+        dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except:
+        return timestamp_str
+
+def get_result_color(result, status):
+    """Get color pair number for build result."""
+    if status != "completed":
+        return 3  # Yellow for in-progress
+    if result == "succeeded":
+        return 1  # Green for success
+    elif result == "failed":
+        return 2  # Red for failure
+    else:
+        return 4  # Cyan for other
+
+def init_colors():
+    """Initialize color pairs for curses."""
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)    # Success
+    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)      # Failed
+    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)   # In Progress
+    curses.init_pair(4, curses.COLOR_CYAN, curses.COLOR_BLACK)     # Other
+    curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_BLUE)     # Selected
+    curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Header
+
+def draw_builds(stdscr, builds, selected_idx, scroll_offset):
+    """Draw the list of builds to the screen."""
+    height, width = stdscr.getmaxyx()
+
+    # Header
+    title = "Azure DevOps Pipeline Runs - runregression".center(width)[:width-1]
+    stdscr.addstr(0, 0, title, curses.color_pair(6) | curses.A_BOLD)
+    stdscr.addstr(1, 0, ("=" * width)[:width-1], curses.color_pair(6))
+
+    # Column headers
+    header = f"{'#':<4} {'Build Number':<20} {'Result':<12} {'Status':<12} {'Started':<20} {'Branch':<30}"
+    stdscr.addstr(2, 0, header[:width], curses.A_BOLD)
+
+    # Builds list
+    display_height = height - 6  # Reserve space for header and footer
+    for idx in range(scroll_offset, min(scroll_offset + display_height, len(builds))):
+        build = builds[idx]
+        row_num = idx - scroll_offset + 3
+
+        if row_num >= height - 3:
+            break
+
+        # Format build info
+        build_num = build.get("buildNumber", "N/A")[:20]
+        result = build.get("result", "N/A")[:12]
+        status = build.get("status", "N/A")[:12]
+        start_time = format_timestamp(build.get("startTime"))[:20]
+        branch = build.get("sourceBranch", "N/A").replace("refs/heads/", "")[:30]
+
+        line = f"{idx+1:<4} {build_num:<20} {result:<12} {status:<12} {start_time:<20} {branch:<30}"
+
+        # Apply colors
+        if idx == selected_idx:
+            stdscr.addstr(row_num, 0, line[:width], curses.color_pair(5) | curses.A_BOLD)
+        else:
+            color = get_result_color(result, status)
+            stdscr.addstr(row_num, 0, line[:width], curses.color_pair(color))
+
+    # Footer
+    if height > 5:  # Only draw footer if there's space
+        footer_y = height - 2
+        stdscr.addstr(footer_y, 0, ("=" * width)[:width-1], curses.color_pair(6))
+        footer_text = "↑/↓: Navigate | ENTER: View failed tests | q: Quit".center(width)[:width-1]
+        if footer_y + 1 < height:
+            stdscr.addstr(footer_y + 1, 0, footer_text, curses.color_pair(6))
+
+    stdscr.refresh()
+
+def draw_failed_tests(stdscr, build, tests, selected_idx, scroll_offset):
+    """Draw the list of failed tests for a build."""
+    height, width = stdscr.getmaxyx()
+
+    # Header
+    build_num = build.get("buildNumber", "N/A")
+    title = f"Failed Tests ({len(tests)}) - Build {build_num}".center(width)[:width-1]
+    stdscr.addstr(0, 0, title, curses.color_pair(6) | curses.A_BOLD)
+    stdscr.addstr(1, 0, ("=" * width)[:width-1], curses.color_pair(6))
+
+    if not tests:
+        stdscr.addstr(3, 0, "No failed tests found for this build", curses.color_pair(1))
+        if height > 5:
+            footer_y = height - 2
+            stdscr.addstr(footer_y, 0, ("=" * width)[:width-1], curses.color_pair(6))
+            footer_text = "ESC/q: Back".center(width)[:width-1]
+            if footer_y + 1 < height:
+                stdscr.addstr(footer_y + 1, 0, footer_text, curses.color_pair(6))
+        stdscr.refresh()
+        return
+
+    # Column headers
+    header = f"{'#':<4} {'Test Name':<80} {'Duration (ms)':<15}"
+    stdscr.addstr(2, 0, header[:width-1], curses.A_BOLD)
+
+    # Tests list
+    display_height = height - 6  # Reserve space for header and footer
+    for idx in range(scroll_offset, min(scroll_offset + display_height, len(tests))):
+        test = tests[idx]
+        row_num = idx - scroll_offset + 3
+
+        if row_num >= height - 3:
+            break
+
+        # Format test info
+        test_name = test.get("test_case_title", "Unknown")[:80]
+        duration = str(test.get("duration", "N/A"))[:15]
+
+        line = f"{idx+1:<4} {test_name:<80} {duration:<15}"
+
+        # Apply colors - all are failed tests so show in red
+        if idx == selected_idx:
+            stdscr.addstr(row_num, 0, line[:width-1], curses.color_pair(5) | curses.A_BOLD)
+        else:
+            stdscr.addstr(row_num, 0, line[:width-1], curses.color_pair(2))  # Red for failed
+
+    # Footer
+    if height > 5:
+        footer_y = height - 2
+        stdscr.addstr(footer_y, 0, ("=" * width)[:width-1], curses.color_pair(6))
+        footer_text = "↑/↓: Navigate | ENTER: Download logs for test | ESC/q: Back".center(width)[:width-1]
+        if footer_y + 1 < height:
+            stdscr.addstr(footer_y + 1, 0, footer_text, curses.color_pair(6))
+
+    stdscr.refresh()
+
+def download_single_log(client, build, log):
+    """Download a single log file to ~/testruns/{build_id}/"""
+    build_id = build["id"]
+    build_number = build.get("buildNumber", str(build_id))
+
+    # Create output directory
+    output_dir = Path.home() / "testruns" / str(build_id)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save build metadata if not exists
+    metadata_file = output_dir / "build_info.json"
+    if not metadata_file.exists():
+        metadata = {
+            "build_id": build_id,
+            "build_number": build_number,
+            "result": build.get("result"),
+            "status": build.get("status"),
+            "start_time": build.get("startTime"),
+            "finish_time": build.get("finishTime"),
+            "source_branch": build.get("sourceBranch"),
+            "requested_by": build.get("requestedBy", {}).get("displayName")
+        }
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+    # Download the specific log
+    log_id = log["id"]
+    log_type = log.get("type", "log")
+
+    # Download log content
+    content = client.download_log(build_id, log_id)
+
+    # Save to file
+    filename = f"log_{log_id:03d}_{log_type}.txt"
+    filepath = output_dir / filename
+    with open(filepath, "w") as f:
+        f.write(content)
+
+    return filepath
+
+def download_all_logs(client, build):
+    """Download all logs for a build to ~/testruns/{build_id}/"""
+    build_id = build["id"]
+    build_number = build.get("buildNumber", str(build_id))
+
+    # Create output directory
+    output_dir = Path.home() / "testruns" / str(build_id)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save build metadata
+    metadata = {
+        "build_id": build_id,
+        "build_number": build_number,
+        "result": build.get("result"),
+        "status": build.get("status"),
+        "start_time": build.get("startTime"),
+        "finish_time": build.get("finishTime"),
+        "source_branch": build.get("sourceBranch"),
+        "requested_by": build.get("requestedBy", {}).get("displayName")
+    }
+
+    with open(output_dir / "build_info.json", "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    # Download logs
+    logs = client.get_build_logs(build_id)
+
+    for log in logs:
+        log_id = log["id"]
+        log_type = log.get("type", "log")
+
+        # Download log content
+        content = client.download_log(build_id, log_id)
+
+        # Save to file
+        filename = f"log_{log_id:03d}_{log_type}.txt"
+        with open(output_dir / filename, "w") as f:
+            f.write(content)
+
+    return output_dir, len(logs)
+
+def main(stdscr):
+    """Main function for curses UI."""
+    # Initialize colors
+    curses.curs_set(0)  # Hide cursor
+    init_colors()
+
+    # Initialize Azure DevOps client
+    try:
+        client = AzDoClient()
+    except ValueError as e:
+        stdscr.addstr(0, 0, f"Error: {e}")
+        stdscr.addstr(2, 0, "Please set the required environment variables:")
+        stdscr.addstr(3, 0, "  - AZURE_DEVOPS_EXT_PAT")
+        stdscr.addstr(4, 0, "  - AZ_ORG")
+        stdscr.addstr(5, 0, "  - AZ_PROJECT")
+        stdscr.addstr(7, 0, "Press any key to exit...")
+        stdscr.refresh()
+        stdscr.getch()
+        return
+
+    # Find the runregression pipeline
+    stdscr.addstr(0, 0, "Finding runregression pipeline...")
+    stdscr.refresh()
+
+    pipeline = client.find_pipeline("runregression")
+    if not pipeline:
+        stdscr.addstr(2, 0, "Error: Could not find 'runregression' pipeline")
+        stdscr.addstr(4, 0, "Press any key to exit...")
+        stdscr.refresh()
+        stdscr.getch()
+        return
+
+    pipeline_id = pipeline["id"]
+    pipeline_name = pipeline["name"]
+
+    # Get recent builds
+    stdscr.addstr(1, 0, f"Loading recent runs for '{pipeline_name}'...")
+    stdscr.refresh()
+
+    builds = client.get_pipeline_runs(pipeline_id, top=50)
+
+    if not builds:
+        stdscr.addstr(3, 0, "No builds found for this pipeline")
+        stdscr.addstr(5, 0, "Press any key to exit...")
+        stdscr.refresh()
+        stdscr.getch()
+        return
+
+    # Main UI loop - two screens: builds and failed tests
+    screen = "builds"  # "builds" or "tests"
+    build_selected_idx = 0
+    build_scroll_offset = 0
+    test_selected_idx = 0
+    test_scroll_offset = 0
+    current_build = None
+    failed_tests = []
+
+    while True:
+        height, _ = stdscr.getmaxyx()
+        display_height = height - 6
+
+        # Draw the appropriate screen
+        stdscr.clear()
+        if screen == "builds":
+            draw_builds(stdscr, builds, build_selected_idx, build_scroll_offset)
+            selected_idx = build_selected_idx
+            scroll_offset = build_scroll_offset
+            items_count = len(builds)
+        else:  # screen == "tests"
+            draw_failed_tests(stdscr, current_build, failed_tests, test_selected_idx, test_scroll_offset)
+            selected_idx = test_selected_idx
+            scroll_offset = test_scroll_offset
+            items_count = len(failed_tests)
+
+        # Handle input
+        key = stdscr.getch()
+
+        if key == ord('q') or key == ord('Q'):
+            if screen == "tests":
+                # Go back to builds screen
+                screen = "builds"
+                test_selected_idx = 0
+                test_scroll_offset = 0
+            else:
+                # Quit application
+                break
+        elif key == 27:  # ESC key
+            if screen == "tests":
+                screen = "builds"
+                test_selected_idx = 0
+                test_scroll_offset = 0
+        elif key == curses.KEY_UP and selected_idx > 0:
+            selected_idx -= 1
+            if selected_idx < scroll_offset:
+                scroll_offset = selected_idx
+            # Update the appropriate screen's state
+            if screen == "builds":
+                build_selected_idx = selected_idx
+                build_scroll_offset = scroll_offset
+            else:
+                test_selected_idx = selected_idx
+                test_scroll_offset = scroll_offset
+        elif key == curses.KEY_DOWN and selected_idx < items_count - 1:
+            selected_idx += 1
+            if selected_idx >= scroll_offset + display_height:
+                scroll_offset = selected_idx - display_height + 1
+            # Update the appropriate screen's state
+            if screen == "builds":
+                build_selected_idx = selected_idx
+                build_scroll_offset = scroll_offset
+            else:
+                test_selected_idx = selected_idx
+                test_scroll_offset = scroll_offset
+        elif key == ord('\n'):  # Enter key
+            if screen == "builds":
+                # Show failed tests for selected build
+                current_build = builds[build_selected_idx]
+
+                # Get screen dimensions for progress display
+                prog_height, prog_width = stdscr.getmaxyx()
+
+                stdscr.clear()
+                build_num = current_build.get('buildNumber', 'Unknown')[:60]
+                stdscr.addstr(0, 0, f"Loading failed tests for build:", curses.A_BOLD)
+                stdscr.addstr(1, 0, f"  {build_num}")
+
+                # Progress tracking
+                progress_messages = []
+                max_visible_messages = min(10, prog_height - 10)  # Show last 10 messages or less if screen is small
+                total_runs = [0]  # Use list to allow modification in nested function
+                current_run = [0]
+
+                def update_progress(message):
+                    """Callback to update progress on screen with rolling message display."""
+                    nonlocal progress_messages
+
+                    # Track total runs if we see "Found X test run(s)"
+                    if "test run(s)" in message and total_runs[0] == 0:
+                        import re
+                        match = re.search(r'Found (\d+) test run', message)
+                        if match:
+                            total_runs[0] = int(match.group(1))
+
+                    # Track current run if we see "Checking run X/Y"
+                    if "Checking run" in message:
+                        import re
+                        match = re.search(r'Checking run (\d+)/(\d+)', message)
+                        if match:
+                            current_run[0] = int(match.group(1))
+
+                    # Add message to rolling list
+                    progress_messages.append(message)
+                    if len(progress_messages) > max_visible_messages:
+                        progress_messages.pop(0)
+
+                    # Redraw progress area
+                    stdscr.move(3, 0)
+                    stdscr.clrtobot()
+
+                    # Draw progress bar if we know total runs
+                    if total_runs[0] > 0 and current_run[0] > 0:
+                        progress_pct = (current_run[0] / total_runs[0]) * 100
+                        bar_width = min(50, prog_width - 20)
+                        filled = int((current_run[0] / total_runs[0]) * bar_width)
+                        bar = "[" + "=" * filled + ">" + " " * (bar_width - filled - 1) + "]"
+                        progress_text = f"Progress: {bar} {progress_pct:.0f}% ({current_run[0]}/{total_runs[0]})"
+                        stdscr.addstr(3, 0, progress_text[:prog_width-1], curses.color_pair(3) | curses.A_BOLD)
+
+                    # Show recent messages
+                    start_line = 5 if total_runs[0] > 0 else 3
+                    for idx, msg in enumerate(progress_messages):
+                        if start_line + idx < prog_height - 2:
+                            stdscr.addstr(start_line + idx, 0, f"  {msg[:prog_width-3]}", curses.color_pair(4))
+
+                    stdscr.refresh()
+
+                stdscr.refresh()
+
+                try:
+                    failed_tests = client.get_test_results(current_build["id"], progress_callback=update_progress)
+
+                    # Switch to tests screen
+                    screen = "tests"
+                    test_selected_idx = 0
+                    test_scroll_offset = 0
+                except Exception as e:
+                    stdscr.addstr(progress_line + 1, 0, f"Error: {str(e)[:prog_width-10]}", curses.color_pair(2))
+                    stdscr.addstr(progress_line + 3, 0, "Press any key to continue...")
+                    stdscr.refresh()
+                    stdscr.getch()
+            else:  # screen == "tests"
+                if failed_tests:
+                    # Download logs for selected test
+                    test = failed_tests[test_selected_idx]
+
+                    stdscr.clear()
+                    test_name = test.get("test_case_title", "Unknown")[:60]
+                    stdscr.addstr(0, 0, f"Downloading logs for test:", curses.A_BOLD)
+                    stdscr.addstr(1, 0, f"  {test_name}")
+                    stdscr.refresh()
+
+                    try:
+                        output_dir, log_count = download_all_logs(client, current_build)
+                        stdscr.addstr(3, 0, f"Successfully downloaded {log_count} log files to:")
+                        stdscr.addstr(4, 0, f"  {output_dir}")
+                        stdscr.addstr(6, 0, "Press any key to continue...")
+                        stdscr.refresh()
+                        stdscr.getch()
+                    except Exception as e:
+                        stdscr.addstr(3, 0, f"Error downloading logs: {e}", curses.color_pair(2))
+                        stdscr.addstr(5, 0, "Press any key to continue...")
+                        stdscr.refresh()
+                        stdscr.getch()
+
+if __name__ == "__main__":
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        print("\nExiting...")
+        sys.exit(0)
