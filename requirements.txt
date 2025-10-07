@@ -2,6 +2,7 @@ markdown
 markdownify
 pyyaml
 jira
+atlassian-python-api
 requests
 gitpython
 PyGithub
