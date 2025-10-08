@@ -1194,8 +1194,12 @@ If you need additional context:
             print(f"DEBUG: Invoking copilot for automated debugging...")
             try:
                 import subprocess
+                # Copilot is a shell script, invoke it using Git Bash on Windows
+                bash_exe = r"C:\Program Files\Git\bin\bash.exe"
+                copilot_script = Path.home() / 'AppData' / 'Roaming' / 'npm' / 'copilot'
                 copilot_cmd = [
-                    'copilot',
+                    bash_exe,
+                    str(copilot_script),
                     '-p', 'Perform the debugging discussed in Debugging.md',
                     '--allow-tool', 'write',
                     '--allow-all-tools',
