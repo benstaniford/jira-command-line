@@ -31,7 +31,9 @@
       "Bash(timeout:*)",
       "WebFetch(domain:stackoverflow.com)",
       "Bash(az devops configure:*)",
-      "Bash(sort:*)"
+      "Bash(sort:*)",
+      "Bash(cat:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": [],

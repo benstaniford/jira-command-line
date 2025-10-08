@@ -148,7 +148,104 @@ class AzDoConnection:
 
         return all_failures
 
-    def download_test_logs(self, run_id: int, result_id: int, build_id: int, test_name: str) -> str:
+    def get_build_timeline(self, build_id: int) -> Dict[str, Any]:
+        """Get the build timeline to find job IDs."""
+        url = (
+            f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/"
+            f"timeline?api-version=6.0"
+        )
+        return self.make_request(url)
+
+    def find_copy_task_ids(self, build_id: int) -> List[tuple]:
+        """Find all 'Copy test results locally' task IDs and their log IDs."""
+        timeline = self.get_build_timeline(build_id)
+
+        copy_tasks = []
+        for record in timeline.get('records', []):
+            if record.get('type') == 'Task':
+                task_name = record.get('name', '')
+                if 'Copy test results locally' in task_name:
+                    log_ref = record.get('log', {})
+                    log_id = log_ref.get('id')
+                    if log_id:
+                        copy_tasks.append((record.get('id'), log_id))
+
+        return copy_tasks
+
+    def get_build_logs(self, build_id: int, log_id: int) -> List[str]:
+        """Download and return the log lines from a build log."""
+        url = (
+            f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/"
+            f"logs/{log_id}?api-version=6.0"
+        )
+        response = self.session.get(url, timeout=120)
+        response.raise_for_status()
+        log_data = response.json()
+        return log_data.get('value', [])
+
+    def parse_copy_job_logs(self, build_id: int) -> Dict[str, str]:
+        """
+        Parse 'Copy test results locally' task logs to extract UNC paths.
+        Returns a dict mapping test suite names to their UNC paths.
+        """
+        import re
+
+        # Find all Copy tasks
+        copy_tasks = self.find_copy_task_ids(build_id)
+        if not copy_tasks:
+            return {}
+
+        # Parse logs for UNC paths
+        # Pattern: Copying \\fs01.btrusteng.com\ExecutionProduction\PMfW Regression - <TestSuite>\<GUID>\Endpoints
+        # Note: In the JSON log, backslashes appear as single \ not \\
+        pattern = r'Copying \\\\fs01\.btrusteng\.com\\ExecutionProduction\\PMfW Regression - ([^\\]+)\\([a-f0-9-]{36})\\Endpoints'
+
+        test_suite_paths = {}
+
+        # Parse logs from all copy tasks
+        for task_id, log_id in copy_tasks:
+            try:
+                log_lines = self.get_build_logs(build_id, log_id)
+
+                # Search through all log lines
+                for line in log_lines:
+                    match = re.search(pattern, line)
+                    if match:
+                        test_suite = match.group(1)
+                        guid = match.group(2)
+                        unc_path = f"\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - {test_suite}\\{guid}\\Endpoints"
+                        test_suite_paths[test_suite] = unc_path
+                        # Found the path for this task, move to next task
+                        break
+
+            except Exception:
+                # Skip tasks that fail to download
+                continue
+
+        return test_suite_paths
+
+    def create_windows_shortcut(self, unc_path: str, output_dir: str):
+        """
+        Create Windows shortcut files to the UNC path.
+        Creates both a .bat file and a .txt file for compatibility.
+        """
+        from pathlib import Path
+
+        output_path = Path(output_dir)
+
+        # Create a batch file that opens the UNC path in Windows Explorer
+        bat_file = output_path / "Open_Test_Results.bat"
+        with open(bat_file, 'w') as f:
+            f.write(f'@echo off\n')
+            f.write(f'start "" "{unc_path}"\n')
+
+        # Create a text file with the UNC path for easy copying
+        txt_file = output_path / "UNC_Path.txt"
+        with open(txt_file, 'w') as f:
+            f.write(f'Test Results Location:\n')
+            f.write(f'{unc_path}\n')
+
+    def download_test_logs(self, run_id: int, result_id: int, build_id: int, test_name: str, unc_path: Optional[str] = None) -> str:
         """Download logs for a failed test to ~/testruns/<buildid>/<testname>/"""
         import re
         from pathlib import Path
@@ -204,6 +301,10 @@ class AzDoConnection:
             if result_data.get('errorMessage'):
                 with open(output_dir / 'error.txt', 'w') as f:
                     f.write(result_data['errorMessage'])
+
+            # Create Windows shortcut to UNC path if provided
+            if unc_path:
+                self.create_windows_shortcut(unc_path, str(output_dir))
 
             return str(output_dir)
 
@@ -457,6 +558,9 @@ def main(stdscr):
             build_number = selected_run.get('buildNumber', str(build_id))
             failures = azdo.get_failed_tests(build_id)
 
+            # Silently parse copy job logs to get UNC paths
+            test_suite_paths = azdo.parse_copy_job_logs(build_id)
+
             # Test selection loop
             while True:
                 selected_test = ui.select_failed_test(failures, build_number)
@@ -472,11 +576,20 @@ def main(stdscr):
 
                 # Download logs
                 try:
+                    # Find matching UNC path for this test suite
+                    unc_path = None
+                    run_name = selected_test['run']
+                    for suite_name, path in test_suite_paths.items():
+                        if suite_name in run_name:
+                            unc_path = path
+                            break
+
                     output_dir = azdo.download_test_logs(
                         selected_test['run_id'],
                         selected_test['result_id'],
                         build_id,
-                        selected_test['test']
+                        selected_test['test'],
+                        unc_path
                     )
 
                     # Show success message
