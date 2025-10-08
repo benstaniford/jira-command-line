@@ -911,6 +911,18 @@ A video recording of the entire test execution. Useful for:
 
         content += """---
 
+## Shell Environment
+
+**IMPORTANT:** The current shell environment is **Git Bash on Windows**, not PowerShell or CMD.
+
+When running commands:
+- Use bash syntax (e.g., `ls`, `cat`, `grep`)
+- **Do NOT use PowerShell commands** (e.g., `Get-Content`, `Select-String`, etc.)
+- For Windows executables, use forward slashes or escape backslashes
+- Native Windows tools (like `windbg.exe`) can still be invoked via batch files
+
+---
+
 ## Your Task
 
 **Debug this failing test and document your findings.**
