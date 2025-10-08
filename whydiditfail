@@ -405,23 +405,36 @@ class AzDoConnection:
         print(f"DEBUG: No build found with version {version}")
         return None
 
-    def recursive_unzip(self, zip_path: str, output_dir: str):
+    def recursive_unzip(self, zip_path: str, output_dir: str, depth: int = 0, max_depth: int = 3):
         """
         Recursively extract zip files. If a zip contains another zip, extract it too.
+        Platform-specific zips (ARM64, x64, x86) are extracted to their own subfolders.
         """
         import zipfile
         import os
         from pathlib import Path
+        import re
+
+        # Prevent infinite recursion
+        if depth >= max_depth:
+            print(f"DEBUG: Max recursion depth {max_depth} reached, stopping")
+            return
 
         output_path = Path(output_dir)
         zip_file_path = Path(zip_path)
 
         if not zip_file_path.exists():
+            print(f"DEBUG: Zip file doesn't exist: {zip_path}")
             return
+
+        print(f"DEBUG: [Depth {depth}] Extracting {zip_file_path.name} to {output_path}")
 
         try:
             with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
                 zip_ref.extractall(output_path)
+
+            # Track which zip files we've already processed
+            processed_zips = set()
 
             # Find any nested zip files and extract them
             for root, dirs, files in os.walk(output_path):
@@ -429,17 +442,40 @@ class AzDoConnection:
                 for filename in files:
                     if filename.lower().endswith('.zip'):
                         nested_zip = root_path / filename
-                        # Extract in the same directory as the zip file
-                        extract_dir = root_path
+
+                        # Skip if already processed
+                        if str(nested_zip) in processed_zips:
+                            continue
+                        processed_zips.add(str(nested_zip))
+
+                        # Determine if this is a platform-specific zip
+                        # Pattern: *_ARM64_*.zip, *_x64_*.zip, *_x86_*.zip
+                        platform_match = re.search(r'_(ARM64|x64|x86)_', filename, re.IGNORECASE)
+
+                        if platform_match:
+                            platform = platform_match.group(1)
+                            # Extract to platform-specific subfolder
+                            extract_dir = root_path / platform
+                            print(f"DEBUG: [Depth {depth}] Found platform-specific zip: {filename} -> {platform}/")
+                        else:
+                            # Extract in the same directory as the zip file
+                            extract_dir = root_path
+                            print(f"DEBUG: [Depth {depth}] Found nested zip: {filename}")
+
+                        extract_dir.mkdir(parents=True, exist_ok=True)
+
                         try:
-                            self.recursive_unzip(str(nested_zip), str(extract_dir))
+                            self.recursive_unzip(str(nested_zip), str(extract_dir), depth + 1, max_depth)
                             # Remove the zip file after extraction
                             nested_zip.unlink()
-                        except Exception:
+                            print(f"DEBUG: [Depth {depth}] Deleted {filename} after extraction")
+                        except Exception as e:
+                            print(f"DEBUG: [Depth {depth}] Failed to extract {filename}: {e}")
                             # Skip if extraction fails
                             continue
 
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: [Depth {depth}] Exception extracting {zip_file_path.name}: {e}")
             # Skip if extraction fails
             pass
 
