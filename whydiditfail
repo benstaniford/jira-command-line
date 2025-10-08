@@ -261,17 +261,18 @@ class AzDoConnection:
 
         return test_suite_paths
 
-    def copy_unc_artifacts(self, unc_path: str, output_dir: str) -> List[str]:
+    def copy_unc_artifacts(self, unc_path: str, output_dir: str) -> tuple[List[str], bool]:
         """
         Recursively scan UNC path for .zip and .dmp files and copy them to output_dir.
         Preserves relative directory structure from the endpoint folder.
-        Returns list of copied filenames.
+        Returns tuple of (list of copied filenames, whether ProcDump folder was found).
         """
         import os
         import shutil
         from pathlib import Path
 
         copied_files = []
+        has_procdump = False
 
         try:
             unc_source = Path(unc_path)
@@ -279,11 +280,19 @@ class AzDoConnection:
 
             # Check if UNC path is accessible
             if not unc_source.exists():
-                return copied_files  # Return empty list if UNC path not accessible
+                print(f"DEBUG: UNC path does not exist: {unc_path}")
+                return copied_files, has_procdump  # Return empty if UNC path not accessible
+
+            print(f"DEBUG: UNC path accessible: {unc_path}")
 
             # Walk through the UNC directory tree
             for root, dirs, files in os.walk(unc_source):
                 root_path = Path(root)
+
+                # Check if any directory is named ProcDump
+                if 'ProcDump' in dirs:
+                    has_procdump = True
+                    print(f"DEBUG: Found ProcDump folder at {root_path / 'ProcDump'}")
 
                 # Calculate relative path from the UNC source
                 try:
@@ -306,15 +315,20 @@ class AzDoConnection:
                         try:
                             shutil.copy2(source_file, dest_file)
                             copied_files.append(filename)
-                        except Exception:
+                            print(f"DEBUG: Copied {filename} to {dest_dir}")
+                        except Exception as e:
+                            print(f"DEBUG: Failed to copy {filename}: {e}")
                             # Skip files that fail to copy
                             continue
 
-        except Exception:
+            print(f"DEBUG: Total files copied: {len(copied_files)}, ProcDump found: {has_procdump}")
+
+        except Exception as e:
+            print(f"DEBUG: Exception in copy_unc_artifacts: {e}")
             # Silently skip if any errors occur accessing UNC path
             pass
 
-        return copied_files
+        return copied_files, has_procdump
 
     def get_build_version(self, build_id: int) -> Optional[str]:
         """
@@ -332,19 +346,25 @@ class AzDoConnection:
                 if 'Get build info' in task_name:
                     log_ref = record.get('log', {})
                     log_id = log_ref.get('id')
+                    print(f"DEBUG: Found 'Get build info' task, log ID: {log_id}")
 
                     if log_id:
                         try:
                             log_lines = self.get_build_logs(build_id, log_id)
+                            print(f"DEBUG: Retrieved {len(log_lines)} log lines")
 
                             # Search for "Build Number X.X.X.X"
                             for line in log_lines:
                                 match = re.search(r'Build Number (\d+\.\d+\.\d+\.\d+)', line)
                                 if match:
-                                    return match.group(1)
-                        except Exception:
+                                    version = match.group(1)
+                                    print(f"DEBUG: Extracted build version: {version}")
+                                    return version
+                        except Exception as e:
+                            print(f"DEBUG: Exception getting build version: {e}")
                             continue
 
+        print(f"DEBUG: No build version found in logs")
         return None
 
     def find_build_by_version(self, version: str) -> Optional[int]:
@@ -354,24 +374,35 @@ class AzDoConnection:
         """
         pipeline_names = ["FullBuild", "FeatureBuild"]
 
+        print(f"DEBUG: Searching for build with version {version}")
         for pipeline_name in pipeline_names:
             # Find pipeline ID
             pipeline_id = self.find_pipeline_by_name(pipeline_name)
             if not pipeline_id:
+                print(f"DEBUG: Pipeline '{pipeline_name}' not found")
                 continue
 
+            print(f"DEBUG: Searching {pipeline_name} (ID: {pipeline_id})")
             # Get recent builds (search up to 100)
             try:
                 builds = self.get_pipeline_runs(pipeline_id, top=100)
+                print(f"DEBUG: Found {len(builds)} builds in {pipeline_name}")
+
+                for build in builds[:5]:  # Log first 5 for debugging
+                    build_number = build.get('buildNumber', '')
+                    print(f"DEBUG:   Checking build: {build_number}")
 
                 for build in builds:
                     build_number = build.get('buildNumber', '')
                     # Check if version is in the build number
                     if version in build_number:
+                        print(f"DEBUG: MATCH FOUND! Build {build['id']}: {build_number}")
                         return build['id']
-            except Exception:
+            except Exception as e:
+                print(f"DEBUG: Exception searching {pipeline_name}: {e}")
                 continue
 
+        print(f"DEBUG: No build found with version {version}")
         return None
 
     def recursive_unzip(self, zip_path: str, output_dir: str):
@@ -422,6 +453,7 @@ class AzDoConnection:
         output_path = Path(output_dir)
         pdbs_dir = output_path / 'pdbs'
         pdbs_dir.mkdir(parents=True, exist_ok=True)
+        print(f"DEBUG: Created pdbs directory: {pdbs_dir}")
 
         try:
             # Get build artifacts
@@ -429,34 +461,48 @@ class AzDoConnection:
                 f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/"
                 f"artifacts?api-version=6.0"
             )
+            print(f"DEBUG: Fetching artifacts from: {artifacts_url}")
             artifacts_data = self.make_request(artifacts_url)
+
+            artifact_names = [a.get('name') for a in artifacts_data.get('value', [])]
+            print(f"DEBUG: Found {len(artifact_names)} artifacts: {artifact_names}")
 
             # Find _ServiceSymbols artifact
             service_symbols_url = None
             for artifact in artifacts_data.get('value', []):
                 if artifact.get('name') == '_ServiceSymbols':
                     service_symbols_url = artifact.get('resource', {}).get('downloadUrl')
+                    print(f"DEBUG: Found _ServiceSymbols artifact: {service_symbols_url}")
                     break
 
             if not service_symbols_url:
+                print(f"DEBUG: No _ServiceSymbols artifact found in build {build_id}")
                 return  # No symbols artifact found
 
             # Download the artifact
+            print(f"DEBUG: Downloading symbols artifact...")
             response = self.session.get(service_symbols_url, timeout=300)
             response.raise_for_status()
+            print(f"DEBUG: Downloaded {len(response.content)} bytes")
 
             # Save to temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
                 tmp_file.write(response.content)
                 tmp_path = tmp_file.name
+            print(f"DEBUG: Saved to temp file: {tmp_path}")
 
             # Recursively extract
+            print(f"DEBUG: Extracting symbols to {pdbs_dir}")
             self.recursive_unzip(tmp_path, str(pdbs_dir))
 
             # Clean up temp file
             Path(tmp_path).unlink()
+            print(f"DEBUG: Symbols extraction complete")
 
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: Exception in download_service_symbols: {e}")
+            import traceback
+            traceback.print_exc()
             # Silently skip if download or extraction fails
             pass
 
@@ -554,19 +600,26 @@ class AzDoConnection:
                 # Copy .zip and .dmp files from UNC path if endpoint is available
                 if endpoint:
                     full_unc_path = f"{unc_path}\\{endpoint}"
-                    copied_files = self.copy_unc_artifacts(full_unc_path, str(output_dir))
+                    print(f"DEBUG: Copying artifacts from {full_unc_path}")
+                    copied_files, has_procdump = self.copy_unc_artifacts(full_unc_path, str(output_dir))
 
-                    # If any .dmp files were copied, download symbols
-                    has_dmp = any(f.lower().endswith('.dmp') for f in copied_files)
-                    if has_dmp:
+                    # If ProcDump folder was found, download symbols
+                    if has_procdump:
+                        print(f"DEBUG: ProcDump folder detected, downloading symbols...")
                         # Get build version from the regression run
                         build_version = self.get_build_version(build_id)
+                        print(f"DEBUG: Build version: {build_version}")
                         if build_version:
                             # Find the matching FullBuild or FeatureBuild
                             symbols_build_id = self.find_build_by_version(build_version)
+                            print(f"DEBUG: Symbols build ID: {symbols_build_id}")
                             if symbols_build_id:
                                 # Download and extract symbols
+                                print(f"DEBUG: Downloading symbols from build {symbols_build_id}")
                                 self.download_service_symbols(symbols_build_id, str(output_dir))
+                                print(f"DEBUG: Symbols download complete")
+                    else:
+                        print(f"DEBUG: No ProcDump folder found, skipping symbol download")
 
             return str(output_dir)
 
