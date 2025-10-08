@@ -263,8 +263,9 @@ class AzDoConnection:
 
     def copy_unc_artifacts(self, unc_path: str, output_dir: str) -> tuple[List[str], bool]:
         """
-        Recursively scan UNC path for .zip and .dmp files and copy them to output_dir.
+        Recursively scan UNC path for .zip, .dmp, and Results.trx files and copy them to output_dir.
         Preserves relative directory structure from the endpoint folder.
+        Results.trx files are copied to the root of output_dir.
         Returns tuple of (list of copied filenames, whether ProcDump folder was found).
         """
         import os
@@ -302,7 +303,7 @@ class AzDoConnection:
                     continue
 
                 for filename in files:
-                    # Only copy .zip and .dmp files
+                    # Copy .zip and .dmp files preserving directory structure
                     if filename.lower().endswith(('.zip', '.dmp')):
                         source_file = root_path / filename
 
@@ -319,6 +320,28 @@ class AzDoConnection:
                         except Exception as e:
                             print(f"DEBUG: Failed to copy {filename}: {e}")
                             # Skip files that fail to copy
+                            continue
+                    
+                    # Copy Results.trx files to root of output directory
+                    elif filename == 'Results.trx':
+                        source_file = root_path / filename
+                        
+                        # Copy to root of output directory
+                        dest_file = output_path / filename
+                        
+                        # If Results.trx already exists, append a number
+                        if dest_file.exists():
+                            counter = 1
+                            while (output_path / f'Results_{counter}.trx').exists():
+                                counter += 1
+                            dest_file = output_path / f'Results_{counter}.trx'
+                        
+                        try:
+                            shutil.copy2(source_file, dest_file)
+                            copied_files.append(filename)
+                            print(f"DEBUG: Copied {filename} to {dest_file}")
+                        except Exception as e:
+                            print(f"DEBUG: Failed to copy {filename}: {e}")
                             continue
 
             print(f"DEBUG: Total files copied: {len(copied_files)}, ProcDump found: {has_procdump}")
