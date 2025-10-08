@@ -29,7 +29,9 @@
       "Read(//tmp/**)",
       "Read(//tmp/**)",
       "Bash(timeout:*)",
-      "WebFetch(domain:stackoverflow.com)"
+      "WebFetch(domain:stackoverflow.com)",
+      "Bash(az devops configure:*)",
+      "Bash(sort:*)"
     ],
     "deny": [],
     "ask": [],
