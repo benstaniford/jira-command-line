@@ -725,6 +725,265 @@ set _NT_SYMBOL_PATH={symbol_path}
             except:
                 pass
 
+    def create_debugging_documentation(self, output_dir: str, build_id: int, test_name: str, build_version: Optional[str] = None, commit_sha: Optional[str] = None):
+        """
+        Create a Debugging.md file in the test failure folder with comprehensive debugging guidance.
+        This documentation is designed to help LLMs (like Claude or Copilot) debug the test failure.
+        """
+        from pathlib import Path
+        
+        output_path = Path(output_dir)
+        debugging_md = output_path / 'Debugging.md'
+        
+        # Find available files in the output directory
+        has_dumps = len(list(output_path.rglob('*.dmp'))) > 0
+        kd_batches = sorted(list(output_path.glob('kd_*.bat')))
+        analysis_files = sorted(list(output_path.glob('analysis_*.txt')))
+        has_standard_output = (output_path / 'Standard_Console_Output.log').exists()
+        has_results_trx = len(list(output_path.glob('*.trx'))) > 0
+        has_screenshots = len(list(output_path.glob('screenshot*.png'))) > 0
+        has_debuglogs = len(list(output_path.glob('debuglog*.log'))) > 0
+        has_screencapture = (output_path / 'ScreenCapture.wmv').exists()
+        
+        content = f"""# Debugging Guide for Test Failure
+
+## Test Information
+
+**Test Name:** `{test_name}`  
+**Build ID:** `{build_id}`  
+"""
+
+        if build_version:
+            content += f"**Build Version:** `{build_version}`  \n"
+        
+        if commit_sha:
+            content += f"**Commit SHA:** `{commit_sha}`  \n"
+        
+        content += """
+**Source Code Location:** `Z:\\epm-windows`  
+**Test Source Code Location:** `Z:\\epm-windows\\Tests\\Automation`
+
+---
+
+## Quick Start
+
+This test has failed and requires debugging. Start by reviewing the logs in order of priority:
+
+"""
+
+        # Priority order based on available files
+        priority = 1
+        
+        if has_standard_output:
+            content += f"{priority}. **Standard_Console_Output.log** - Start here first\n"
+            priority += 1
+        
+        if analysis_files:
+            content += f"{priority}. **analysis_*.txt** - Automated crash analysis (if crashes occurred)\n"
+            priority += 1
+        
+        if has_results_trx:
+            content += f"{priority}. **Results.trx** - Full VSTest information including setup/teardown\n"
+            priority += 1
+        
+        if has_screenshots:
+            content += f"{priority}. **screenshot*.png** - Visual evidence of test state\n"
+            priority += 1
+        
+        if has_screencapture:
+            content += f"{priority}. **ScreenCapture.wmv** - Video recording of the test execution\n"
+            priority += 1
+        
+        if has_debuglogs:
+            content += f"{priority}. **debuglog*.log** - Detailed client trace (verbose)\n"
+            priority += 1
+        
+        content += """
+---
+
+## Available Debugging Resources
+
+### 1. Standard Console Output (Primary Log)
+
+**File:** `Standard_Console_Output.log`
+
+This is the standard output from VSTest and should be **the first thing you examine**. It contains:
+- Test execution output
+- Console messages from the test
+- Initial error messages and stack traces
+- Test framework diagnostics
+
+### 2. Test Results File
+
+**File:** `Results.trx`
+
+The VSTest results file in TRX (XML) format containing:
+- Complete test execution details
+- Test setup and teardown information
+- Timing information
+- Error messages and stack traces
+- Test properties and metadata
+
+This file provides structured information about what happened during the test lifecycle.
+
+"""
+
+        if has_dumps:
+            content += """### 3. Crash Dumps and Interactive Debugging
+
+"""
+            if kd_batches:
+                content += f"""**Available Crash Dumps:** {len(kd_batches)}
+
+The following batch files will launch an interactive KD debugger session with all symbols loaded:
+
+"""
+                for kd_batch in kd_batches:
+                    dump_name = kd_batch.stem.replace('kd_', '')
+                    content += f"- **{kd_batch.name}** - Debug `{dump_name}.dmp` interactively\n"
+                
+                content += """
+**To use the KD debugger:**
+
+1. Run one of the batch files above (e.g., `kd_crash_name.bat`)
+2. The debugger will launch with symbols already loaded
+3. Common commands:
+   - `!analyze -v` - Detailed crash analysis
+   - `k` - View call stack
+   - `lm` - List loaded modules
+   - `!threads` - List all threads
+   - `~*k` - Stack traces for all threads
+   - `.ecxr` - Set context to exception
+   - `q` - Quit debugger
+
+**Symbol Path:** All PDB files from the build are already included in the symbol path, plus the Microsoft symbol server.
+
+"""
+            
+            if analysis_files:
+                content += f"""**Automated Crash Analysis:**
+
+The following files contain automated `!analyze -v` output from WinDbg:
+
+"""
+                for analysis_file in analysis_files:
+                    content += f"- **{analysis_file.name}** - Pre-generated crash analysis\n"
+                
+                content += """
+Review these files first before launching the interactive debugger to understand the crash.
+
+"""
+
+        if has_screenshots:
+            content += """### 4. Screenshots
+
+**Files:** `screenshot*.png`
+
+Screenshots captured during test execution showing the visual state of the application or test environment at various points.
+
+"""
+
+        if has_debuglogs:
+            content += """### 5. Debug Logs (Client Trace)
+
+**Files:** `debuglog*.log`
+
+Detailed trace logs from the service/client itself. **Warning:** These logs are typically very long and detailed.
+
+Use these logs when:
+- You need to understand internal service operations
+- The Standard_Console_Output doesn't provide enough detail
+- You're tracking down timing or state issues
+
+"""
+
+        if has_screencapture:
+            content += """### 6. Screen Capture Video
+
+**File:** `ScreenCapture.wmv`
+
+A video recording of the entire test execution. Useful for:
+- Understanding the visual sequence of events
+- Identifying UI-related issues
+- Seeing exactly what happened leading up to the failure
+
+"""
+
+        content += """---
+
+## Your Task
+
+**Debug this failing test and document your findings.**
+
+### Analysis Output Location
+
+Save your analysis to:
+
+```
+~/testruns/{build_id}/analysis_{safe_test_name}.md
+```
+
+Replace `{safe_test_name}` with a filesystem-safe version of the test name (spaces replaced with underscores, special characters removed).
+
+### Required Analysis Content
+
+Your analysis should include:
+
+1. **Brief Description of the Problem**
+   - What went wrong?
+   - Where did the failure occur?
+   - What was the expected vs. actual behavior?
+
+2. **Root Cause**
+   - Why did this failure occur?
+   - What code or configuration caused the issue?
+   - Include relevant file paths, line numbers, or log excerpts
+
+3. **Proposed Resolution**
+   - What could be done to fix this?
+   - Are there multiple possible solutions?
+   - What would be the recommended approach?
+
+4. **Additional Context** (if applicable)
+   - Are there related issues or patterns?
+   - Is this a flaky test or consistent failure?
+   - Are there any workarounds?
+
+---
+
+## Tips for Effective Debugging
+
+1. **Start with Standard_Console_Output.log** - Most issues are evident here
+2. **Check for crashes** - If dump files exist, review the automated analysis first
+3. **Look for patterns** - Compare with previous test runs if available
+4. **Verify assumptions** - Check that test preconditions were met
+5. **Use the video** - ScreenCapture.wmv can reveal timing or UI issues
+6. **Trace the flow** - Use debuglog*.log to understand internal operations
+7. **Check the TRX file** - Setup/teardown issues often appear here
+
+---
+
+## Need More Information?
+
+If you need additional context:
+- Source code is in: `Z:\\epm-windows`
+- Test source is in: `Z:\\epm-windows\\Tests\\Automation`
+- Build artifacts and symbols are in the `pdbs/` folder
+- Original test results are on the UNC path (see `UNC_Path.txt` if available)
+
+---
+
+*This debugging guide was automatically generated to assist with test failure analysis.*
+"""
+
+        # Write the documentation file
+        try:
+            with open(debugging_md, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f"DEBUG: Created comprehensive debugging guide at {debugging_md}")
+        except Exception as e:
+            print(f"DEBUG: Failed to create Debugging.md: {e}")
+
     def download_service_symbols(self, build_id: int, output_dir: str):
         """
         Download _ServiceSymbols artifact from a build and extract to pdbs/ folder.
@@ -907,6 +1166,27 @@ set _NT_SYMBOL_PATH={symbol_path}
                         print(f"DEBUG: ProcDump extraction complete")
                     else:
                         print(f"DEBUG: No ProcDump folder found, skipping symbol download")
+
+            # Create Debugging.md documentation file (do this last after all processing)
+            print(f"DEBUG: Creating Debugging.md documentation...")
+            # Get build version and commit info for documentation
+            build_version = None
+            commit_sha = None
+            if unc_path and endpoint:
+                # Try to get build version if not already retrieved
+                if 'build_version' not in locals() or not build_version:
+                    build_version = self.get_build_version(build_id)
+            
+            # Get commit SHA from build info
+            try:
+                build_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}?api-version=6.0"
+                build_data = self.make_request(build_url)
+                commit_sha = build_data.get('sourceVersion')
+            except:
+                pass
+            
+            self.create_debugging_documentation(str(output_dir), build_id, test_name, build_version, commit_sha)
+            print(f"DEBUG: Debugging.md created")
 
             return str(output_dir)
 
