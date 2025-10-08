@@ -1206,25 +1206,47 @@ If you need additional context:
                     '--add-dir', str(Path.home() / 'testruns'),
                     '--add-dir', 'z:\\epm-windows'
                 ]
+
+                # Suspend curses mode to show copilot output live
+                curses.endwin()
+                print("\n" + "="*80)
+                print(f"Starting Copilot analysis in: {output_dir}")
+                print("="*80 + "\n")
+
                 # Run copilot from the output directory where Debugging.md is located
+                # Don't capture output so it's visible in real-time
                 result = subprocess.run(
                     copilot_cmd,
                     cwd=str(output_dir),
-                    capture_output=True,
-                    text=True,
                     timeout=1800  # 30 minute timeout for copilot analysis
                 )
-                print(f"DEBUG: Copilot completed with return code {result.returncode}")
-                if result.stdout:
-                    print(f"DEBUG: Copilot output: {result.stdout[:500]}")  # Print first 500 chars
-                if result.stderr:
-                    print(f"DEBUG: Copilot errors: {result.stderr[:500]}")
+
+                print("\n" + "="*80)
+                print(f"Copilot completed with return code {result.returncode}")
+                print("="*80)
+                print("\nPress Enter to return to the test failure list...")
+                input()
+
+                # Restore curses mode
+                curses.doupdate()
+
             except subprocess.TimeoutExpired:
-                print(f"DEBUG: Copilot analysis timed out after 30 minutes")
+                print(f"\nCopilot analysis timed out after 30 minutes")
+                print("Press Enter to return to the test failure list...")
+                input()
+                curses.doupdate()
             except FileNotFoundError:
-                print(f"DEBUG: Copilot command not found - is it installed and in PATH?")
+                print(f"\nCopilot command not found - is it installed and in PATH?")
+                print(f"Expected bash at: {bash_exe}")
+                print(f"Expected copilot at: {copilot_script}")
+                print("Press Enter to return to the test failure list...")
+                input()
+                curses.doupdate()
             except Exception as e:
-                print(f"DEBUG: Exception invoking copilot: {e}")
+                print(f"\nException invoking copilot: {e}")
+                print("Press Enter to return to the test failure list...")
+                input()
+                curses.doupdate()
 
             return str(output_dir)
 
