@@ -479,6 +479,83 @@ class AzDoConnection:
             # Skip if extraction fails
             pass
 
+    def extract_procdump_files(self, output_dir: str):
+        """
+        Extract all zip files in the ProcDump folder and create WinDbg batch files for dumps.
+        """
+        import zipfile
+        from pathlib import Path
+
+        output_path = Path(output_dir)
+        procdump_dir = output_path / 'ProcDump'
+
+        if not procdump_dir.exists():
+            print(f"DEBUG: No ProcDump folder found at {procdump_dir}")
+            return
+
+        print(f"DEBUG: Processing ProcDump folder: {procdump_dir}")
+
+        # Find and extract all zip files in ProcDump folder
+        for zip_file in procdump_dir.glob('*.zip'):
+            print(f"DEBUG: Extracting {zip_file.name}")
+            # Extract to subfolder with same name as zip (without .zip extension)
+            extract_dir = procdump_dir / zip_file.stem
+            extract_dir.mkdir(parents=True, exist_ok=True)
+
+            try:
+                with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+                print(f"DEBUG: Extracted to {extract_dir}")
+
+                # Delete zip after extraction
+                zip_file.unlink()
+                print(f"DEBUG: Deleted {zip_file.name}")
+            except Exception as e:
+                print(f"DEBUG: Failed to extract {zip_file.name}: {e}")
+                continue
+
+        # Find all .dmp files in ProcDump folder and create batch files
+        dump_files = list(procdump_dir.rglob('*.dmp'))
+        print(f"DEBUG: Found {len(dump_files)} dump files")
+
+        pdbs_dir = output_path / 'pdbs'
+
+        for dump_file in dump_files:
+            # Create batch file in root of output_dir
+            batch_name = f"debug_{dump_file.stem}.bat"
+            batch_file = output_path / batch_name
+
+            # Build symbol path
+            # Include all architecture subdirectories in pdbs folder
+            symbol_paths = []
+            if pdbs_dir.exists():
+                # Add main pdbs folder
+                symbol_paths.append(str(pdbs_dir.resolve()))
+                # Add architecture-specific subfolders
+                for arch_dir in ['x64', 'x86', 'ARM64']:
+                    arch_path = pdbs_dir / arch_dir
+                    if arch_path.exists():
+                        symbol_paths.append(str(arch_path.resolve()))
+
+            # Add Microsoft symbol server
+            symbol_paths.append('srv*C:\\pdbs*https://msdl.microsoft.com/download/symbols')
+
+            symbol_path = ';'.join(symbol_paths)
+
+            # Create batch file
+            batch_content = f'''@echo off
+REM Auto-generated WinDbg launcher for {dump_file.name}
+set _NT_SYMBOL_PATH={symbol_path}
+"C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\windbg.exe" -z "{dump_file.resolve()}"
+'''
+
+            try:
+                with open(batch_file, 'w') as f:
+                    f.write(batch_content)
+                print(f"DEBUG: Created {batch_name} for {dump_file.name}")
+            except Exception as e:
+                print(f"DEBUG: Failed to create batch file for {dump_file.name}: {e}")
+
     def download_service_symbols(self, build_id: int, output_dir: str):
         """
         Download _ServiceSymbols artifact from a build and extract to pdbs/ folder.
@@ -654,6 +731,11 @@ class AzDoConnection:
                                 print(f"DEBUG: Downloading symbols from build {symbols_build_id}")
                                 self.download_service_symbols(symbols_build_id, str(output_dir))
                                 print(f"DEBUG: Symbols download complete")
+
+                        # Extract ProcDump files and create WinDbg batch files
+                        print(f"DEBUG: Extracting ProcDump files and creating debug batch files...")
+                        self.extract_procdump_files(str(output_dir))
+                        print(f"DEBUG: ProcDump extraction complete")
                     else:
                         print(f"DEBUG: No ProcDump folder found, skipping symbol download")
 
