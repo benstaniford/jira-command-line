@@ -224,6 +224,55 @@ class AzDoConnection:
 
         return test_suite_paths
 
+    def copy_unc_artifacts(self, unc_path: str, output_dir: str):
+        """
+        Recursively scan UNC path for .zip and .dmp files and copy them to output_dir.
+        Preserves relative directory structure from the endpoint folder.
+        """
+        import os
+        import shutil
+        from pathlib import Path
+
+        try:
+            unc_source = Path(unc_path)
+            output_path = Path(output_dir)
+
+            # Check if UNC path is accessible
+            if not unc_source.exists():
+                return  # Silently skip if UNC path not accessible
+
+            # Walk through the UNC directory tree
+            for root, dirs, files in os.walk(unc_source):
+                root_path = Path(root)
+
+                # Calculate relative path from the UNC source
+                try:
+                    rel_path = root_path.relative_to(unc_source)
+                except ValueError:
+                    # Skip if we can't determine relative path
+                    continue
+
+                for filename in files:
+                    # Only copy .zip and .dmp files
+                    if filename.lower().endswith(('.zip', '.dmp')):
+                        source_file = root_path / filename
+
+                        # Create destination path preserving directory structure
+                        dest_dir = output_path / rel_path
+                        dest_dir.mkdir(parents=True, exist_ok=True)
+                        dest_file = dest_dir / filename
+
+                        # Copy the file
+                        try:
+                            shutil.copy2(source_file, dest_file)
+                        except Exception:
+                            # Skip files that fail to copy
+                            continue
+
+        except Exception:
+            # Silently skip if any errors occur accessing UNC path
+            pass
+
     def create_windows_shortcut(self, unc_path: str, output_dir: str, endpoint: Optional[str] = None):
         """
         Create Windows shortcut files to the UNC path.
@@ -314,6 +363,11 @@ class AzDoConnection:
                 # Extract endpoint (computer name) from result data
                 endpoint = result_data.get('computerName')
                 self.create_windows_shortcut(unc_path, str(output_dir), endpoint)
+
+                # Copy .zip and .dmp files from UNC path if endpoint is available
+                if endpoint:
+                    full_unc_path = f"{unc_path}\\{endpoint}"
+                    self.copy_unc_artifacts(full_unc_path, str(output_dir))
 
             return str(output_dir)
 
