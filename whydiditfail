@@ -142,10 +142,73 @@ class AzDoConnection:
                     'run': run_name,
                     'test': test_name,
                     'run_id': run_id,
+                    'result_id': result['id'],
                     'error': error_message
                 })
 
         return all_failures
+
+    def download_test_logs(self, run_id: int, result_id: int, build_id: int, test_name: str) -> str:
+        """Download logs for a failed test to ~/testruns/<buildid>/<testname>/"""
+        import re
+        from pathlib import Path
+
+        # Sanitize test name for filesystem
+        safe_test_name = re.sub(r'[^\w\-_\. ]', '_', test_name)
+        safe_test_name = safe_test_name.replace(' ', '_')
+
+        # Create directory structure
+        output_dir = Path.home() / 'testruns' / str(build_id) / safe_test_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Get test result details with attachments
+        result_url = (
+            f"{self.org_url}/{self.project}/_apis/test/Runs/{run_id}/"
+            f"Results/{result_id}?detailsToInclude=SubResults&api-version=7.0"
+        )
+
+        try:
+            result_data = self.make_request(result_url)
+
+            # Save test result details
+            import json
+            with open(output_dir / 'result.json', 'w') as f:
+                json.dump(result_data, f, indent=2)
+
+            # Get attachments
+            attachments_url = (
+                f"{self.org_url}/{self.project}/_apis/test/Runs/{run_id}/"
+                f"Results/{result_id}/attachments?api-version=7.0"
+            )
+
+            attachments_data = self.make_request(attachments_url)
+
+            # Download each attachment
+            for attachment in attachments_data.get('value', []):
+                attachment_id = attachment.get('id')
+                attachment_name = attachment.get('fileName', f'attachment_{attachment_id}')
+
+                attachment_url = (
+                    f"{self.org_url}/{self.project}/_apis/test/Runs/{run_id}/"
+                    f"Results/{result_id}/attachments/{attachment_id}?api-version=7.0"
+                )
+
+                response = self.session.get(attachment_url, timeout=120)
+                response.raise_for_status()
+
+                # Save attachment
+                with open(output_dir / attachment_name, 'wb') as f:
+                    f.write(response.content)
+
+            # Also save error message to a text file
+            if result_data.get('errorMessage'):
+                with open(output_dir / 'error.txt', 'w') as f:
+                    f.write(result_data['errorMessage'])
+
+            return str(output_dir)
+
+        except Exception as e:
+            raise Exception(f"Failed to download logs: {str(e)}")
 
 
 class CursesUI:
@@ -248,8 +311,9 @@ class CursesUI:
 
         self.stdscr.refresh()
 
-    def draw_failures_list(self, failures: List[Dict[str, Any]], build_number: str):
-        """Draw the list of failed tests."""
+    def draw_failures_list(self, failures: List[Dict[str, Any]], build_number: str,
+                          test_selection: int, test_scroll: int):
+        """Draw the list of failed tests with selection support."""
         self.stdscr.clear()
         height, width = self.stdscr.getmaxyx()
 
@@ -258,53 +322,75 @@ class CursesUI:
         self.stdscr.addstr(0, 0, header[:width-1], curses.color_pair(5) | curses.A_BOLD)
         self.stdscr.addstr(
             1, 0,
-            "Press any key to return"[:width-1],
+            "Use arrow keys, Enter to download logs, Q/Esc to return"[:width-1],
             curses.color_pair(5)
         )
 
         if not failures:
             self.stdscr.addstr(3, 0, "No failed tests found!", curses.color_pair(2))
             self.stdscr.refresh()
-            self.stdscr.getch()
             return
 
-        # Group failures by run
-        runs_dict = {}
-        for failure in failures:
-            run_name = failure['run']
-            if run_name not in runs_dict:
-                runs_dict[run_name] = []
-            runs_dict[run_name].append(failure)
+        # Calculate visible range
+        visible_height = height - 5  # Account for header and footer
 
-        # Draw failures
+        # Draw visible failures
         y_pos = 3
-        for run_name in sorted(runs_dict.keys()):
-            if y_pos >= height - 2:
+        for idx in range(visible_height):
+            test_idx = idx + test_scroll
+            if test_idx >= len(failures):
                 break
 
-            # Run name header
-            run_header = f"{run_name}: {len(runs_dict[run_name])} failure(s)"
-            self.stdscr.addstr(y_pos, 0, run_header[:width-1], curses.A_BOLD | curses.color_pair(3))
+            failure = failures[test_idx]
+            test_line = f"{failure['run']}: {failure['test']}"
+
+            # Highlight selection
+            if test_idx == test_selection:
+                self.stdscr.addstr(y_pos, 0, test_line[:width-1], curses.color_pair(1))
+            else:
+                self.stdscr.addstr(y_pos, 0, test_line[:width-1], curses.color_pair(3))
+
             y_pos += 1
-
-            # List failures
-            for failure in runs_dict[run_name]:
-                if y_pos >= height - 2:
-                    break
-                test_name = failure['test']
-                self.stdscr.addstr(y_pos, 2, f"- {test_name}"[:width-3], curses.color_pair(3))
-                y_pos += 1
-
-            y_pos += 1  # Blank line between runs
 
         # Summary footer
         total_failures = len(failures)
-        total_runs = len(runs_dict)
-        summary = f"TOTAL: {total_failures} failed tests across {total_runs} suites"
+        summary = f"Showing {test_scroll + 1}-{min(test_scroll + visible_height, total_failures)} of {total_failures} failed tests"
         self.stdscr.addstr(height - 1, 0, summary[:width-1], curses.color_pair(5) | curses.A_BOLD)
 
         self.stdscr.refresh()
-        self.stdscr.getch()
+
+    def select_failed_test(self, failures: List[Dict[str, Any]], build_number: str) -> Optional[Dict[str, Any]]:
+        """Handle failed test selection with arrow keys."""
+        test_selection = 0
+        test_scroll = 0
+
+        if not failures:
+            self.draw_failures_list(failures, build_number, 0, 0)
+            self.stdscr.getch()
+            return None
+
+        height, _ = self.stdscr.getmaxyx()
+        visible_height = height - 5
+
+        while True:
+            # Adjust scroll if selection is out of view
+            if test_selection < test_scroll:
+                test_scroll = test_selection
+            elif test_selection >= test_scroll + visible_height:
+                test_scroll = test_selection - visible_height + 1
+
+            self.draw_failures_list(failures, build_number, test_selection, test_scroll)
+
+            key = self.stdscr.getch()
+
+            if key == curses.KEY_UP:
+                test_selection = max(0, test_selection - 1)
+            elif key == curses.KEY_DOWN:
+                test_selection = min(len(failures) - 1, test_selection + 1)
+            elif key == ord('\n') or key == curses.KEY_ENTER:
+                return failures[test_selection]
+            elif key == ord('q') or key == ord('Q') or key == 27:  # 27 is ESC
+                return None
 
     def select_run(self, runs: List[Dict[str, Any]], pipeline_name: str) -> Optional[Dict[str, Any]]:
         """Handle run selection with arrow keys."""
@@ -371,8 +457,44 @@ def main(stdscr):
             build_number = selected_run.get('buildNumber', str(build_id))
             failures = azdo.get_failed_tests(build_id)
 
-            # Display failures
-            ui.draw_failures_list(failures, build_number)
+            # Test selection loop
+            while True:
+                selected_test = ui.select_failed_test(failures, build_number)
+
+                if selected_test is None:
+                    break  # User went back
+
+                # Show downloading message
+                stdscr.clear()
+                stdscr.addstr(0, 0, f"Downloading logs for: {selected_test['test']}")
+                stdscr.addstr(1, 0, "Please wait...")
+                stdscr.refresh()
+
+                # Download logs
+                try:
+                    output_dir = azdo.download_test_logs(
+                        selected_test['run_id'],
+                        selected_test['result_id'],
+                        build_id,
+                        selected_test['test']
+                    )
+
+                    # Show success message
+                    stdscr.clear()
+                    stdscr.addstr(0, 0, "Logs downloaded successfully!", curses.color_pair(2))
+                    stdscr.addstr(1, 0, f"Location: {output_dir}")
+                    stdscr.addstr(3, 0, "Press any key to continue...")
+                    stdscr.refresh()
+                    stdscr.getch()
+
+                except Exception as e:
+                    # Show error message
+                    stdscr.clear()
+                    stdscr.addstr(0, 0, "Error downloading logs:", curses.color_pair(3))
+                    stdscr.addstr(1, 0, str(e)[:stdscr.getmaxyx()[1] - 1])
+                    stdscr.addstr(3, 0, "Press any key to continue...")
+                    stdscr.refresh()
+                    stdscr.getch()
 
     except Exception as e:
         stdscr.clear()
