@@ -481,7 +481,8 @@ class AzDoConnection:
 
     def extract_procdump_files(self, output_dir: str):
         """
-        Extract all zip files in the ProcDump folder and create WinDbg batch files for dumps.
+        Extract all zip files in the ProcDump folder into subdirectories and create WinDbg batch files for dumps.
+        Each dump file gets extracted to its own subdirectory, and batch files are created in the root failure folder.
         """
         import zipfile
         from pathlib import Path
@@ -495,7 +496,8 @@ class AzDoConnection:
 
         print(f"DEBUG: Processing ProcDump folder: {procdump_dir}")
 
-        # Find and extract all zip files in ProcDump folder
+        # Find and extract all dump files in ProcDump folder (including zips)
+        # First, extract all zip files to subdirectories
         for zip_file in procdump_dir.glob('*.zip'):
             print(f"DEBUG: Extracting {zip_file.name}")
             # Extract to subfolder with same name as zip (without .zip extension)
@@ -514,30 +516,50 @@ class AzDoConnection:
                 print(f"DEBUG: Failed to extract {zip_file.name}: {e}")
                 continue
 
-        # Find all .dmp files in ProcDump folder and create batch files
+        # Also extract standalone .dmp files to their own subdirectories
+        for dmp_file in procdump_dir.glob('*.dmp'):
+            print(f"DEBUG: Moving standalone dump {dmp_file.name} to subdirectory")
+            # Create subdirectory for this dump file
+            dump_subdir = procdump_dir / dmp_file.stem
+            dump_subdir.mkdir(parents=True, exist_ok=True)
+            
+            # Move the dump file into its subdirectory
+            try:
+                new_location = dump_subdir / dmp_file.name
+                dmp_file.rename(new_location)
+                print(f"DEBUG: Moved {dmp_file.name} to {dump_subdir}")
+            except Exception as e:
+                print(f"DEBUG: Failed to move {dmp_file.name}: {e}")
+                continue
+
+        # Find all .dmp files in ProcDump folder (now in subdirectories) and create batch files
         dump_files = list(procdump_dir.rglob('*.dmp'))
         print(f"DEBUG: Found {len(dump_files)} dump files")
 
         pdbs_dir = output_path / 'pdbs'
 
         for dump_file in dump_files:
-            # Create batch file in root of output_dir
+            # Create batch file in root of output_dir (failure folder root)
             batch_name = f"debug_{dump_file.stem}.bat"
             batch_file = output_path / batch_name
 
             # Build symbol path
-            # Include all architecture subdirectories in pdbs folder
+            # Include all pdb files from the pdbs folder hierarchy
             symbol_paths = []
             if pdbs_dir.exists():
-                # Add main pdbs folder
-                symbol_paths.append(str(pdbs_dir.resolve()))
-                # Add architecture-specific subfolders
-                for arch_dir in ['x64', 'x86', 'ARM64']:
-                    arch_path = pdbs_dir / arch_dir
-                    if arch_path.exists():
-                        symbol_paths.append(str(arch_path.resolve()))
+                # Recursively find all directories containing .pdb files
+                pdb_dirs = set()
+                for pdb_file in pdbs_dir.rglob('*.pdb'):
+                    pdb_dirs.add(str(pdb_file.parent.resolve()))
+                
+                # Add all unique directories containing pdb files
+                symbol_paths.extend(sorted(pdb_dirs))
+                
+                # Also add main pdbs folder and common architecture folders if they exist
+                if str(pdbs_dir.resolve()) not in symbol_paths:
+                    symbol_paths.insert(0, str(pdbs_dir.resolve()))
 
-            # Add Microsoft symbol server
+            # Add Microsoft symbol server (always include this)
             symbol_paths.append('srv*C:\\pdbs*https://msdl.microsoft.com/download/symbols')
 
             symbol_path = ';'.join(symbol_paths)
