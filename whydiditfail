@@ -224,14 +224,17 @@ class AzDoConnection:
 
         return test_suite_paths
 
-    def copy_unc_artifacts(self, unc_path: str, output_dir: str):
+    def copy_unc_artifacts(self, unc_path: str, output_dir: str) -> List[str]:
         """
         Recursively scan UNC path for .zip and .dmp files and copy them to output_dir.
         Preserves relative directory structure from the endpoint folder.
+        Returns list of copied filenames.
         """
         import os
         import shutil
         from pathlib import Path
+
+        copied_files = []
 
         try:
             unc_source = Path(unc_path)
@@ -239,7 +242,7 @@ class AzDoConnection:
 
             # Check if UNC path is accessible
             if not unc_source.exists():
-                return  # Silently skip if UNC path not accessible
+                return copied_files  # Return empty list if UNC path not accessible
 
             # Walk through the UNC directory tree
             for root, dirs, files in os.walk(unc_source):
@@ -265,12 +268,159 @@ class AzDoConnection:
                         # Copy the file
                         try:
                             shutil.copy2(source_file, dest_file)
+                            copied_files.append(filename)
                         except Exception:
                             # Skip files that fail to copy
                             continue
 
         except Exception:
             # Silently skip if any errors occur accessing UNC path
+            pass
+
+        return copied_files
+
+    def get_build_version(self, build_id: int) -> Optional[str]:
+        """
+        Extract the build version from 'Get Version' job logs.
+        Looks for a line like "Build Number 25.9.44.0"
+        """
+        import re
+
+        timeline = self.get_build_timeline(build_id)
+
+        # Find the "Get build info" task in the "Get Version" job
+        for record in timeline.get('records', []):
+            if record.get('type') == 'Task':
+                task_name = record.get('name', '')
+                if 'Get build info' in task_name:
+                    log_ref = record.get('log', {})
+                    log_id = log_ref.get('id')
+
+                    if log_id:
+                        try:
+                            log_lines = self.get_build_logs(build_id, log_id)
+
+                            # Search for "Build Number X.X.X.X"
+                            for line in log_lines:
+                                match = re.search(r'Build Number (\d+\.\d+\.\d+\.\d+)', line)
+                                if match:
+                                    return match.group(1)
+                        except Exception:
+                            continue
+
+        return None
+
+    def find_build_by_version(self, version: str) -> Optional[int]:
+        """
+        Search FullBuild and FeatureBuild pipelines for a build with matching version.
+        Returns the build ID if found.
+        """
+        pipeline_names = ["FullBuild", "FeatureBuild"]
+
+        for pipeline_name in pipeline_names:
+            # Find pipeline ID
+            pipeline_id = self.find_pipeline_by_name(pipeline_name)
+            if not pipeline_id:
+                continue
+
+            # Get recent builds (search up to 100)
+            try:
+                builds = self.get_pipeline_runs(pipeline_id, top=100)
+
+                for build in builds:
+                    build_number = build.get('buildNumber', '')
+                    # Check if version is in the build number
+                    if version in build_number:
+                        return build['id']
+            except Exception:
+                continue
+
+        return None
+
+    def recursive_unzip(self, zip_path: str, output_dir: str):
+        """
+        Recursively extract zip files. If a zip contains another zip, extract it too.
+        """
+        import zipfile
+        import os
+        from pathlib import Path
+
+        output_path = Path(output_dir)
+        zip_file_path = Path(zip_path)
+
+        if not zip_file_path.exists():
+            return
+
+        try:
+            with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                zip_ref.extractall(output_path)
+
+            # Find any nested zip files and extract them
+            for root, dirs, files in os.walk(output_path):
+                root_path = Path(root)
+                for filename in files:
+                    if filename.lower().endswith('.zip'):
+                        nested_zip = root_path / filename
+                        # Extract in the same directory as the zip file
+                        extract_dir = root_path
+                        try:
+                            self.recursive_unzip(str(nested_zip), str(extract_dir))
+                            # Remove the zip file after extraction
+                            nested_zip.unlink()
+                        except Exception:
+                            # Skip if extraction fails
+                            continue
+
+        except Exception:
+            # Skip if extraction fails
+            pass
+
+    def download_service_symbols(self, build_id: int, output_dir: str):
+        """
+        Download _ServiceSymbols artifact from a build and extract to pdbs/ folder.
+        """
+        from pathlib import Path
+        import tempfile
+
+        output_path = Path(output_dir)
+        pdbs_dir = output_path / 'pdbs'
+        pdbs_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Get build artifacts
+            artifacts_url = (
+                f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}/"
+                f"artifacts?api-version=6.0"
+            )
+            artifacts_data = self.make_request(artifacts_url)
+
+            # Find _ServiceSymbols artifact
+            service_symbols_url = None
+            for artifact in artifacts_data.get('value', []):
+                if artifact.get('name') == '_ServiceSymbols':
+                    service_symbols_url = artifact.get('resource', {}).get('downloadUrl')
+                    break
+
+            if not service_symbols_url:
+                return  # No symbols artifact found
+
+            # Download the artifact
+            response = self.session.get(service_symbols_url, timeout=300)
+            response.raise_for_status()
+
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
+                tmp_file.write(response.content)
+                tmp_path = tmp_file.name
+
+            # Recursively extract
+            self.recursive_unzip(tmp_path, str(pdbs_dir))
+
+            # Clean up temp file
+            Path(tmp_path).unlink()
+
+        except Exception:
+            # Silently skip if download or extraction fails
             pass
 
     def create_windows_shortcut(self, unc_path: str, output_dir: str, endpoint: Optional[str] = None):
@@ -367,7 +517,19 @@ class AzDoConnection:
                 # Copy .zip and .dmp files from UNC path if endpoint is available
                 if endpoint:
                     full_unc_path = f"{unc_path}\\{endpoint}"
-                    self.copy_unc_artifacts(full_unc_path, str(output_dir))
+                    copied_files = self.copy_unc_artifacts(full_unc_path, str(output_dir))
+
+                    # If any .dmp files were copied, download symbols
+                    has_dmp = any(f.lower().endswith('.dmp') for f in copied_files)
+                    if has_dmp:
+                        # Get build version from the regression run
+                        build_version = self.get_build_version(build_id)
+                        if build_version:
+                            # Find the matching FullBuild or FeatureBuild
+                            symbols_build_id = self.find_build_by_version(build_version)
+                            if symbols_build_id:
+                                # Download and extract symbols
+                                self.download_service_symbols(symbols_build_id, str(output_dir))
 
             return str(output_dir)
 
