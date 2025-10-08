@@ -483,16 +483,29 @@ class AzDoConnection:
         """
         Extract all zip files in the ProcDump folder into subdirectories and create WinDbg batch files for dumps.
         Each dump file gets extracted to its own subdirectory, and batch files are created in the root failure folder.
+        Searches recursively for ProcDump folders if not found at the root.
         """
         import zipfile
         from pathlib import Path
 
         output_path = Path(output_dir)
+        
+        # Search for ProcDump folder - try root first, then search recursively
         procdump_dir = output_path / 'ProcDump'
-
         if not procdump_dir.exists():
-            print(f"DEBUG: No ProcDump folder found at {procdump_dir}")
-            return
+            # Search for ProcDump folder in subdirectories
+            print(f"DEBUG: ProcDump not found at root, searching subdirectories...")
+            procdump_dirs = list(output_path.rglob('ProcDump'))
+            
+            if not procdump_dirs:
+                print(f"DEBUG: No ProcDump folder found anywhere in {output_dir}")
+                return
+            
+            # Use the first ProcDump folder found
+            procdump_dir = procdump_dirs[0]
+            print(f"DEBUG: Found ProcDump folder at: {procdump_dir}")
+        else:
+            print(f"DEBUG: Found ProcDump folder at root: {procdump_dir}")
 
         print(f"DEBUG: Processing ProcDump folder: {procdump_dir}")
 
