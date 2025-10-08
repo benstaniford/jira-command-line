@@ -809,12 +809,12 @@ def main(stdscr):
 
             # Show loading message
             stdscr.clear()
-            stdscr.addstr(0, 0, "Loading test failures...")
+            build_id = selected_run['id']
+            build_number = selected_run.get('buildNumber', str(build_id))
+            stdscr.addstr(0, 0, f"Loading test failures for build {build_id} ({build_number})...")
             stdscr.refresh()
 
             # Get failed tests
-            build_id = selected_run['id']
-            build_number = selected_run.get('buildNumber', str(build_id))
             failures = azdo.get_failed_tests(build_id)
 
             # Silently parse copy job logs to get UNC paths
