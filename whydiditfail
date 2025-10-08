@@ -915,6 +915,8 @@ A video recording of the entire test execution. Useful for:
 
 **Debug this failing test and document your findings.**
 
+Fully review all log files and perform complex dump analysis if needed.  You have both symbols and the source code.
+
 ### Analysis Output Location
 
 Save your analysis to:
@@ -929,7 +931,7 @@ Replace `{safe_test_name}` with a filesystem-safe version of the test name (spac
 
 Your analysis should include:
 
-1. **Brief Description of the Problem**
+1. **Detailed Description of the Problem**
    - What went wrong?
    - Where did the failure occur?
    - What was the expected vs. actual behavior?
