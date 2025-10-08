@@ -102,10 +102,20 @@ class AzDoConnection:
             'Utilities'
         ]
 
-        # Get test runs for the build
+        # Get build details to find time range
+        build_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}?api-version=6.0"
+        build_data = self.make_request(build_url)
+
+        start_time = build_data.get('startTime')
+        finish_time = build_data.get('finishTime')
+
+        if not start_time or not finish_time:
+            return []
+
+        # Query test runs by the build's time range (not buildIds which returns historical data)
         runs_url = (
             f"{self.org_url}/{self.project}/_apis/test/runs?"
-            f"buildIds={build_id}&api-version=7.0"
+            f"minLastUpdatedDate={start_time}&maxLastUpdatedDate={finish_time}&api-version=7.0"
         )
 
         runs_data = self.make_request(runs_url)
