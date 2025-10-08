@@ -551,31 +551,29 @@ class AzDoConnection:
 
         pdbs_dir = output_path / 'pdbs'
 
+        # Build symbol path once for all dumps
+        symbol_paths = []
+        if pdbs_dir.exists():
+            # Recursively find all directories containing .pdb files
+            pdb_dirs = set()
+            for pdb_file in pdbs_dir.rglob('*.pdb'):
+                pdb_dirs.add(str(pdb_file.parent.resolve()))
+            
+            # Add all unique directories containing pdb files
+            symbol_paths.extend(sorted(pdb_dirs))
+            
+            # Also add main pdbs folder and common architecture folders if they exist
+            if str(pdbs_dir.resolve()) not in symbol_paths:
+                symbol_paths.insert(0, str(pdbs_dir.resolve()))
+
+        # Add Microsoft symbol server (always include this)
+        symbol_paths.append('srv*C:\\pdbs*https://msdl.microsoft.com/download/symbols')
+        symbol_path = ';'.join(symbol_paths)
+
         for dump_file in dump_files:
             # Create batch file in root of output_dir (failure folder root)
             batch_name = f"debug_{dump_file.stem}.bat"
             batch_file = output_path / batch_name
-
-            # Build symbol path
-            # Include all pdb files from the pdbs folder hierarchy
-            symbol_paths = []
-            if pdbs_dir.exists():
-                # Recursively find all directories containing .pdb files
-                pdb_dirs = set()
-                for pdb_file in pdbs_dir.rglob('*.pdb'):
-                    pdb_dirs.add(str(pdb_file.parent.resolve()))
-                
-                # Add all unique directories containing pdb files
-                symbol_paths.extend(sorted(pdb_dirs))
-                
-                # Also add main pdbs folder and common architecture folders if they exist
-                if str(pdbs_dir.resolve()) not in symbol_paths:
-                    symbol_paths.insert(0, str(pdbs_dir.resolve()))
-
-            # Add Microsoft symbol server (always include this)
-            symbol_paths.append('srv*C:\\pdbs*https://msdl.microsoft.com/download/symbols')
-
-            symbol_path = ';'.join(symbol_paths)
 
             # Create batch file
             batch_content = f'''@echo off
@@ -590,6 +588,100 @@ set _NT_SYMBOL_PATH={symbol_path}
                 print(f"DEBUG: Created {batch_name} for {dump_file.name}")
             except Exception as e:
                 print(f"DEBUG: Failed to create batch file for {dump_file.name}: {e}")
+
+            # Run WinDbg in headless mode to capture !analyze -v output
+            print(f"DEBUG: Running !analyze -v for {dump_file.name}...")
+            try:
+                self.run_windbg_analysis(dump_file, symbol_path, output_path)
+            except Exception as e:
+                print(f"DEBUG: Failed to run analysis for {dump_file.name}: {e}")
+
+    def run_windbg_analysis(self, dump_file, symbol_path: str, output_dir):
+        """
+        Run WinDbg in headless mode to execute !analyze -v on a dump file.
+        Saves the output to analysis_{dump_name}.txt in the output directory.
+        """
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        
+        output_path = Path(output_dir)
+        dump_path = Path(dump_file)
+        
+        # Output file for the analysis
+        analysis_file = output_path / f"analysis_{dump_path.stem}.txt"
+        
+        # Create a temporary script file for WinDbg commands
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as script_file:
+            # WinDbg script: run !analyze -v and quit
+            script_file.write('.logopen "{}"\n'.format(analysis_file.resolve()))
+            script_file.write('!analyze -v\n')
+            script_file.write('.logclose\n')
+            script_file.write('q\n')  # quit
+            script_path = script_file.name
+        
+        try:
+            # Build WinDbg command
+            # Use cdb.exe (console debugger) instead of windbg.exe for headless operation
+            cdb_path = r"C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+            
+            # Command: cdb -z <dump> -c "<commands>"
+            # Alternative: use -cf <script_file> for command file
+            cmd = [
+                cdb_path,
+                '-z', str(dump_path.resolve()),
+                '-y', symbol_path,  # Symbol path
+                '-cf', script_path,  # Command file
+                '-logo', str(analysis_file.resolve())  # Log output
+            ]
+            
+            print(f"DEBUG: Running: {' '.join(cmd[:3])}...")
+            
+            # Run the debugger with a timeout (some dumps may take a while)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+                env={**subprocess.os.environ, '_NT_SYMBOL_PATH': symbol_path}
+            )
+            
+            print(f"DEBUG: Analysis completed for {dump_path.name}")
+            print(f"DEBUG: Output saved to {analysis_file.name}")
+            
+            # If the log file wasn't created by .logopen, save stdout/stderr
+            if not analysis_file.exists() or analysis_file.stat().st_size == 0:
+                with open(analysis_file, 'w') as f:
+                    f.write("=== WinDbg Analysis Output ===\n\n")
+                    if result.stdout:
+                        f.write(result.stdout)
+                    if result.stderr:
+                        f.write("\n\n=== Errors ===\n")
+                        f.write(result.stderr)
+                print(f"DEBUG: Saved captured output to {analysis_file.name}")
+            
+        except subprocess.TimeoutExpired:
+            print(f"DEBUG: Analysis timed out for {dump_path.name}")
+            # Create a file noting the timeout
+            with open(analysis_file, 'w') as f:
+                f.write(f"Analysis timed out after 300 seconds for {dump_path.name}\n")
+        except FileNotFoundError:
+            print(f"DEBUG: WinDbg/CDB not found at expected location")
+            # Create a file noting the issue
+            with open(analysis_file, 'w') as f:
+                f.write(f"WinDbg/CDB not found. Please ensure Windows Debugging Tools are installed.\n")
+                f.write(f"Expected location: {cdb_path}\n")
+        except Exception as e:
+            print(f"DEBUG: Exception during analysis: {e}")
+            # Create a file noting the error
+            with open(analysis_file, 'w') as f:
+                f.write(f"Error during analysis: {str(e)}\n")
+        finally:
+            # Clean up temporary script file
+            try:
+                Path(script_path).unlink()
+            except:
+                pass
 
     def download_service_symbols(self, build_id: int, output_dir: str):
         """
