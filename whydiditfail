@@ -571,23 +571,42 @@ class AzDoConnection:
         symbol_path = ';'.join(symbol_paths)
 
         for dump_file in dump_files:
-            # Create batch file in root of output_dir (failure folder root)
-            batch_name = f"debug_{dump_file.stem}.bat"
-            batch_file = output_path / batch_name
+            # Create WinDbg batch file in root of output_dir (failure folder root)
+            windbg_batch_name = f"debug_{dump_file.stem}.bat"
+            windbg_batch_file = output_path / windbg_batch_name
 
-            # Create batch file
-            batch_content = f'''@echo off
+            # Create WinDbg batch file
+            windbg_batch_content = f'''@echo off
 REM Auto-generated WinDbg launcher for {dump_file.name}
 set _NT_SYMBOL_PATH={symbol_path}
 "C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\windbg.exe" -z "{dump_file.resolve()}"
 '''
 
             try:
-                with open(batch_file, 'w') as f:
-                    f.write(batch_content)
-                print(f"DEBUG: Created {batch_name} for {dump_file.name}")
+                with open(windbg_batch_file, 'w') as f:
+                    f.write(windbg_batch_content)
+                print(f"DEBUG: Created {windbg_batch_name} for {dump_file.name}")
             except Exception as e:
-                print(f"DEBUG: Failed to create batch file for {dump_file.name}: {e}")
+                print(f"DEBUG: Failed to create WinDbg batch file for {dump_file.name}: {e}")
+
+            # Create KD batch file for command-line debugging (LLM-friendly)
+            kd_batch_name = f"kd_{dump_file.stem}.bat"
+            kd_batch_file = output_path / kd_batch_name
+
+            # Create KD batch file
+            kd_batch_content = f'''@echo off
+REM Auto-generated KD (Kernel Debugger) launcher for {dump_file.name}
+REM KD provides a command-line interface suitable for LLM interaction
+set _NT_SYMBOL_PATH={symbol_path}
+"C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\kd.exe" -z "{dump_file.resolve()}"
+'''
+
+            try:
+                with open(kd_batch_file, 'w') as f:
+                    f.write(kd_batch_content)
+                print(f"DEBUG: Created {kd_batch_name} for {dump_file.name}")
+            except Exception as e:
+                print(f"DEBUG: Failed to create KD batch file for {dump_file.name}: {e}")
 
             # Run WinDbg in headless mode to capture !analyze -v output
             print(f"DEBUG: Running !analyze -v for {dump_file.name}...")
