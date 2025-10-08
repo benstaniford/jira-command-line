@@ -224,26 +224,33 @@ class AzDoConnection:
 
         return test_suite_paths
 
-    def create_windows_shortcut(self, unc_path: str, output_dir: str):
+    def create_windows_shortcut(self, unc_path: str, output_dir: str, endpoint: Optional[str] = None):
         """
         Create Windows shortcut files to the UNC path.
         Creates both a .bat file and a .txt file for compatibility.
+        If endpoint is provided, it will be appended to the UNC path.
         """
         from pathlib import Path
 
         output_path = Path(output_dir)
 
+        # Append endpoint to UNC path if provided
+        if endpoint:
+            full_unc_path = f"{unc_path}\\{endpoint}"
+        else:
+            full_unc_path = unc_path
+
         # Create a batch file that opens the UNC path in Windows Explorer
         bat_file = output_path / "Open_Test_Results.bat"
         with open(bat_file, 'w') as f:
             f.write(f'@echo off\n')
-            f.write(f'start "" "{unc_path}"\n')
+            f.write(f'start "" "{full_unc_path}"\n')
 
         # Create a text file with the UNC path for easy copying
         txt_file = output_path / "UNC_Path.txt"
         with open(txt_file, 'w') as f:
             f.write(f'Test Results Location:\n')
-            f.write(f'{unc_path}\n')
+            f.write(f'{full_unc_path}\n')
 
     def download_test_logs(self, run_id: int, result_id: int, build_id: int, test_name: str, unc_path: Optional[str] = None) -> str:
         """Download logs for a failed test to ~/testruns/<buildid>/<testname>/"""
@@ -304,7 +311,9 @@ class AzDoConnection:
 
             # Create Windows shortcut to UNC path if provided
             if unc_path:
-                self.create_windows_shortcut(unc_path, str(output_dir))
+                # Extract endpoint (computer name) from result data
+                endpoint = result_data.get('computerName')
+                self.create_windows_shortcut(unc_path, str(output_dir), endpoint)
 
             return str(output_dir)
 
