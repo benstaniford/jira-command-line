@@ -605,7 +605,7 @@ class CursesUI:
         self.stdscr.addstr(0, 0, header[:width-1], curses.color_pair(5) | curses.A_BOLD)
         self.stdscr.addstr(
             1, 0,
-            "Use arrow keys to navigate, Enter to view failures, Q to quit"[:width-1],
+            "Use arrow keys to navigate, Enter to view failures, B to open in browser, Q to quit"[:width-1],
             curses.color_pair(5)
         )
 
@@ -758,6 +758,13 @@ class CursesUI:
                 self.current_selection = min(len(runs) - 1, self.current_selection + 1)
             elif key == ord('\n') or key == curses.KEY_ENTER:
                 return runs[self.current_selection]
+            elif key == ord('b') or key == ord('B'):
+                # Open build in browser
+                import webbrowser
+                build_id = runs[self.current_selection]['id']
+                url = f"https://dev.azure.com/Avecto-VSTS/Windows/_build/results?buildId={build_id}"
+                webbrowser.open(url)
+                # Continue showing the list after opening browser
             elif key == ord('q') or key == ord('Q'):
                 return None
 
