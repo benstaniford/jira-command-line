@@ -14,13 +14,16 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
 import requests
 from requests.auth import HTTPBasicAuth
+
+# Pycopilot imports
+from pycopilot import CopilotClient, CopilotAuth, AuthCache, AuthenticationError, APIError
 
 # Local imports
 from libs.MyJiraConfig import MyJiraConfig
@@ -46,6 +49,9 @@ class RegressionReportSummarizer:
         self.space_key = "PMFW"
         self.parent_page_id = "2572025869"  # Regression Reports page
 
+        # Initialize Copilot client for summary generation
+        self.copilot_client = self._init_copilot()
+
     def _init_confluence(self):
         """Initialize Confluence connection using config."""
         config_manager = MyJiraConfig()
@@ -69,6 +75,84 @@ class RegressionReportSummarizer:
         })
 
         print(f"Initialized Confluence connection for {self.confluence_url}")
+
+    def _init_copilot(self) -> Optional[CopilotClient]:
+        """Initialize Copilot client for generating summaries."""
+        print("Initializing GitHub Copilot for summary generation...")
+
+        try:
+            auth = CopilotAuth()
+            cache = AuthCache()
+
+            # Try to get valid cached chat token
+            cached_chat_token = cache.get_valid_cached_chat_token()
+            if cached_chat_token:
+                print("✓ Using cached Copilot authentication")
+                if auth.verify_chat_token(cached_chat_token):
+                    client = CopilotClient()
+                    client.set_chat_token(cached_chat_token)
+                    return client
+                else:
+                    print("⚠ Cached chat token is no longer valid")
+                    cache.clear_chat_token()
+
+            # Try to get new chat token from cached bearer token
+            cached_bearer_token = cache.get_cached_bearer_token()
+            if cached_bearer_token:
+                try:
+                    print("Getting new chat token from cached bearer token...")
+                    chat_token = auth.get_chat_token_from_bearer(cached_bearer_token)
+                    cache.cache_chat_token(chat_token)
+
+                    client = CopilotClient()
+                    client.set_chat_token(chat_token)
+                    print("✓ Got new chat token from cached bearer token")
+                    return client
+
+                except AuthenticationError:
+                    print("⚠ Cached bearer token is no longer valid")
+                    cache.clear_bearer_token()
+
+            # Need to authenticate via device flow
+            print("\nCopilot authentication required...")
+            device_response = auth._get_device_code()
+
+            print(f"\n🔗 To authenticate with GitHub Copilot:")
+            print(f"1. Visit: {device_response['verification_uri']}")
+            print(f"2. Enter code: {device_response['user_code']}")
+            print(f"3. Complete authentication in your browser")
+            print(f"\nWaiting for authentication...", end="", flush=True)
+
+            # Poll for access token
+            for attempt in range(120):  # 10 minutes
+                try:
+                    bearer_token = auth._check_access_token_once(device_response['device_code'])
+                    print(f"\n✓ Authentication successful!")
+
+                    # Get chat token and cache both tokens
+                    chat_token = auth.get_chat_token_from_bearer(bearer_token)
+                    cache.cache_bearer_token(bearer_token)
+                    cache.cache_chat_token(chat_token)
+
+                    client = CopilotClient()
+                    client.set_chat_token(chat_token)
+                    print("✓ Tokens cached for future use")
+                    return client
+
+                except AuthenticationError as e:
+                    if "authorization_pending" in str(e) or "slow_down" in str(e):
+                        print(".", end="", flush=True)
+                        time.sleep(5)
+                        continue
+                    else:
+                        raise e
+
+            print(f"\n✗ Authentication timeout")
+            return None
+
+        except Exception as e:
+            print(f"✗ Failed to initialize Copilot: {e}")
+            return None
 
     def find_analysis_reports(self) -> List[Tuple[Path, str]]:
         """
@@ -98,82 +182,51 @@ class RegressionReportSummarizer:
 
     def generate_summary(self, report_path: Path) -> str:
         """
-        Use copilot to generate a one-paragraph summary of a report.
+        Use Copilot to generate a one-paragraph summary of a report.
         Returns the summary text.
         """
         print(f"\nGenerating summary for: {report_path.name}")
 
-        # Create temp file for summary output
-        temp_summary_file = report_path.parent / f"_temp_summary_{report_path.stem}.txt"
+        if not self.copilot_client:
+            print("✗ Copilot client not initialized")
+            return "Copilot not available - authentication may have failed."
 
         try:
-            # Prepare copilot command
-            bash_exe = r"C:\Program Files\Git\bin\bash.exe"
-            copilot_script = Path.home() / 'AppData' / 'Roaming' / 'npm' / 'copilot'
+            # Add the report as context
+            if not self.copilot_client.add_context(str(report_path)):
+                print(f"✗ Failed to add report as context")
+                return "Failed to add report to context."
 
-            # Ask copilot to write the summary to a temp file
+            # Ask for a summary
             prompt = (
-                f"Please read {report_path.name} and provide a one-paragraph executive summary of this test failure analysis focusing on the cause of the issue. "
+                "Please provide a one-paragraph executive summary of this test failure analysis focusing on the cause of the issue. "
                 "Include: what failed, root cause if identified, and any proposed fix. "
                 "Keep it concise (3-5 sentences max). "
-                f"Write ONLY the summary text to {temp_summary_file.name} (no extra output, just the paragraph)."
+                "Respond with ONLY the summary paragraph, no extra commentary."
             )
 
-            copilot_cmd = [
-                bash_exe,
-                str(copilot_script),
-                '--model', 'gpt-4.1',
-                '--allow-tool', 'write',
-                '--add-dir', str(Path.home() / 'testruns'),
-                '-p', prompt
-            ]
+            # Get the summary from Copilot
+            summary = self.copilot_client.ask(prompt, stream=False)
 
-            # Run copilot from the directory containing the report
-            result = subprocess.run(
-                copilot_cmd,
-                cwd=str(report_path.parent),
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace',  # Replace problematic characters instead of failing
-                timeout=120  # 2 minute timeout
-            )
+            # Remove the context file after use
+            self.copilot_client.remove_context(str(report_path))
 
-            # Check if the summary file was created
-            if temp_summary_file.exists():
-                # Read the summary from the temp file
-                with open(temp_summary_file, 'r', encoding='utf-8') as f:
-                    summary = f.read().strip()
-
-                # Delete the temp file
-                temp_summary_file.unlink()
-
-                if summary:
-                    print(f"✓ Generated summary ({len(summary)} chars)")
-                    return summary
-                else:
-                    print(f"✗ Summary file was empty")
-                    return "Summary generation returned no output."
+            if summary and summary.strip():
+                summary = summary.strip()
+                print(f"✓ Generated summary ({len(summary)} chars)")
+                return summary
             else:
-                print(f"✗ Summary file was not created")
-                if result.returncode != 0 and result.stderr:
-                    print(f"Error: {result.stderr}")
-                return "Summary generation failed - output file not created."
+                print(f"✗ Copilot returned empty response")
+                return "Summary generation returned no output."
 
-        except subprocess.TimeoutExpired:
-            print("✗ Copilot timed out")
-            # Clean up temp file if it exists
-            if temp_summary_file.exists():
-                temp_summary_file.unlink()
-            return "Summary generation timed out."
-        except FileNotFoundError:
-            print(f"✗ Copilot not found at {copilot_script}")
-            return "Copilot not available."
+        except AuthenticationError as e:
+            print(f"✗ Authentication error: {e}")
+            return "Authentication error during summary generation."
+        except APIError as e:
+            print(f"✗ API error: {e}")
+            return f"API error: {str(e)}"
         except Exception as e:
             print(f"✗ Exception generating summary: {e}")
-            # Clean up temp file if it exists
-            if temp_summary_file.exists():
-                temp_summary_file.unlink()
             return f"Error: {str(e)}"
 
     def create_summary_report(self, reports: List[Tuple[Path, str]], summaries: Dict[str, str]) -> Path:
