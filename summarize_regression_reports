@@ -118,6 +118,7 @@ class RegressionReportSummarizer:
             copilot_cmd = [
                 bash_exe,
                 str(copilot_script),
+                '--model', 'gpt-4.1',
                 '--allow-tool', 'write',
                 '--add-dir', str(Path.home() / 'testruns'),
                 '-p', prompt
