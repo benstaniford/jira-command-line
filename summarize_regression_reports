@@ -279,7 +279,12 @@ class RegressionReportSummarizer:
 
         total_failures = len(reports)
 
+        # Azure DevOps build link
+        azdo_link = f"https://avecto-vsts.visualstudio.com/Windows/_build/results?buildId={self.build_id}"
+
         content = f"""# Regression Summary - Build {build_info['build_version']}
+
+**Azure DevOps Build:** [{self.build_id}]({azdo_link})
 
 **Build Version:** {build_info['build_version']}
 **Test Date:** {build_info['test_date']}
@@ -351,6 +356,9 @@ This report summarizes {total_failures} test failure(s) from regression run {sel
         html = re.sub(r'^## (.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
         html = re.sub(r'^### (.+)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
         html = re.sub(r'^#### (.+)$', r'<h4>\1</h4>', html, flags=re.MULTILINE)
+
+        # Links (before bold/italic to avoid conflicts)
+        html = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href="\2">\1</a>', html)
 
         # Bold and italic
         html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
