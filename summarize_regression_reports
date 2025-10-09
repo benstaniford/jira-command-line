@@ -74,14 +74,22 @@ class RegressionReportSummarizer:
         """
         Find all analysis_*.md files in the testruns directory.
         Returns list of tuples: (file_path, test_name)
+
+        Analysis files are named like: analysis_TestName_MachineName.md
         """
         reports = []
 
-        # Search for analysis_*.md files in subdirectories
-        for analysis_file in self.testruns_dir.rglob('analysis_*.md'):
-            # Extract test name from parent directory
-            test_dir = analysis_file.parent
-            test_name = test_dir.name
+        # Search for analysis_*.md files at the build level
+        for analysis_file in self.testruns_dir.glob('analysis_*.md'):
+            # Extract test name from filename
+            # Pattern: analysis_TestName_MachineName.md -> TestName_MachineName
+            filename = analysis_file.stem  # Gets filename without .md extension
+
+            # Remove "analysis_" prefix
+            if filename.startswith('analysis_'):
+                test_name = filename[9:]  # len('analysis_') = 9
+            else:
+                test_name = filename
 
             reports.append((analysis_file, test_name))
             print(f"Found report: {analysis_file.name} for test {test_name}")
