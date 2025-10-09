@@ -579,20 +579,27 @@ class AzDoConnection:
 
         pdbs_dir = output_path / 'pdbs'
 
-        # Build symbol path once for all dumps
+        # Build symbol path once for all dumps (using relative paths)
         symbol_paths = []
         if pdbs_dir.exists():
             # Recursively find all directories containing .pdb files
             pdb_dirs = set()
             for pdb_file in pdbs_dir.rglob('*.pdb'):
-                pdb_dirs.add(str(pdb_file.parent.resolve()))
-            
+                # Use relative path from output_dir
+                try:
+                    rel_path = pdb_file.parent.relative_to(output_path)
+                    pdb_dirs.add(str(rel_path))
+                except ValueError:
+                    # If relative path fails, skip this directory
+                    pass
+
             # Add all unique directories containing pdb files
             symbol_paths.extend(sorted(pdb_dirs))
-            
-            # Also add main pdbs folder and common architecture folders if they exist
-            if str(pdbs_dir.resolve()) not in symbol_paths:
-                symbol_paths.insert(0, str(pdbs_dir.resolve()))
+
+            # Also add main pdbs folder if not already included
+            pdbs_rel = 'pdbs'
+            if pdbs_rel not in symbol_paths:
+                symbol_paths.insert(0, pdbs_rel)
 
         # Add Microsoft symbol server (always include this)
         symbol_paths.append('srv*C:\\pdbs*https://msdl.microsoft.com/download/symbols')
@@ -603,11 +610,18 @@ class AzDoConnection:
             windbg_batch_name = f"debug_{dump_file.stem}.bat"
             windbg_batch_file = output_path / windbg_batch_name
 
+            # Get relative path from output_dir to dump file
+            try:
+                dump_rel_path = dump_file.relative_to(output_path)
+            except ValueError:
+                # If relative path fails, use absolute path as fallback
+                dump_rel_path = dump_file.resolve()
+
             # Create WinDbg batch file
             windbg_batch_content = f'''@echo off
 REM Auto-generated WinDbg launcher for {dump_file.name}
 set _NT_SYMBOL_PATH={symbol_path}
-"C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\windbg.exe" -z "{dump_file.resolve()}"
+"C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\windbg.exe" -z "{dump_rel_path}"
 '''
 
             try:
@@ -621,12 +635,12 @@ set _NT_SYMBOL_PATH={symbol_path}
             kd_batch_name = f"kd_{dump_file.stem}.bat"
             kd_batch_file = output_path / kd_batch_name
 
-            # Create KD batch file
+            # Create KD batch file (use same relative path as windbg)
             kd_batch_content = f'''@echo off
 REM Auto-generated KD (Kernel Debugger) launcher for {dump_file.name}
 REM KD provides a command-line interface suitable for LLM interaction
 set _NT_SYMBOL_PATH={symbol_path}
-"C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\kd.exe" -z "{dump_file.resolve()}"
+"C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\kd.exe" -z "{dump_rel_path}"
 '''
 
             try:
