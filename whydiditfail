@@ -1070,10 +1070,50 @@ Your analysis should include:
    - Are there multiple possible solutions?
    - What would be the recommended approach?
 
-4. **Additional Context** (if applicable)
+4. **Related Jira Items**
+   - Search for related Jira items using the test name
+   - Search for automation failures matching a brief summary of the issue
+   - Include any relevant Jira ticket keys and summaries in your analysis
+   - Note: This should be done LAST, after completing your diagnosis
+
+5. **Additional Context** (if applicable)
    - Are there related issues or patterns?
    - Is this a flaky test or consistent failure?
    - Are there any workarounds?
+
+---
+
+## Searching for Related Jira Items
+
+After completing your technical diagnosis, search for related Jira items to understand if this is a known issue or if similar failures have been reported.
+
+### Search Strategy
+
+1. **Search by Test Name**
+   - Extract the core test name (remove method names, parameters, etc.)
+   - Search Jira for issues mentioning this test name
+   - Example: If the test is `TestUserAuthentication.VerifyLogin`, search for "TestUserAuthentication" or "VerifyLogin"
+
+2. **Search by Failure Summary**
+   - Create a brief summary of the failure (1-2 sentences)
+   - Search for "automation failure" combined with key terms from your summary
+   - Focus on error messages, exception types, or failure categories
+
+3. **JQL Query Examples**
+   ```
+   text ~ "TestName" AND (labels = "automation" OR labels = "test-failure")
+   text ~ "automation failure" AND text ~ "specific error"
+   project = EPM AND summary ~ "test" AND status != Closed
+   ```
+
+### What to Include in Your Report
+
+- List any Jira tickets found with their keys (e.g., EPM-1234)
+- Summarize how each ticket relates to the current failure
+- Note if this is a known issue, a duplicate, or a new variation
+- Include links to relevant tickets if available
+
+**Note:** This search should be performed LAST, after you have completed your technical diagnosis and root cause analysis.
 
 ---
 
