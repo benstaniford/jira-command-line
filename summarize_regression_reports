@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+"""
+Regression Report Summarizer and Confluence Uploader
+
+Takes a regression run folder (e.g., ~/testruns/32761) and:
+1. Finds all analysis_*.md files in test failure subdirectories
+2. Uses copilot to generate one-paragraph summaries
+3. Creates a comprehensive summary report
+4. Uploads the summary to Confluence
+5. Uploads each detailed report as a subpage
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import List, Dict, Optional, Tuple
+
+# Confluence API
+from atlassian import Confluence
+
+# Local imports
+from libs.MyJiraConfig import MyJiraConfig
+
+
+class RegressionReportSummarizer:
+    """Handles summarization and upload of regression test reports."""
+
+    def __init__(self, testruns_dir: str):
+        """Initialize with the testruns directory (e.g., ~/testruns/32761)."""
+        self.testruns_dir = Path(testruns_dir).expanduser().resolve()
+
+        if not self.testruns_dir.exists():
+            raise ValueError(f"Directory does not exist: {self.testruns_dir}")
+
+        # Extract build ID from directory name
+        self.build_id = self.testruns_dir.name
+
+        # Initialize Confluence
+        self.confluence = self._init_confluence()
+
+        # Confluence configuration
+        self.space_key = "PMFW"
+        self.parent_page_id = "2572025869"  # Regression Reports page
+
+    def _init_confluence(self) -> Confluence:
+        """Initialize Confluence connection using config."""
+        config_manager = MyJiraConfig()
+        if not config_manager.exists():
+            raise ValueError("Config file not found. Please run the main jira application first to generate configuration.")
+
+        config = config_manager.load()
+        jira_config = config["jira"]
+
+        # Use the Jira credentials for Confluence (same Atlassian instance)
+        confluence = Confluence(
+            url=jira_config["url"],
+            username=jira_config["username"],
+            password=jira_config["password"],
+            cloud=True
+        )
+        print(f"Initialized Confluence connection for {jira_config['url']}")
+        return confluence
+
+    def find_analysis_reports(self) -> List[Tuple[Path, str]]:
+        """
+        Find all analysis_*.md files in the testruns directory.
+        Returns list of tuples: (file_path, test_name)
+        """
+        reports = []
+
+        # Search for analysis_*.md files in subdirectories
+        for analysis_file in self.testruns_dir.rglob('analysis_*.md'):
+            # Extract test name from parent directory
+            test_dir = analysis_file.parent
+            test_name = test_dir.name
+
+            reports.append((analysis_file, test_name))
+            print(f"Found report: {analysis_file.name} for test {test_name}")
+
+        return sorted(reports)
+
+    def generate_summary(self, report_path: Path) -> str:
+        """
+        Use copilot to generate a one-paragraph summary of a report.
+        Returns the summary text.
+        """
+        print(f"\nGenerating summary for: {report_path.name}")
+
+        try:
+            # Prepare copilot command
+            bash_exe = r"C:\Program Files\Git\bin\bash.exe"
+            copilot_script = Path.home() / 'AppData' / 'Roaming' / 'npm' / 'copilot'
+
+            prompt = (
+                "Please provide a one-paragraph summary of this test failure analysis. "
+                "Include: what failed, root cause if identified, and any proposed fix. "
+                "Keep it concise (3-5 sentences max)."
+            )
+
+            copilot_cmd = [
+                bash_exe,
+                str(copilot_script),
+                '-p', prompt,
+                '--add-file', str(report_path)
+            ]
+
+            # Run copilot and capture output
+            result = subprocess.run(
+                copilot_cmd,
+                capture_output=True,
+                text=True,
+                timeout=120  # 2 minute timeout
+            )
+
+            if result.returncode == 0:
+                # Extract the summary from copilot output
+                summary = result.stdout.strip()
+                print(f"✓ Generated summary ({len(summary)} chars)")
+                return summary
+            else:
+                print(f"✗ Copilot failed with return code {result.returncode}")
+                print(f"Error: {result.stderr}")
+                return "Summary generation failed."
+
+        except subprocess.TimeoutExpired:
+            print("✗ Copilot timed out")
+            return "Summary generation timed out."
+        except FileNotFoundError:
+            print(f"✗ Copilot not found at {copilot_script}")
+            return "Copilot not available."
+        except Exception as e:
+            print(f"✗ Exception generating summary: {e}")
+            return f"Error: {str(e)}"
+
+    def create_summary_report(self, reports: List[Tuple[Path, str]], summaries: Dict[str, str]) -> Path:
+        """
+        Create a comprehensive summary markdown file.
+        Returns the path to the created file.
+        """
+        summary_file = self.testruns_dir.parent / f"{self.build_id}_summary.md"
+
+        print(f"\nCreating summary report: {summary_file}")
+
+        # Get build info if available
+        build_version = "Unknown"
+        total_failures = len(reports)
+
+        content = f"""# Regression Test Failure Summary - Build {self.build_id}
+
+**Build ID:** {self.build_id}
+**Total Failures:** {total_failures}
+**Report Generated:** {self._get_timestamp()}
+
+---
+
+## Executive Summary
+
+This report summarizes {total_failures} test failure(s) from regression run {self.build_id}.
+
+---
+
+## Test Failure Summaries
+
+"""
+
+        # Add each test summary
+        for report_path, test_name in reports:
+            summary = summaries.get(str(report_path), "No summary available.")
+
+            content += f"""### {test_name}
+
+{summary}
+
+**Detailed Analysis:** [View Full Report]({report_path.name})
+
+---
+
+"""
+
+        # Add footer
+        content += f"""
+## Additional Information
+
+- **Detailed Reports:** Each test has a comprehensive analysis in its subdirectory
+- **Build Location:** `{self.testruns_dir}`
+- **Report Source:** Generated by `summarize_regression_reports`
+
+---
+
+*Report automatically generated on {self._get_timestamp()}*
+"""
+
+        # Write the file
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        print(f"✓ Summary report created: {summary_file}")
+        return summary_file
+
+    def _get_timestamp(self) -> str:
+        """Get current timestamp as formatted string."""
+        from datetime import datetime
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    def markdown_to_confluence_storage(self, markdown_content: str) -> str:
+        """
+        Convert markdown to Confluence storage format (HTML).
+        This is a basic conversion - you may want to enhance it.
+        """
+        # Basic markdown to HTML conversions
+        html = markdown_content
+
+        # Headers
+        html = re.sub(r'^# (.+)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+        html = re.sub(r'^## (.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+        html = re.sub(r'^### (.+)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
+        html = re.sub(r'^#### (.+)$', r'<h4>\1</h4>', html, flags=re.MULTILINE)
+
+        # Bold and italic
+        html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
+        html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', html)
+
+        # Code blocks
+        html = re.sub(r'```(.+?)```', r'<pre><code>\1</code></pre>', html, flags=re.DOTALL)
+        html = re.sub(r'`(.+?)`', r'<code>\1</code>', html)
+
+        # Horizontal rules
+        html = re.sub(r'^---$', r'<hr/>', html, flags=re.MULTILINE)
+
+        # Line breaks
+        html = html.replace('\n\n', '<br/><br/>')
+
+        return html
+
+    def upload_to_confluence(self, summary_file: Path, reports: List[Tuple[Path, str]]) -> str:
+        """
+        Upload the summary report and detailed reports to Confluence.
+        Returns the URL of the main summary page.
+        """
+        print(f"\n{'='*80}")
+        print("Uploading to Confluence...")
+        print(f"{'='*80}\n")
+
+        # Read summary content
+        with open(summary_file, 'r', encoding='utf-8') as f:
+            summary_content = f.read()
+
+        # Create main summary page
+        main_title = f"Build {self.build_id} Regression Failures"
+        print(f"Creating main page: {main_title}")
+
+        try:
+            # Convert markdown to Confluence storage format
+            main_content_html = self.markdown_to_confluence_storage(summary_content)
+
+            # Create main page
+            main_page = self.confluence.create_page(
+                space=self.space_key,
+                title=main_title,
+                body=main_content_html,
+                parent_id=self.parent_page_id,
+                type="page",
+                representation="storage"
+            )
+
+            main_page_id = main_page.get("id")
+            main_page_url = f"{self.confluence.url}/wiki/spaces/{self.space_key}/pages/{main_page_id}"
+
+            print(f"✓ Created main page: {main_page_url}")
+
+            # Upload detailed reports as child pages
+            child_page_links = []
+
+            for report_path, test_name in reports:
+                print(f"\nUploading detailed report for: {test_name}")
+
+                try:
+                    # Read detailed report
+                    with open(report_path, 'r', encoding='utf-8') as f:
+                        detailed_content = f.read()
+
+                    # Convert to Confluence format
+                    detailed_html = self.markdown_to_confluence_storage(detailed_content)
+
+                    # Create child page
+                    child_page = self.confluence.create_page(
+                        space=self.space_key,
+                        title=f"{main_title} - {test_name}",
+                        body=detailed_html,
+                        parent_id=main_page_id,
+                        type="page",
+                        representation="storage"
+                    )
+
+                    child_page_id = child_page.get("id")
+                    child_page_url = f"{self.confluence.url}/wiki/spaces/{self.space_key}/pages/{child_page_id}"
+
+                    child_page_links.append((test_name, child_page_url, child_page_id))
+                    print(f"✓ Created child page: {child_page_url}")
+
+                except Exception as e:
+                    print(f"✗ Failed to upload detailed report for {test_name}: {e}")
+                    continue
+
+            # Update main page with links to child pages
+            if child_page_links:
+                print(f"\nUpdating main page with links to {len(child_page_links)} detailed reports...")
+
+                # Build links section
+                links_html = "<h2>Detailed Test Reports</h2><ul>"
+                for test_name, url, page_id in child_page_links:
+                    # Use Confluence's internal link format
+                    links_html += f'<li><ac:link><ri:page ri:content-title="{main_title} - {test_name}" /></ac:link></li>'
+                links_html += "</ul>"
+
+                # Append links to main page
+                try:
+                    updated_main_page = self.confluence.update_page(
+                        page_id=main_page_id,
+                        title=main_title,
+                        body=main_content_html + "<br/><br/>" + links_html,
+                        version_comment="Added links to detailed reports"
+                    )
+                    print(f"✓ Updated main page with child page links")
+                except Exception as e:
+                    print(f"✗ Failed to update main page with links: {e}")
+
+            print(f"\n{'='*80}")
+            print(f"✓ Upload complete!")
+            print(f"Main page: {main_page_url}")
+            print(f"{'='*80}\n")
+
+            return main_page_url
+
+        except Exception as e:
+            print(f"\n✗ Failed to upload to Confluence: {e}")
+            import traceback
+            traceback.print_exc()
+            return ""
+
+    def run(self, skip_copilot: bool = False, skip_confluence: bool = False):
+        """
+        Main execution flow.
+        """
+        print(f"\n{'='*80}")
+        print(f"Regression Report Summarizer")
+        print(f"{'='*80}\n")
+        print(f"Build ID: {self.build_id}")
+        print(f"Directory: {self.testruns_dir}")
+        print(f"\n{'='*80}\n")
+
+        # Step 1: Find all analysis reports
+        print("Step 1: Finding analysis reports...")
+        reports = self.find_analysis_reports()
+
+        if not reports:
+            print("\n✗ No analysis reports found!")
+            print("Expected to find analysis_*.md files in test failure subdirectories.")
+            return
+
+        print(f"\n✓ Found {len(reports)} analysis report(s)")
+
+        # Step 2: Generate summaries using copilot
+        summaries = {}
+
+        if not skip_copilot:
+            print(f"\n{'='*80}")
+            print("Step 2: Generating summaries with copilot...")
+            print(f"{'='*80}")
+
+            for report_path, test_name in reports:
+                summary = self.generate_summary(report_path)
+                summaries[str(report_path)] = summary
+        else:
+            print("\n(Skipping copilot summary generation)")
+            for report_path, test_name in reports:
+                summaries[str(report_path)] = "Summary generation skipped."
+
+        # Step 3: Create comprehensive summary report
+        print(f"\n{'='*80}")
+        print("Step 3: Creating summary report...")
+        print(f"{'='*80}")
+
+        summary_file = self.create_summary_report(reports, summaries)
+
+        # Step 4: Upload to Confluence
+        if not skip_confluence:
+            confluence_url = self.upload_to_confluence(summary_file, reports)
+
+            if confluence_url:
+                print(f"\n{'='*80}")
+                print("✓ All done!")
+                print(f"Summary file: {summary_file}")
+                print(f"Confluence: {confluence_url}")
+                print(f"{'='*80}\n")
+        else:
+            print("\n(Skipping Confluence upload)")
+            print(f"\n✓ Summary file created: {summary_file}")
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="Summarize regression test reports and upload to Confluence",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s ~/testruns/32761
+  %(prog)s ~/testruns/32761 --skip-copilot
+  %(prog)s ~/testruns/32761 --skip-confluence
+        """
+    )
+
+    parser.add_argument(
+        'testruns_dir',
+        help='Path to testruns directory (e.g., ~/testruns/32761)'
+    )
+
+    parser.add_argument(
+        '--skip-copilot',
+        action='store_true',
+        help='Skip copilot summary generation'
+    )
+
+    parser.add_argument(
+        '--skip-confluence',
+        action='store_true',
+        help='Skip Confluence upload (only create local summary)'
+    )
+
+    args = parser.parse_args()
+
+    try:
+        summarizer = RegressionReportSummarizer(args.testruns_dir)
+        summarizer.run(
+            skip_copilot=args.skip_copilot,
+            skip_confluence=args.skip_confluence
+        )
+    except KeyboardInterrupt:
+        print("\n\n✗ Cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
