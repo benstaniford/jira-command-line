@@ -1201,7 +1201,7 @@ If you need additional context:
             f.write(f'Test Results Location:\n')
             f.write(f'{full_unc_path}\n')
 
-    def download_test_logs(self, run_id: int, result_id: int, build_id: int, test_name: str, unc_path: Optional[str] = None) -> str:
+    def download_test_logs(self, run_id: int, result_id: int, build_id: int, test_name: str, unc_path: Optional[str] = None, skip_copilot_prompt: bool = False, run_copilot: bool = False) -> str:
         """Download logs for a failed test to ~/testruns/<buildid>/<testname>_<machinename>/"""
         import re
         from pathlib import Path
@@ -1324,20 +1324,26 @@ If you need additional context:
             self.create_debugging_documentation(str(output_dir), build_id, test_name, build_version, commit_sha)
             print(f"DEBUG: Debugging.md created")
 
-            # Ask user if they want to run copilot autoanalysis
-            curses.endwin()
-            print("\n" + "="*80)
-            print("Logs and debugging documentation downloaded successfully!")
-            print(f"Location: {output_dir}")
-            print("="*80)
-            user_input = input("\nWould you like to run copilot autoanalysis now? (y/N): ").strip().lower()
+            # Determine if copilot should run
+            should_run_copilot = run_copilot
 
-            if user_input not in ['y', 'yes']:
-                print("\nSkipping copilot autoanalysis.")
-                print("You can review the downloaded logs and Debugging.md manually.")
-                print("Press Enter to return to the test failure list...")
-                input()
-                curses.doupdate()
+            if not skip_copilot_prompt:
+                # Ask user if they want to run copilot autoanalysis
+                curses.endwin()
+                print("\n" + "="*80)
+                print("Logs and debugging documentation downloaded successfully!")
+                print(f"Location: {output_dir}")
+                print("="*80)
+                user_input = input("\nWould you like to run copilot autoanalysis now? (y/N): ").strip().lower()
+                should_run_copilot = user_input in ['y', 'yes']
+
+            if not should_run_copilot:
+                if not skip_copilot_prompt:
+                    print("\nSkipping copilot autoanalysis.")
+                    print("You can review the downloaded logs and Debugging.md manually.")
+                    print("Press Enter to return to the test failure list...")
+                    input()
+                    curses.doupdate()
                 return str(output_dir)
 
             # Invoke copilot to perform debugging
@@ -1372,29 +1378,33 @@ If you need additional context:
                 print("\n" + "="*80)
                 print(f"Copilot completed with return code {result.returncode}")
                 print("="*80)
-                print("\nPress Enter to return to the test failure list...")
-                input()
 
-                # Restore curses mode
-                curses.doupdate()
+                if not skip_copilot_prompt:
+                    print("\nPress Enter to return to the test failure list...")
+                    input()
+                    # Restore curses mode
+                    curses.doupdate()
 
             except subprocess.TimeoutExpired:
                 print(f"\nCopilot analysis timed out after 30 minutes")
-                print("Press Enter to return to the test failure list...")
-                input()
-                curses.doupdate()
+                if not skip_copilot_prompt:
+                    print("Press Enter to return to the test failure list...")
+                    input()
+                    curses.doupdate()
             except FileNotFoundError:
                 print(f"\nCopilot command not found - is it installed and in PATH?")
                 print(f"Expected bash at: {bash_exe}")
                 print(f"Expected copilot at: {copilot_script}")
-                print("Press Enter to return to the test failure list...")
-                input()
-                curses.doupdate()
+                if not skip_copilot_prompt:
+                    print("Press Enter to return to the test failure list...")
+                    input()
+                    curses.doupdate()
             except Exception as e:
                 print(f"\nException invoking copilot: {e}")
-                print("Press Enter to return to the test failure list...")
-                input()
-                curses.doupdate()
+                if not skip_copilot_prompt:
+                    print("Press Enter to return to the test failure list...")
+                    input()
+                    curses.doupdate()
 
             return str(output_dir)
 
@@ -1513,7 +1523,7 @@ class CursesUI:
         self.stdscr.addstr(0, 0, header[:width-1], curses.color_pair(5) | curses.A_BOLD)
         self.stdscr.addstr(
             1, 0,
-            "Use arrow keys, Enter to download logs, Q/Esc to return"[:width-1],
+            "Use arrow keys, Enter to download logs, A to download all, Q/Esc to return"[:width-1],
             curses.color_pair(5)
         )
 
@@ -1550,8 +1560,8 @@ class CursesUI:
 
         self.stdscr.refresh()
 
-    def select_failed_test(self, failures: List[Dict[str, Any]], build_number: str) -> Optional[Dict[str, Any]]:
-        """Handle failed test selection with arrow keys."""
+    def select_failed_test(self, failures: List[Dict[str, Any]], build_number: str):
+        """Handle failed test selection with arrow keys. Returns the selected test, 'ALL' for all tests, or None to go back."""
         test_selection = 0
         test_scroll = 0
 
@@ -1580,6 +1590,8 @@ class CursesUI:
                 test_selection = min(len(failures) - 1, test_selection + 1)
             elif key == ord('\n') or key == curses.KEY_ENTER:
                 return failures[test_selection]
+            elif key == ord('a') or key == ord('A'):
+                return 'ALL'
             elif key == ord('q') or key == ord('Q') or key == 27:  # 27 is ESC
                 return None
 
@@ -1664,6 +1676,66 @@ def main(stdscr):
 
                 if selected_test is None:
                     break  # User went back
+
+                # Handle "download all" option
+                if selected_test == 'ALL':
+                    # Exit curses and ask once about copilot analysis
+                    curses.endwin()
+                    print("\n" + "="*80)
+                    print(f"Downloading all {len(failures)} failed tests")
+                    print("="*80)
+                    user_input = input("\nWould you like to run copilot autoanalysis for all tests? (y/N): ").strip().lower()
+                    run_copilot_for_all = user_input in ['y', 'yes']
+                    print()  # Blank line for readability
+
+                    # Download all tests
+                    successful_downloads = 0
+                    failed_downloads = 0
+
+                    for idx, failure in enumerate(failures, 1):
+                        print(f"[{idx}/{len(failures)}] Processing: {failure['test']}")
+
+                        try:
+                            # Find matching UNC path for this test suite
+                            unc_path = None
+                            run_name = failure['run']
+                            for suite_name, path in test_suite_paths.items():
+                                if suite_name in run_name:
+                                    unc_path = path
+                                    break
+
+                            output_dir = azdo.download_test_logs(
+                                failure['run_id'],
+                                failure['result_id'],
+                                build_id,
+                                failure['test'],
+                                unc_path,
+                                skip_copilot_prompt=True,
+                                run_copilot=run_copilot_for_all
+                            )
+
+                            print(f"  ✓ Downloaded to: {output_dir}")
+                            successful_downloads += 1
+
+                        except Exception as e:
+                            print(f"  ✗ Error: {str(e)}")
+                            failed_downloads += 1
+
+                        print()  # Blank line between tests
+
+                    # Show summary
+                    print("="*80)
+                    print(f"Download complete!")
+                    print(f"  Successful: {successful_downloads}")
+                    print(f"  Failed: {failed_downloads}")
+                    print("="*80)
+                    print("Press Enter to return to the test failure list...")
+                    input()
+
+                    # Reinitialize curses by refreshing the screen
+                    stdscr.clear()
+                    stdscr.refresh()
+                    continue
 
                 # Show downloading message
                 stdscr.clear()
