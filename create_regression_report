@@ -259,7 +259,75 @@ class RegressionReportSummarizer:
             print(f"✗ Exception generating summary: {e}")
             return f"Error: {str(e)}"
 
-    def create_summary_report(self, reports: List[Tuple[Path, str]], summaries: Dict[str, str]) -> Path:
+    def extract_jira_tickets(self, report_path: Path) -> List[str]:
+        """
+        Use Copilot to extract Jira ticket references from a detailed report.
+        Returns a list of Jira ticket keys (e.g., ["EPM-16469", "EPM-12345"]).
+        """
+        print(f"Extracting Jira tickets for: {report_path.name}")
+
+        if not self.copilot_client:
+            print("✗ Copilot client not initialized")
+            return []
+
+        try:
+            # Add the report as context
+            if not self.copilot_client.add_context(str(report_path)):
+                print(f"✗ Failed to add report as context")
+                return []
+
+            # Ask for Jira tickets
+            prompt = (
+                "Search this detailed test failure analysis report for any Jira ticket references. "
+                "Look for tickets in the format EPM-XXXXX or similar project key patterns. "
+                "If the report mentions related Jira items or searches for Jira tickets, extract those ticket keys. "
+                "Respond with ONLY a comma-separated list of Jira ticket keys (e.g., 'EPM-16469, EPM-12345'). "
+                "If no Jira tickets are found, respond with 'NONE'."
+            )
+
+            # Get the Jira tickets from Copilot
+            response = self.copilot_client.ask(prompt, stream=False)
+
+            # Remove the context file after use
+            self.copilot_client.remove_context(str(report_path))
+
+            if response and response.strip():
+                response = response.strip()
+
+                # Handle "NONE" response
+                if response.upper() == "NONE":
+                    print(f"✓ No Jira tickets found")
+                    return []
+
+                # Parse comma-separated list
+                tickets = [ticket.strip() for ticket in response.split(',')]
+
+                # Filter to only valid Jira ticket patterns (PROJECT-NUMBER)
+                import re
+                jira_pattern = re.compile(r'^[A-Z]+-\d+$')
+                valid_tickets = [ticket for ticket in tickets if jira_pattern.match(ticket)]
+
+                if valid_tickets:
+                    print(f"✓ Found {len(valid_tickets)} Jira ticket(s): {', '.join(valid_tickets)}")
+                else:
+                    print(f"✓ No valid Jira tickets found")
+
+                return valid_tickets
+            else:
+                print(f"✗ Copilot returned empty response")
+                return []
+
+        except AuthenticationError as e:
+            print(f"✗ Authentication error: {e}")
+            return []
+        except APIError as e:
+            print(f"✗ API error: {e}")
+            return []
+        except Exception as e:
+            print(f"✗ Exception extracting Jira tickets: {e}")
+            return []
+
+    def create_summary_report(self, reports: List[Tuple[Path, str]], summaries: Dict[str, str], jira_tickets: Dict[str, List[str]]) -> Path:
         """
         Create a comprehensive summary markdown file.
         Returns the path to the created file.
@@ -301,8 +369,19 @@ class RegressionReportSummarizer:
             summary = summaries.get(str(report_path), "No summary available.")
             content += f"""### {test_name}
 {summary}
----
+
 """
+            # Add Possible Related Cases section if Jira tickets found
+            tickets = jira_tickets.get(str(report_path), [])
+            if tickets:
+                content += "**Possible Related Cases:**\n"
+                for ticket in tickets:
+                    jira_url = f"https://beyondtrust.atlassian.net/browse/{ticket}"
+                    content += f"- [{ticket}]({jira_url})\n"
+                content += "\n"
+
+            content += "---\n"
+
         # Add footer
         content += f"""
 *Report automatically generated on {self._get_timestamp()}*
@@ -633,21 +712,37 @@ class RegressionReportSummarizer:
             for report_path, test_name in reports:
                 summaries[str(report_path)] = "Summary generation skipped."
 
-        # Step 3: Create comprehensive summary report
+        # Step 3: Extract Jira tickets from detailed reports
+        jira_tickets = {}
+
+        if not skip_copilot:
+            print(f"\n{'='*80}")
+            print("Step 3: Extracting Jira tickets from detailed reports...")
+            print(f"{'='*80}")
+
+            for report_path, test_name in reports:
+                tickets = self.extract_jira_tickets(report_path)
+                jira_tickets[str(report_path)] = tickets
+        else:
+            print("\n(Skipping Jira ticket extraction)")
+            for report_path, test_name in reports:
+                jira_tickets[str(report_path)] = []
+
+        # Step 4: Create comprehensive summary report
         print(f"\n{'='*80}")
-        print("Step 3: Creating summary report...")
+        print("Step 4: Creating summary report...")
         print(f"{'='*80}")
 
-        summary_file = self.create_summary_report(reports, summaries)
+        summary_file = self.create_summary_report(reports, summaries, jira_tickets)
 
-        # Step 4: Copy to network share before Confluence upload
+        # Step 5: Copy to network share before Confluence upload
         if not skip_confluence:
             print(f"\n{'='*80}")
-            print("Step 4: Copying to network share...")
+            print("Step 5: Copying to network share...")
             print(f"{'='*80}")
             self.copy_to_network_share()
 
-        # Step 5: Upload to Confluence
+        # Step 6: Upload to Confluence
         if not skip_confluence:
             confluence_url = self.upload_to_confluence(summary_file, reports)
 
