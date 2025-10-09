@@ -1202,8 +1202,24 @@ If you need additional context:
             self.create_debugging_documentation(str(output_dir), build_id, test_name, build_version, commit_sha)
             print(f"DEBUG: Debugging.md created")
 
+            # Ask user if they want to run copilot autoanalysis
+            curses.endwin()
+            print("\n" + "="*80)
+            print("Logs and debugging documentation downloaded successfully!")
+            print(f"Location: {output_dir}")
+            print("="*80)
+            user_input = input("\nWould you like to run copilot autoanalysis now? (y/N): ").strip().lower()
+
+            if user_input not in ['y', 'yes']:
+                print("\nSkipping copilot autoanalysis.")
+                print("You can review the downloaded logs and Debugging.md manually.")
+                print("Press Enter to return to the test failure list...")
+                input()
+                curses.doupdate()
+                return str(output_dir)
+
             # Invoke copilot to perform debugging
-            print(f"DEBUG: Invoking copilot for automated debugging...")
+            print(f"\nStarting copilot automated debugging...")
             try:
                 import subprocess
                 # Copilot is a shell script, invoke it using Git Bash on Windows
@@ -1219,10 +1235,8 @@ If you need additional context:
                     '--add-dir', 'z:\\epm-windows'
                 ]
 
-                # Suspend curses mode to show copilot output live
-                curses.endwin()
-                print("\n" + "="*80)
-                print(f"Starting Copilot analysis in: {output_dir}")
+                print("="*80)
+                print(f"Copilot analysis in: {output_dir}")
                 print("="*80 + "\n")
 
                 # Run copilot from the output directory where Debugging.md is located
