@@ -577,7 +577,43 @@ class AzDoConnection:
         dump_files = list(procdump_dir.rglob('*.dmp'))
         print(f"DEBUG: Found {len(dump_files)} dump files")
 
+        # Detect architectures from dump files to clean up unnecessary PDBs
+        required_architectures = set()
+        if dump_files:
+            print(f"DEBUG: Detecting dump file architectures...")
+            for dump_file in dump_files:
+                arch = self.detect_dump_architecture(dump_file)
+                if arch:
+                    required_architectures.add(arch)
+                    print(f"DEBUG: {dump_file.name} -> {arch}")
+                else:
+                    print(f"DEBUG: Could not detect architecture for {dump_file.name}")
+
+            if required_architectures:
+                print(f"DEBUG: Required architectures: {', '.join(sorted(required_architectures))}")
+            else:
+                print(f"DEBUG: No architectures detected, keeping all PDBs")
+
         pdbs_dir = output_path / 'pdbs'
+
+        # Clean up unnecessary architecture-specific PDBs if we detected architectures
+        if required_architectures and pdbs_dir.exists():
+            all_architectures = {'x64', 'x86', 'ARM64'}
+            unnecessary_architectures = all_architectures - required_architectures
+
+            if unnecessary_architectures:
+                print(f"DEBUG: Cleaning up unnecessary architectures: {', '.join(sorted(unnecessary_architectures))}")
+                import shutil
+
+                for arch in unnecessary_architectures:
+                    # Check for architecture-specific folders in pdbs directory
+                    for arch_dir in pdbs_dir.rglob(arch):
+                        if arch_dir.is_dir() and arch_dir.name == arch:
+                            try:
+                                shutil.rmtree(arch_dir)
+                                print(f"DEBUG: Deleted {arch_dir.relative_to(output_path)}")
+                            except Exception as e:
+                                print(f"DEBUG: Failed to delete {arch_dir}: {e}")
 
         # Build symbol path once for all dumps (using relative paths)
         symbol_paths = []
@@ -656,6 +692,63 @@ set _NT_SYMBOL_PATH={symbol_path}
                 self.run_windbg_analysis(dump_file, symbol_path, output_path)
             except Exception as e:
                 print(f"DEBUG: Failed to run analysis for {dump_file.name}: {e}")
+
+    def detect_dump_architecture(self, dump_file) -> Optional[str]:
+        """
+        Detect the architecture of a dump file by analyzing its header.
+        Returns 'x64', 'x86', or 'ARM64', or None if detection fails.
+        """
+        import subprocess
+        from pathlib import Path
+
+        dump_path = Path(dump_file)
+
+        if not dump_path.exists():
+            return None
+
+        try:
+            # Use CDB to quickly detect architecture
+            cdb_path = r"C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+
+            # Run CDB with minimal commands to just get the architecture
+            cmd = [
+                cdb_path,
+                '-z', str(dump_path.resolve()),
+                '-c', '.effmach; q'  # Show effective machine type and quit
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            output = result.stdout + result.stderr
+
+            # Parse output for architecture indicators
+            if 'x64' in output.lower() or 'amd64' in output.lower():
+                return 'x64'
+            elif 'arm64' in output.lower() or 'aarch64' in output.lower():
+                return 'ARM64'
+            elif 'x86' in output.lower() or 'i386' in output.lower() or '80386' in output.lower():
+                return 'x86'
+
+            # Fallback: try to detect from initial load message
+            # "Opened <path>\ndump file: user-mode, x64, 64-bit target"
+            for line in output.split('\n'):
+                if 'x64' in line or 'AMD64' in line:
+                    return 'x64'
+                elif 'ARM64' in line or 'AArch64' in line:
+                    return 'ARM64'
+                elif 'x86' in line or 'i386' in line:
+                    return 'x86'
+
+            return None
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+            print(f"DEBUG: Failed to detect architecture for {dump_path.name}: {e}")
+            return None
 
     def run_windbg_analysis(self, dump_file, symbol_path: str, output_dir):
         """
