@@ -100,8 +100,9 @@ class RegressionReportSummarizer:
             bash_exe = r"C:\Program Files\Git\bin\bash.exe"
             copilot_script = Path.home() / 'AppData' / 'Roaming' / 'npm' / 'copilot'
 
+            # Reference the file in the prompt - copilot will find it in the working directory
             prompt = (
-                "Please provide a one-paragraph summary of this test failure analysis. "
+                f"Please read {report_path.name} and provide a one-paragraph summary of this test failure analysis. "
                 "Include: what failed, root cause if identified, and any proposed fix. "
                 "Keep it concise (3-5 sentences max)."
             )
@@ -109,13 +110,13 @@ class RegressionReportSummarizer:
             copilot_cmd = [
                 bash_exe,
                 str(copilot_script),
-                '-p', prompt,
-                '--add-file', str(report_path)
+                '-p', prompt
             ]
 
-            # Run copilot and capture output
+            # Run copilot from the directory containing the report
             result = subprocess.run(
                 copilot_cmd,
+                cwd=str(report_path.parent),
                 capture_output=True,
                 text=True,
                 timeout=120  # 2 minute timeout
