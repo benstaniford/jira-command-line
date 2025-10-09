@@ -180,6 +180,36 @@ class RegressionReportSummarizer:
 
         return sorted(reports)
 
+    def extract_build_info(self, report_path: Path) -> Dict[str, Optional[str]]:
+        """
+        Extract build version and test date from an analysis report.
+        Returns dict with 'build_version' and 'test_date' keys.
+        """
+        build_version = None
+        test_date = None
+
+        try:
+            with open(report_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Extract build version: **Build Version:** 25.9.67.0
+            version_match = re.search(r'\*\*Build Version:\*\*\s*([\d.]+)', content)
+            if version_match:
+                build_version = version_match.group(1)
+
+            # Extract test date: **Test Started:** 2025-10-09 04:18:56
+            date_match = re.search(r'\*\*Test Started:\*\*\s*([\d-]+)\s+[\d:]+', content)
+            if date_match:
+                test_date = date_match.group(1)
+
+        except Exception as e:
+            print(f"Warning: Failed to extract build info from {report_path.name}: {e}")
+
+        return {
+            'build_version': build_version,
+            'test_date': test_date
+        }
+
     def generate_summary(self, report_path: Path) -> str:
         """
         Use Copilot to generate a one-paragraph summary of a report.
@@ -238,12 +268,21 @@ class RegressionReportSummarizer:
 
         print(f"\nCreating summary report: {summary_file}")
 
-        # Get build info if available
-        build_version = "Unknown"
+        # Extract build info from first report
+        build_info = {'build_version': 'Unknown', 'test_date': 'Unknown'}
+        if reports:
+            extracted_info = self.extract_build_info(reports[0][0])
+            if extracted_info['build_version']:
+                build_info['build_version'] = extracted_info['build_version']
+            if extracted_info['test_date']:
+                build_info['test_date'] = extracted_info['test_date']
+
         total_failures = len(reports)
 
-        content = f"""# Regression Test Failure Summary - Build {self.build_id}
+        content = f"""# Regression Summary - Build {build_info['build_version']}
 
+**Build Version:** {build_info['build_version']}
+**Test Date:** {build_info['test_date']}
 **Build ID:** {self.build_id}
 **Total Failures:** {total_failures}
 **Report Generated:** {self._get_timestamp()}
@@ -408,12 +447,24 @@ This report summarizes {total_failures} test failure(s) from regression run {sel
         print("Uploading to Confluence...")
         print(f"{'='*80}\n")
 
+        # Extract build info from first report for the title
+        build_info = {'build_version': None, 'test_date': None}
+        if reports:
+            build_info = self.extract_build_info(reports[0][0])
+            print(f"Extracted build info: Version={build_info['build_version']}, Date={build_info['test_date']}")
+
         # Read summary content
         with open(summary_file, 'r', encoding='utf-8') as f:
             summary_content = f.read()
 
-        # Create main summary page
-        main_title = f"Build {self.build_id} Regression Failures"
+        # Create main summary page title with date and build version
+        if build_info['test_date'] and build_info['build_version']:
+            main_title = f"Regression Failures - {build_info['test_date']} - Build {build_info['build_version']}"
+        elif build_info['build_version']:
+            main_title = f"Regression Failures - Build {build_info['build_version']}"
+        else:
+            main_title = f"Build {self.build_id} Regression Failures"
+
         print(f"Creating main page: {main_title}")
 
         try:
