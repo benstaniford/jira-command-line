@@ -1398,6 +1398,7 @@ If you need additional context:
                     str(copilot_script),
                     '-p', 'Perform the debugging discussed in Debugging.md',
                     '--allow-tool', 'write',
+                    '--allow-tool', 'Jira',
                     '--allow-all-tools',
                     '--add-dir', str(Path.home() / 'testruns'),
                     '--add-dir', 'z:\\epm-windows'
