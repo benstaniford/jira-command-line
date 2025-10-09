@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
-# Confluence API
-from atlassian import Confluence
+import requests
+from requests.auth import HTTPBasicAuth
 
 # Local imports
 from libs.MyJiraConfig import MyJiraConfig
@@ -39,14 +39,14 @@ class RegressionReportSummarizer:
         # Extract build ID from directory name
         self.build_id = self.testruns_dir.name
 
-        # Initialize Confluence
-        self.confluence = self._init_confluence()
+        # Initialize Confluence connection
+        self._init_confluence()
 
         # Confluence configuration
         self.space_key = "PMFW"
         self.parent_page_id = "2572025869"  # Regression Reports page
 
-    def _init_confluence(self) -> Confluence:
+    def _init_confluence(self):
         """Initialize Confluence connection using config."""
         config_manager = MyJiraConfig()
         if not config_manager.exists():
@@ -55,15 +55,20 @@ class RegressionReportSummarizer:
         config = config_manager.load()
         jira_config = config["jira"]
 
-        # Use the Jira credentials for Confluence (same Atlassian instance)
-        confluence = Confluence(
-            url=jira_config["url"],
-            username=jira_config["username"],
-            password=jira_config["password"],
-            cloud=True
-        )
-        print(f"Initialized Confluence connection for {jira_config['url']}")
-        return confluence
+        # Store connection details
+        self.confluence_url = jira_config["url"]
+        self.confluence_username = jira_config["username"]
+        self.confluence_password = jira_config["password"]
+
+        # Create session for requests
+        self.session = requests.Session()
+        self.session.auth = HTTPBasicAuth(self.confluence_username, self.confluence_password)
+        self.session.headers.update({
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        })
+
+        print(f"Initialized Confluence connection for {self.confluence_url}")
 
     def find_analysis_reports(self) -> List[Tuple[Path, str]]:
         """
@@ -236,6 +241,76 @@ This report summarizes {total_failures} test failure(s) from regression run {sel
 
         return html
 
+    def _create_confluence_page(self, space_key: str, title: str, body: str, parent_id: Optional[str] = None) -> Dict:
+        """
+        Create a new Confluence page using REST API.
+        Returns the created page data.
+        """
+        url = f"{self.confluence_url}/wiki/rest/api/content"
+
+        payload = {
+            "type": "page",
+            "title": title,
+            "space": {
+                "key": space_key
+            },
+            "body": {
+                "storage": {
+                    "value": body,
+                    "representation": "storage"
+                }
+            }
+        }
+
+        if parent_id:
+            payload["ancestors"] = [{"id": parent_id}]
+
+        response = self.session.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+
+        return response.json()
+
+    def _get_confluence_page(self, page_id: str) -> Dict:
+        """
+        Get a Confluence page by ID using REST API.
+        Returns the page data.
+        """
+        url = f"{self.confluence_url}/wiki/rest/api/content/{page_id}"
+        params = {
+            "expand": "body.storage,version"
+        }
+
+        response = self.session.get(url, params=params, timeout=30)
+        response.raise_for_status()
+
+        return response.json()
+
+    def _update_confluence_page(self, page_id: str, title: str, body: str, version_number: int) -> Dict:
+        """
+        Update an existing Confluence page using REST API.
+        Returns the updated page data.
+        """
+        url = f"{self.confluence_url}/wiki/rest/api/content/{page_id}"
+
+        payload = {
+            "version": {
+                "number": version_number + 1
+            },
+            "title": title,
+            "type": "page",
+            "body": {
+                "storage": {
+                    "value": body,
+                    "representation": "storage"
+                }
+            }
+        }
+
+        response = self.session.put(url, json=payload, timeout=30)
+        response.raise_for_status()
+
+        return response.json()
+
     def upload_to_confluence(self, summary_file: Path, reports: List[Tuple[Path, str]]) -> str:
         """
         Upload the summary report and detailed reports to Confluence.
@@ -258,17 +333,15 @@ This report summarizes {total_failures} test failure(s) from regression run {sel
             main_content_html = self.markdown_to_confluence_storage(summary_content)
 
             # Create main page
-            main_page = self.confluence.create_page(
-                space=self.space_key,
+            main_page = self._create_confluence_page(
+                space_key=self.space_key,
                 title=main_title,
                 body=main_content_html,
-                parent_id=self.parent_page_id,
-                type="page",
-                representation="storage"
+                parent_id=self.parent_page_id
             )
 
             main_page_id = main_page.get("id")
-            main_page_url = f"{self.confluence.url}/wiki/spaces/{self.space_key}/pages/{main_page_id}"
+            main_page_url = f"{self.confluence_url}/wiki/spaces/{self.space_key}/pages/{main_page_id}"
 
             print(f"✓ Created main page: {main_page_url}")
 
@@ -287,17 +360,15 @@ This report summarizes {total_failures} test failure(s) from regression run {sel
                     detailed_html = self.markdown_to_confluence_storage(detailed_content)
 
                     # Create child page
-                    child_page = self.confluence.create_page(
-                        space=self.space_key,
+                    child_page = self._create_confluence_page(
+                        space_key=self.space_key,
                         title=f"{main_title} - {test_name}",
                         body=detailed_html,
-                        parent_id=main_page_id,
-                        type="page",
-                        representation="storage"
+                        parent_id=main_page_id
                     )
 
                     child_page_id = child_page.get("id")
-                    child_page_url = f"{self.confluence.url}/wiki/spaces/{self.space_key}/pages/{child_page_id}"
+                    child_page_url = f"{self.confluence_url}/wiki/spaces/{self.space_key}/pages/{child_page_id}"
 
                     child_page_links.append((test_name, child_page_url, child_page_id))
                     print(f"✓ Created child page: {child_page_url}")
@@ -319,11 +390,16 @@ This report summarizes {total_failures} test failure(s) from regression run {sel
 
                 # Append links to main page
                 try:
-                    updated_main_page = self.confluence.update_page(
+                    # Get current page version
+                    current_page = self._get_confluence_page(main_page_id)
+                    current_version = current_page.get("version", {}).get("number", 1)
+
+                    # Update the page
+                    updated_main_page = self._update_confluence_page(
                         page_id=main_page_id,
                         title=main_title,
                         body=main_content_html + "<br/><br/>" + links_html,
-                        version_comment="Added links to detailed reports"
+                        version_number=current_version
                     )
                     print(f"✓ Updated main page with child page links")
                 except Exception as e:
