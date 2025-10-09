@@ -103,16 +103,20 @@ class RegressionReportSummarizer:
         """
         print(f"\nGenerating summary for: {report_path.name}")
 
+        # Create temp file for summary output
+        temp_summary_file = report_path.parent / f"_temp_summary_{report_path.stem}.txt"
+
         try:
             # Prepare copilot command
             bash_exe = r"C:\Program Files\Git\bin\bash.exe"
             copilot_script = Path.home() / 'AppData' / 'Roaming' / 'npm' / 'copilot'
 
-            # Reference the file in the prompt - copilot will find it in the working directory
+            # Ask copilot to write the summary to a temp file
             prompt = (
                 f"Please read {report_path.name} and provide a one-paragraph executive summary of this test failure analysis focusing on the cause of the issue. "
                 "Include: what failed, root cause if identified, and any proposed fix. "
-                "Keep it concise (3-5 sentences max)."
+                "Keep it concise (3-5 sentences max). "
+                f"Write ONLY the summary text to {temp_summary_file.name} (no extra output, just the paragraph)."
             )
 
             copilot_cmd = [
@@ -135,29 +139,41 @@ class RegressionReportSummarizer:
                 timeout=120  # 2 minute timeout
             )
 
-            if result.returncode == 0:
-                # Extract the summary from copilot output
-                summary = result.stdout.strip() if result.stdout else ""
+            # Check if the summary file was created
+            if temp_summary_file.exists():
+                # Read the summary from the temp file
+                with open(temp_summary_file, 'r', encoding='utf-8') as f:
+                    summary = f.read().strip()
+
+                # Delete the temp file
+                temp_summary_file.unlink()
+
                 if summary:
                     print(f"✓ Generated summary ({len(summary)} chars)")
                     return summary
                 else:
-                    print(f"✗ Copilot returned empty output")
+                    print(f"✗ Summary file was empty")
                     return "Summary generation returned no output."
             else:
-                print(f"✗ Copilot failed with return code {result.returncode}")
-                if result.stderr:
+                print(f"✗ Summary file was not created")
+                if result.returncode != 0 and result.stderr:
                     print(f"Error: {result.stderr}")
-                return "Summary generation failed."
+                return "Summary generation failed - output file not created."
 
         except subprocess.TimeoutExpired:
             print("✗ Copilot timed out")
+            # Clean up temp file if it exists
+            if temp_summary_file.exists():
+                temp_summary_file.unlink()
             return "Summary generation timed out."
         except FileNotFoundError:
             print(f"✗ Copilot not found at {copilot_script}")
             return "Copilot not available."
         except Exception as e:
             print(f"✗ Exception generating summary: {e}")
+            # Clean up temp file if it exists
+            if temp_summary_file.exists():
+                temp_summary_file.unlink()
             return f"Error: {str(e)}"
 
     def create_summary_report(self, reports: List[Tuple[Path, str]], summaries: Dict[str, str]) -> Path:
