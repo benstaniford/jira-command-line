@@ -282,8 +282,12 @@ class RegressionReportSummarizer:
         # Azure DevOps build link
         azdo_link = f"https://avecto-vsts.visualstudio.com/Windows/_build/results?buildId={self.build_id}"
 
+        # Network share link
+        network_share_path = f"\\\\fs01.btrusteng.com\\ExecutionProduction\\ConfluenceReports\\{self.build_id}"
+
         content = f"""# Regression Summary - Build {build_info['build_version']}
 **Azure DevOps Regression Run:** [{self.build_id}]({azdo_link})
+**Network Share Archive:** [{self.build_id}](file:///{network_share_path.replace(chr(92), '/')})
 **EPM Build Version:** {build_info['build_version']}
 **Test Date:** {build_info['test_date']}
 **Regression Run ID:** {self.build_id}
@@ -418,6 +422,59 @@ class RegressionReportSummarizer:
         response.raise_for_status()
 
         return response.json()
+
+    def copy_to_network_share(self):
+        """
+        Copy the testruns directory to the network share and manage cleanup.
+        Deletes the oldest report if there are already 5 or more reports.
+        """
+        import shutil
+        from datetime import datetime
+
+        network_share = Path("//fs01.btrusteng.com/ExecutionProduction/ConfluenceReports")
+
+        print(f"\n{'='*80}")
+        print("Copying test run to network share...")
+        print(f"{'='*80}\n")
+
+        try:
+            # Ensure network share exists
+            if not network_share.exists():
+                print(f"✗ Network share not accessible: {network_share}")
+                return False
+
+            # Check existing reports and clean up if needed
+            existing_reports = [d for d in network_share.iterdir() if d.is_dir()]
+
+            if len(existing_reports) >= 5:
+                print(f"Found {len(existing_reports)} existing reports (limit: 5)")
+                print("Cleaning up oldest report...")
+
+                # Sort by modification time (oldest first)
+                existing_reports.sort(key=lambda x: x.stat().st_mtime)
+                oldest_report = existing_reports[0]
+
+                print(f"Deleting: {oldest_report.name}")
+                shutil.rmtree(oldest_report)
+                print(f"✓ Deleted oldest report: {oldest_report.name}")
+
+            # Copy the current test run to network share
+            destination = network_share / self.build_id
+
+            print(f"Copying {self.testruns_dir} -> {destination}")
+            shutil.copytree(self.testruns_dir, destination, dirs_exist_ok=True)
+            print(f"✓ Test run copied to network share: {destination}")
+
+            return True
+
+        except PermissionError as e:
+            print(f"✗ Permission denied accessing network share: {e}")
+            return False
+        except Exception as e:
+            print(f"✗ Failed to copy to network share: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     def upload_to_confluence(self, summary_file: Path, reports: List[Tuple[Path, str]]) -> str:
         """
@@ -583,7 +640,14 @@ class RegressionReportSummarizer:
 
         summary_file = self.create_summary_report(reports, summaries)
 
-        # Step 4: Upload to Confluence
+        # Step 4: Copy to network share before Confluence upload
+        if not skip_confluence:
+            print(f"\n{'='*80}")
+            print("Step 4: Copying to network share...")
+            print(f"{'='*80}")
+            self.copy_to_network_share()
+
+        # Step 5: Upload to Confluence
         if not skip_confluence:
             confluence_url = self.upload_to_confluence(summary_file, reports)
 
