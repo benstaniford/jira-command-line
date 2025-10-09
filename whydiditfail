@@ -305,6 +305,11 @@ class AzDoConnection:
                 for filename in files:
                     # Copy .zip and .dmp files preserving directory structure
                     if filename.lower().endswith(('.zip', '.dmp')):
+                        # Skip MockOpenIdConnectServer.zip as it's large and not useful for debugging
+                        if filename == 'MockOpenIdConnectServer.zip':
+                            print(f"DEBUG: Skipping {filename} (excluded)")
+                            continue
+
                         source_file = root_path / filename
 
                         # Create destination path preserving directory structure
