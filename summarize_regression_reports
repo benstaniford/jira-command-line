@@ -121,17 +121,24 @@ class RegressionReportSummarizer:
                 cwd=str(report_path.parent),
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',  # Replace problematic characters instead of failing
                 timeout=120  # 2 minute timeout
             )
 
             if result.returncode == 0:
                 # Extract the summary from copilot output
-                summary = result.stdout.strip()
-                print(f"✓ Generated summary ({len(summary)} chars)")
-                return summary
+                summary = result.stdout.strip() if result.stdout else ""
+                if summary:
+                    print(f"✓ Generated summary ({len(summary)} chars)")
+                    return summary
+                else:
+                    print(f"✗ Copilot returned empty output")
+                    return "Summary generation returned no output."
             else:
                 print(f"✗ Copilot failed with return code {result.returncode}")
-                print(f"Error: {result.stderr}")
+                if result.stderr:
+                    print(f"Error: {result.stderr}")
                 return "Summary generation failed."
 
         except subprocess.TimeoutExpired:
