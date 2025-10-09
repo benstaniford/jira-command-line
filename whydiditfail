@@ -1095,19 +1095,11 @@ If you need additional context:
             f.write(f'{full_unc_path}\n')
 
     def download_test_logs(self, run_id: int, result_id: int, build_id: int, test_name: str, unc_path: Optional[str] = None) -> str:
-        """Download logs for a failed test to ~/testruns/<buildid>/<testname>/"""
+        """Download logs for a failed test to ~/testruns/<buildid>/<testname>_<machinename>/"""
         import re
         from pathlib import Path
 
-        # Sanitize test name for filesystem
-        safe_test_name = re.sub(r'[^\w\-_\. ]', '_', test_name)
-        safe_test_name = safe_test_name.replace(' ', '_')
-
-        # Create directory structure
-        output_dir = Path.home() / 'testruns' / str(build_id) / safe_test_name
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Get test result details with attachments
+        # Get test result details first to extract machine name
         result_url = (
             f"{self.org_url}/{self.project}/_apis/test/Runs/{run_id}/"
             f"Results/{result_id}?detailsToInclude=SubResults&api-version=7.0"
@@ -1115,6 +1107,24 @@ If you need additional context:
 
         try:
             result_data = self.make_request(result_url)
+
+            # Get machine name from result data
+            machine_name = result_data.get('computerName', 'unknown')
+
+            # Sanitize test name for filesystem
+            safe_test_name = re.sub(r'[^\w\-_\. ]', '_', test_name)
+            safe_test_name = safe_test_name.replace(' ', '_')
+
+            # Sanitize machine name for filesystem
+            safe_machine_name = re.sub(r'[^\w\-_\. ]', '_', machine_name)
+            safe_machine_name = safe_machine_name.replace(' ', '_')
+
+            # Append machine name to folder
+            folder_name = f"{safe_test_name}_{safe_machine_name}"
+
+            # Create directory structure
+            output_dir = Path.home() / 'testruns' / str(build_id) / folder_name
+            output_dir.mkdir(parents=True, exist_ok=True)
 
             # Save test result details
             import json
