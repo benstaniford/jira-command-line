@@ -84,8 +84,9 @@ class CreateCommand(BaseCommand):
         """
         import time
         from ..ViewMode import ViewMode
-        
-        max_retries = 10  # Maximum number of polling attempts
+
+        # Subtasks may take longer to appear in JQL search results
+        max_retries = 20 if view.mode == ViewMode.TASKVIEW else 10  # Maximum number of polling attempts
         retry_delay = 0.5  # Delay between attempts in seconds
         
         def get_current_view_issues():
@@ -115,18 +116,21 @@ class CreateCommand(BaseCommand):
                 current_issues = get_current_view_issues()
                 if issue_exists_in_view(issue.key, current_issues):
                     # Issue found, refresh the view and return
+                    if attempt > 0:
+                        ui.prompt(f"Issue {issue.key} found after {attempt + 1} attempts")
                     view.refresh()
                     return
-                
+
                 # Issue not found yet, wait and try again
                 if attempt < max_retries - 1:  # Don't sleep on the last attempt
                     time.sleep(retry_delay)
-                    
+
             except Exception as e:
                 # If there's an error during polling, just refresh normally
-                ui.error(f"Error waiting for issue {issue.key}", e)
+                ui.error(f"Error waiting for issue {issue.key} (attempt {attempt + 1}/{max_retries})", e)
                 break
         
         # If we get here, either we reached max retries or had an error
         # Just do a normal refresh as fallback
+        ui.prompt(f"Warning: Issue {issue.key} not found after {max_retries} attempts, refreshing anyway")
         view.refresh()
