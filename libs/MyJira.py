@@ -106,8 +106,9 @@ class MyJira:
             List of board names.
         """
         list_boards = []
-        for board in self.config['boards']:
-            list_boards.append(board)
+        if 'boards' in self.config:
+            for board in self.config['boards']:
+                list_boards.append(board)
         return list_boards
 
     def get_board_issues(self, board: str) -> Any:
