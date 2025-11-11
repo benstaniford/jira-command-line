@@ -20,6 +20,8 @@ class DashboardPane:
         self.window = window
         self.title = title
         self.lines: List[str] = []
+        self.scroll_offset = 0
+        self.is_selected = False
 
     def add_line(self, text: str):
         """Add a line of text to the pane"""
@@ -28,22 +30,70 @@ class DashboardPane:
     def clear(self):
         """Clear all lines"""
         self.lines = []
+        self.scroll_offset = 0
+
+    def scroll_up(self):
+        """Scroll up by one line"""
+        if self.scroll_offset > 0:
+            self.scroll_offset -= 1
+
+    def scroll_down(self):
+        """Scroll down by one line"""
+        h, w = self.window.getmaxyx()
+        max_visible = h - 2  # Account for borders
+        if self.scroll_offset + max_visible < len(self.lines):
+            self.scroll_offset += 1
+
+    def page_up(self):
+        """Scroll up by one page"""
+        h, w = self.window.getmaxyx()
+        page_size = h - 2
+        self.scroll_offset = max(0, self.scroll_offset - page_size)
+
+    def page_down(self):
+        """Scroll down by one page"""
+        h, w = self.window.getmaxyx()
+        page_size = h - 2
+        max_offset = max(0, len(self.lines) - page_size)
+        self.scroll_offset = min(max_offset, self.scroll_offset + page_size)
+
+    def contains_point(self, y: int, x: int) -> bool:
+        """Check if a point (y, x) is within this pane"""
+        pane_y, pane_x = self.window.getbegyx()
+        pane_h, pane_w = self.window.getmaxyx()
+        return (pane_y <= y < pane_y + pane_h and
+                pane_x <= x < pane_x + pane_w)
 
     def render(self):
         """Render the pane content"""
         self.window.clear()
         h, w = self.window.getmaxyx()
 
-        # Draw border
-        self.window.box()
+        # Draw border (highlighted if selected)
+        if self.is_selected:
+            self.window.attron(curses.A_BOLD)
+            self.window.box()
+            self.window.attroff(curses.A_BOLD)
+        else:
+            self.window.box()
 
         # Draw title
         title_text = f" {self.title} "
+        if self.is_selected:
+            title_text += "[ACTIVE] "
         self.window.addstr(0, 2, title_text, curses.A_BOLD)
 
-        # Draw content
+        # Show scroll indicator if needed
+        if len(self.lines) > h - 2:
+            scroll_info = f" [{self.scroll_offset + 1}-{min(self.scroll_offset + h - 2, len(self.lines))}/{len(self.lines)}] "
+            try:
+                self.window.addstr(0, w - len(scroll_info) - 2, scroll_info)
+            except:
+                pass
+
+        # Draw content with scroll offset
         y = 1
-        for line in self.lines:
+        for i, line in enumerate(self.lines[self.scroll_offset:]):
             if y >= h - 1:  # Leave space for bottom border
                 break
             # Truncate line if too long
@@ -62,6 +112,7 @@ class Dashboard:
     def __init__(self, stdscr):
         self.stdscr = stdscr
         curses.curs_set(0)  # Hide cursor
+        curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
 
         # Load config and initialize services
         config_file = MyJiraConfig()
@@ -74,6 +125,7 @@ class Dashboard:
 
         # Set up panes
         self.panes: List[DashboardPane] = []
+        self.selected_pane = 0  # Index of currently selected pane
         self._create_panes()
 
     def _create_panes(self):
@@ -112,20 +164,25 @@ class Dashboard:
             'prs': []
         }
 
-        # Get Jira tickets assigned to Nick
+        # Get Jira tickets assigned to Nick (excluding Done, Won't Do, New, Approved, and stale items)
         try:
-            query = f'assignee = "{TRACKED_USER}" AND status not in (Done, Closed) ORDER BY updated DESC'
+            query = f'assignee = "{TRACKED_USER}" AND status not in (Done, Closed, New, Approved, "Won\'t Do") AND updated >= -15d ORDER BY updated DESC'
             issues = self.jira.search_issues(query)
 
-            for issue in issues[:10]:  # Limit to 10 most recent
-                # Calculate how long assigned
+            for issue in issues:  # Show all matching tickets
+                # Calculate how long since last update
                 updated = datetime.datetime.strptime(issue.fields.updated[:19], '%Y-%m-%dT%H:%M:%S')
-                days_assigned = (datetime.datetime.now() - updated).days
+                days_since_update = (datetime.datetime.now() - updated).days
+
+                # Skip items not modified in more than 15 days (double-check filter)
+                if days_since_update > 15:
+                    continue
 
                 stats['tickets'].append({
                     'key': issue.key,
                     'summary': issue.fields.summary,
-                    'days': days_assigned,
+                    'status': str(issue.fields.status),
+                    'days': days_since_update,
                     'url': issue.permalink()
                 })
         except Exception as e:
@@ -210,7 +267,8 @@ class Dashboard:
         elif stats['tickets']:
             for ticket in stats['tickets']:
                 days_text = f"{ticket['days']}d ago" if ticket['days'] > 0 else "today"
-                pane.add_line(f"  {ticket['key']}: {ticket['summary'][:40]}")
+                pane.add_line(f"  {ticket['key']} [{ticket['status']}]")
+                pane.add_line(f"    {ticket['summary'][:50]}")
                 pane.add_line(f"    Updated: {days_text}")
         else:
             pane.add_line("  No tickets assigned")
@@ -263,6 +321,36 @@ class Dashboard:
             pane.add_line("Press 'q' to quit, 'r' to refresh")
             pane.render()
 
+    def select_pane(self, index: int):
+        """Select a pane by index"""
+        if 0 <= index < len(self.panes):
+            # Deselect old pane
+            self.panes[self.selected_pane].is_selected = False
+            # Select new pane
+            self.selected_pane = index
+            self.panes[self.selected_pane].is_selected = True
+            # Re-render both panes
+            self.render_all_panes()
+
+    def render_all_panes(self):
+        """Render all panes"""
+        for pane in self.panes:
+            pane.render()
+        self.stdscr.refresh()
+
+    def handle_mouse(self, mouse_event):
+        """Handle mouse click events"""
+        try:
+            _, x, y, _, button_state = mouse_event
+            if button_state & curses.BUTTON1_CLICKED:
+                # Check which pane was clicked
+                for i, pane in enumerate(self.panes):
+                    if pane.contains_point(y, x):
+                        self.select_pane(i)
+                        break
+        except:
+            pass
+
     def run(self):
         """Main loop"""
         self.stdscr.clear()
@@ -272,8 +360,13 @@ class Dashboard:
         self.update_pane1()
         self.update_placeholder_panes()
 
+        # Select first pane by default
+        self.panes[self.selected_pane].is_selected = True
+        self.render_all_panes()
+
         # Status line at bottom
-        self.stdscr.addstr(curses.LINES - 1, 0, "Press 'q' to quit, 'r' to refresh", curses.A_REVERSE)
+        status_text = "q:quit r:refresh Mouse:click pane Up/Down:scroll PgUp/PgDn:page Tab:next pane"
+        self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
         self.stdscr.refresh()
 
         # Wait for user input
@@ -285,10 +378,35 @@ class Dashboard:
             elif key == ord('r') or key == ord('R'):
                 # Refresh data
                 self.update_pane1()
-                self.stdscr.addstr(curses.LINES - 1, 0, "Refreshing...                          ", curses.A_REVERSE)
+                self.stdscr.addstr(curses.LINES - 1, 0, "Refreshing..." + " " * (curses.COLS - 20), curses.A_REVERSE)
                 self.stdscr.refresh()
-                self.stdscr.addstr(curses.LINES - 1, 0, "Press 'q' to quit, 'r' to refresh", curses.A_REVERSE)
+                self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
                 self.stdscr.refresh()
+            elif key == curses.KEY_MOUSE:
+                # Handle mouse click
+                try:
+                    mouse_event = curses.getmouse()
+                    self.handle_mouse(mouse_event)
+                except:
+                    pass
+            elif key == curses.KEY_UP:
+                # Scroll up in selected pane
+                self.panes[self.selected_pane].scroll_up()
+                self.panes[self.selected_pane].render()
+            elif key == curses.KEY_DOWN:
+                # Scroll down in selected pane
+                self.panes[self.selected_pane].scroll_down()
+                self.panes[self.selected_pane].render()
+            elif key == curses.KEY_PPAGE:  # Page Up
+                self.panes[self.selected_pane].page_up()
+                self.panes[self.selected_pane].render()
+            elif key == curses.KEY_NPAGE:  # Page Down
+                self.panes[self.selected_pane].page_down()
+                self.panes[self.selected_pane].render()
+            elif key == ord('\t') or key == 9:  # Tab key
+                # Switch to next pane
+                next_pane = (self.selected_pane + 1) % len(self.panes)
+                self.select_pane(next_pane)
 
 
 def main(stdscr):
