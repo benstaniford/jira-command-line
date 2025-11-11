@@ -1,0 +1,301 @@
+#!/usr/bin/python3
+
+import curses
+import datetime
+from typing import Dict, List, Any, Optional
+from libs.MyJira import MyJira
+from libs.MyGithub import MyGithub
+from libs.MyJiraConfig import MyJiraConfig
+from git import Repo
+import os
+
+# User to track
+TRACKED_USER = "ncrowley@beyondtrust.com"
+TRACKED_USER_DISPLAY = "Nick Crowley"
+GIT_REPO_PATH = os.path.expanduser("~/Code/epm-windows")
+
+class DashboardPane:
+    """Represents a single pane in the dashboard"""
+    def __init__(self, window, title: str):
+        self.window = window
+        self.title = title
+        self.lines: List[str] = []
+
+    def add_line(self, text: str):
+        """Add a line of text to the pane"""
+        self.lines.append(text)
+
+    def clear(self):
+        """Clear all lines"""
+        self.lines = []
+
+    def render(self):
+        """Render the pane content"""
+        self.window.clear()
+        h, w = self.window.getmaxyx()
+
+        # Draw border
+        self.window.box()
+
+        # Draw title
+        title_text = f" {self.title} "
+        self.window.addstr(0, 2, title_text, curses.A_BOLD)
+
+        # Draw content
+        y = 1
+        for line in self.lines:
+            if y >= h - 1:  # Leave space for bottom border
+                break
+            # Truncate line if too long
+            display_line = line[:w-3] if len(line) > w-3 else line
+            try:
+                self.window.addstr(y, 1, display_line)
+            except:
+                pass  # Ignore if we can't write (edge of screen)
+            y += 1
+
+        self.window.refresh()
+
+
+class Dashboard:
+    """Main dashboard class"""
+    def __init__(self, stdscr):
+        self.stdscr = stdscr
+        curses.curs_set(0)  # Hide cursor
+
+        # Load config and initialize services
+        config_file = MyJiraConfig()
+        if not config_file.exists():
+            raise Exception("Configuration file not found. Run main jira script first.")
+
+        config = config_file.load()
+        self.jira = MyJira(config.get('jira'))
+        self.mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
+
+        # Set up panes
+        self.panes: List[DashboardPane] = []
+        self._create_panes()
+
+    def _create_panes(self):
+        """Create the 4 panes in a 2x2 grid"""
+        height, width = self.stdscr.getmaxyx()
+
+        # Calculate pane dimensions
+        pane_height = height // 2
+        pane_width = width // 2
+
+        # Create windows for each pane
+        # Top-left: Nick's Stats
+        win1 = curses.newwin(pane_height, pane_width, 0, 0)
+        self.panes.append(DashboardPane(win1, f"{TRACKED_USER_DISPLAY} - Last 24h"))
+
+        # Top-right: Placeholder
+        win2 = curses.newwin(pane_height, width - pane_width, 0, pane_width)
+        self.panes.append(DashboardPane(win2, "Pane 2 (Coming Soon)"))
+
+        # Bottom-left: Placeholder
+        win3 = curses.newwin(height - pane_height, pane_width, pane_height, 0)
+        self.panes.append(DashboardPane(win3, "Pane 3 (Coming Soon)"))
+
+        # Bottom-right: Placeholder
+        win4 = curses.newwin(height - pane_height, width - pane_width, pane_height, pane_width)
+        self.panes.append(DashboardPane(win4, "Pane 4 (Coming Soon)"))
+
+    def get_nick_stats(self) -> Dict[str, Any]:
+        """Gather statistics about Nick from various sources"""
+        stats = {
+            'tickets': [],
+            'commits': 0,
+            'branches': [],
+            'lines_added': 0,
+            'lines_removed': 0,
+            'prs': []
+        }
+
+        # Get Jira tickets assigned to Nick
+        try:
+            query = f'assignee = "{TRACKED_USER}" AND status not in (Done, Closed) ORDER BY updated DESC'
+            issues = self.jira.search_issues(query)
+
+            for issue in issues[:10]:  # Limit to 10 most recent
+                # Calculate how long assigned
+                updated = datetime.datetime.strptime(issue.fields.updated[:19], '%Y-%m-%dT%H:%M:%S')
+                days_assigned = (datetime.datetime.now() - updated).days
+
+                stats['tickets'].append({
+                    'key': issue.key,
+                    'summary': issue.fields.summary,
+                    'days': days_assigned,
+                    'url': issue.permalink()
+                })
+        except Exception as e:
+            stats['tickets_error'] = str(e)
+
+        # Get Git stats from the last 24 hours
+        try:
+            if os.path.exists(GIT_REPO_PATH):
+                repo = Repo(GIT_REPO_PATH)
+                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+
+                # Get commits from yesterday
+                commits = list(repo.iter_commits(since=yesterday.strftime('%Y-%m-%d')))
+
+                # Filter commits by Nick (using email)
+                nick_commits = [c for c in commits if TRACKED_USER in c.author.email]
+                stats['commits'] = len(nick_commits)
+
+                # Get branches and line stats
+                branches_set = set()
+                for commit in nick_commits:
+                    # Get branches containing this commit
+                    try:
+                        branches = repo.git.branch('-r', '--contains', commit.hexsha).split('\n')
+                        for branch in branches:
+                            branch = branch.strip()
+                            if branch and not branch.startswith('origin/HEAD'):
+                                branches_set.add(branch.replace('origin/', ''))
+                    except:
+                        pass
+
+                    # Count lines changed
+                    try:
+                        diff_stats = commit.stats.total
+                        stats['lines_added'] += diff_stats.get('insertions', 0)
+                        stats['lines_removed'] += diff_stats.get('deletions', 0)
+                    except:
+                        pass
+
+                stats['branches'] = sorted(list(branches_set))
+        except Exception as e:
+            stats['git_error'] = str(e)
+
+        # Get GitHub PRs
+        try:
+            if self.mygithub:
+                # Get all open PRs
+                all_prs = self.mygithub.get_prs()
+
+                # Filter for Nick's PRs (by email or username)
+                for pr in all_prs:
+                    # Check if PR author matches
+                    if pr.get('user', {}).get('email') == TRACKED_USER or \
+                       'ncrowley' in pr.get('user', {}).get('login', '').lower():
+                        age_days = self.mygithub.get_pr_agedays(pr)
+                        stats['prs'].append({
+                            'number': pr['number'],
+                            'title': pr['title'],
+                            'age_days': age_days,
+                            'url': pr['html_url']
+                        })
+        except Exception as e:
+            stats['pr_error'] = str(e)
+
+        return stats
+
+    def update_pane1(self):
+        """Update the first pane with Nick's stats"""
+        pane = self.panes[0]
+        pane.clear()
+
+        pane.add_line("Fetching stats...")
+        pane.render()
+
+        stats = self.get_nick_stats()
+        pane.clear()
+
+        # Display tickets
+        pane.add_line("CURRENT TICKETS:")
+        if 'tickets_error' in stats:
+            pane.add_line(f"  Error: {stats['tickets_error']}")
+        elif stats['tickets']:
+            for ticket in stats['tickets']:
+                days_text = f"{ticket['days']}d ago" if ticket['days'] > 0 else "today"
+                pane.add_line(f"  {ticket['key']}: {ticket['summary'][:40]}")
+                pane.add_line(f"    Updated: {days_text}")
+        else:
+            pane.add_line("  No tickets assigned")
+
+        pane.add_line("")
+
+        # Display commit stats
+        pane.add_line("YESTERDAY'S ACTIVITY:")
+        if 'git_error' in stats:
+            pane.add_line(f"  Error: {stats['git_error']}")
+        else:
+            pane.add_line(f"  Commits: {stats['commits']}")
+            pane.add_line(f"  Lines added: {stats['lines_added']}")
+            pane.add_line(f"  Lines removed: {stats['lines_removed']}")
+            net_lines = stats['lines_added'] - stats['lines_removed']
+            pane.add_line(f"  Net lines: {net_lines:+d}")
+
+            if stats['branches']:
+                pane.add_line(f"  Branches ({len(stats['branches'])}):")
+                for branch in stats['branches'][:5]:  # Show first 5
+                    pane.add_line(f"    - {branch[:40]}")
+                if len(stats['branches']) > 5:
+                    pane.add_line(f"    ... and {len(stats['branches']) - 5} more")
+            else:
+                pane.add_line("  No branches committed to")
+
+        pane.add_line("")
+
+        # Display PRs
+        pane.add_line("OPEN PULL REQUESTS:")
+        if 'pr_error' in stats:
+            pane.add_line(f"  Error: {stats['pr_error']}")
+        elif stats['prs']:
+            for pr in stats['prs']:
+                pane.add_line(f"  #{pr['number']}: {pr['title'][:40]}")
+                pane.add_line(f"    Open for: {pr['age_days']} days")
+        else:
+            pane.add_line("  No open PRs")
+
+        pane.render()
+
+    def update_placeholder_panes(self):
+        """Update placeholder panes"""
+        for i in range(1, 4):
+            pane = self.panes[i]
+            pane.clear()
+            pane.add_line("")
+            pane.add_line("This pane is reserved for future use.")
+            pane.add_line("")
+            pane.add_line("Press 'q' to quit, 'r' to refresh")
+            pane.render()
+
+    def run(self):
+        """Main loop"""
+        self.stdscr.clear()
+        self.stdscr.refresh()
+
+        # Initial update
+        self.update_pane1()
+        self.update_placeholder_panes()
+
+        # Status line at bottom
+        self.stdscr.addstr(curses.LINES - 1, 0, "Press 'q' to quit, 'r' to refresh", curses.A_REVERSE)
+        self.stdscr.refresh()
+
+        # Wait for user input
+        while True:
+            key = self.stdscr.getch()
+
+            if key == ord('q') or key == ord('Q'):
+                break
+            elif key == ord('r') or key == ord('R'):
+                # Refresh data
+                self.update_pane1()
+                self.stdscr.addstr(curses.LINES - 1, 0, "Refreshing...                          ", curses.A_REVERSE)
+                self.stdscr.refresh()
+                self.stdscr.addstr(curses.LINES - 1, 0, "Press 'q' to quit, 'r' to refresh", curses.A_REVERSE)
+                self.stdscr.refresh()
+
+
+def main(stdscr):
+    """Main entry point"""
+    dashboard = Dashboard(stdscr)
+    dashboard.run()
+
+
+if __name__ == "__main__":
+    curses.wrapper(main)
