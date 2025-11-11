@@ -255,8 +255,13 @@ class Dashboard:
         curses.curs_set(0)  # Hide cursor
 
         # Enable mouse events - need ALL_MOUSE_EVENTS for drag selection
-        # We'll filter out unwanted events in the handler to avoid constant redraws
         curses.mousemask(curses.ALL_MOUSE_EVENTS)
+
+        # Enable mouse motion tracking with escape sequences
+        # This tells the terminal to send mouse motion events while button is pressed
+        import sys
+        sys.stdout.write('\033[?1002h')  # Enable button-event tracking (motion while pressed)
+        sys.stdout.flush()
 
         # Load config and initialize services
         config_file = MyJiraConfig()
@@ -684,7 +689,7 @@ class Dashboard:
         try:
             _, x, y, _, button_state = mouse_event
 
-            # Button 1 pressed (start selection)
+            # Button 1 pressed (start or continue selection)
             if button_state & curses.BUTTON1_PRESSED:
                 # Check which pane was clicked
                 for i, pane in enumerate(self.panes):
@@ -696,20 +701,28 @@ class Dashboard:
                             for p in self.panes:
                                 p.clear_selection()
 
-                        # Clear any existing selections in OTHER panes
-                        for j, p in enumerate(self.panes):
-                            if j != i:
-                                p.clear_selection()
+                        # If not currently selecting, start new selection
+                        if not pane.is_selecting:
+                            # Clear any existing selections in OTHER panes
+                            for j, p in enumerate(self.panes):
+                                if j != i:
+                                    p.clear_selection()
 
-                        # Start selection in this pane
-                        pane.start_selection(y, x)
-                        # Don't render yet - wait for release to show selection
+                            # Start selection in this pane
+                            pane.start_selection(y, x)
+                        else:
+                            # Already selecting - update endpoint (drag in progress)
+                            pane.update_selection(y, x)
+
+                        # Render to show selection as we drag
+                        pane.render()
+                        self.stdscr.refresh()
                         break
 
             # Button 1 released (end selection at release position)
             elif button_state & curses.BUTTON1_RELEASED:
-                for i, pane in enumerate(self.panes):
-                    if pane.is_selecting and pane.contains_point(y, x):
+                for pane in self.panes:
+                    if pane.is_selecting:
                         # Update selection endpoint to release position
                         pane.update_selection(y, x)
                         pane.end_selection()
@@ -818,6 +831,7 @@ class Dashboard:
 
 def main(stdscr):
     """Main entry point"""
+    import sys
     try:
         dashboard = Dashboard(stdscr)
         dashboard.run()
@@ -828,6 +842,10 @@ def main(stdscr):
         print("Error occurred:")
         print(traceback.format_exc())
         raise
+    finally:
+        # Disable mouse motion tracking on exit
+        sys.stdout.write('\033[?1002l')
+        sys.stdout.flush()
 
 
 if __name__ == "__main__":
