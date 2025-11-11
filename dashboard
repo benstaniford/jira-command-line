@@ -254,8 +254,9 @@ class Dashboard:
         self.stdscr = stdscr
         curses.curs_set(0)  # Hide cursor
 
-        # Enable mouse events - don't use REPORT_MOUSE_POSITION as it causes constant redraws
-        curses.mousemask(curses.BUTTON1_PRESSED | curses.BUTTON1_RELEASED | curses.BUTTON1_CLICKED)
+        # Enable mouse events - need ALL_MOUSE_EVENTS for drag selection
+        # We'll filter out unwanted events in the handler to avoid constant redraws
+        curses.mousemask(curses.ALL_MOUSE_EVENTS)
 
         # Load config and initialize services
         config_file = MyJiraConfig()
@@ -540,26 +541,20 @@ class Dashboard:
         except Exception as e:
             return f"Summary unavailable: {str(e)[:50]}"
 
-    def update_pane(self, pane_index: int):
+    def update_pane(self, pane_index: int, render: bool = True):
         """Update a pane with user stats"""
         pane = self.panes[pane_index]
         user_info = pane.user_info
 
-        pane.clear()
-        pane.add_line("Fetching stats...")
-        pane.render()
-
+        # Collect all data first without rendering
         stats = self.get_user_stats(user_info)
+        summary = self.generate_daily_summary(user_info, stats)
+
+        # Now build the display all at once
         pane.clear()
 
-        # Generate and display AI summary
+        # Display AI summary
         pane.add_line("AI SUMMARY:")
-        pane.add_line("Generating summary...")
-        pane.render()
-
-        summary = self.generate_daily_summary(user_info, stats)
-        # Remove the last line (the "Generating..." message) and replace with summary
-        pane.lines = pane.lines[:-1]
         # Split summary into multiple lines if needed (word wrap)
         summary_words = summary.split()
         current_line = "  "
@@ -621,21 +616,30 @@ class Dashboard:
         else:
             pane.add_line("  No open PRs")
 
-        pane.render()
+        # Only render if requested (to avoid flickering when updating in parallel)
+        if render:
+            pane.render()
 
     def update_all_panes(self):
         """Update all panes in parallel using threading"""
         threads = []
 
-        # Create a thread for each pane
+        # Create a thread for each pane (don't render yet to avoid flickering)
         for i in range(len(self.panes)):
-            thread = threading.Thread(target=self.update_pane, args=(i,))
+            thread = threading.Thread(target=self.update_pane, args=(i, False))
             threads.append(thread)
             thread.start()
 
         # Wait for all threads to complete
         for thread in threads:
             thread.join()
+
+        # Now render all panes at once (thread-safe since we're in main thread)
+        for pane in self.panes:
+            pane.render()
+
+        # Refresh the main screen to ensure everything is displayed properly
+        self.stdscr.refresh()
 
     def select_pane(self, index: int):
         """Select a pane by index"""
@@ -683,7 +687,24 @@ class Dashboard:
         try:
             _, x, y, _, button_state = mouse_event
 
-            # Button 1 pressed (start or continue selection)
+            # Debug: Show what event we received (temporary)
+            event_desc = []
+            if button_state & curses.BUTTON1_PRESSED:
+                event_desc.append("PRESSED")
+            if button_state & curses.BUTTON1_RELEASED:
+                event_desc.append("RELEASED")
+            if button_state & curses.BUTTON1_CLICKED:
+                event_desc.append("CLICKED")
+
+            # Show debug info with raw button state
+            try:
+                debug_msg = f"Mouse: {','.join(event_desc) if event_desc else 'OTHER'} state=0x{button_state:x} selecting={any(p.is_selecting for p in self.panes)}"
+                self.stdscr.addstr(curses.LINES - 2, 0, debug_msg[:curses.COLS - 1] + " " * 20)
+                self.stdscr.refresh()
+            except:
+                pass
+
+            # Button 1 pressed (start selection)
             if button_state & curses.BUTTON1_PRESSED:
                 # Check which pane was clicked
                 for i, pane in enumerate(self.panes):
@@ -691,44 +712,34 @@ class Dashboard:
                         # Select the pane if not already selected
                         if self.selected_pane != i:
                             self.select_pane(i)
-
-                        # If not currently selecting, start new selection
-                        if not pane.is_selecting:
-                            # Clear any existing selections in all panes
+                            # Clear all selections when switching panes
                             for p in self.panes:
                                 p.clear_selection()
 
-                            # Start selection in this pane
-                            pane.start_selection(y, x)
-                        else:
-                            # Continue selection (drag)
-                            pane.update_selection(y, x)
+                        # Clear any existing selections in OTHER panes
+                        for j, p in enumerate(self.panes):
+                            if j != i:
+                                p.clear_selection()
 
-                        pane.render()
+                        # Start selection in this pane
+                        pane.start_selection(y, x)
+                        # Don't render yet - wait for release to show selection
                         break
 
-            # Button 1 released (end selection)
+            # Button 1 released (end selection at release position)
             elif button_state & curses.BUTTON1_RELEASED:
-                for pane in self.panes:
-                    if pane.is_selecting:
+                for i, pane in enumerate(self.panes):
+                    if pane.is_selecting and pane.contains_point(y, x):
+                        # Update selection endpoint to release position
+                        pane.update_selection(y, x)
                         pane.end_selection()
                         pane.render()
+                        self.stdscr.refresh()
                         break
 
-            # Button 1 clicked (just select pane, clear selection)
-            elif button_state & curses.BUTTON1_CLICKED:
-                for i, pane in enumerate(self.panes):
-                    if pane.contains_point(y, x):
-                        if self.selected_pane != i:
-                            self.select_pane(i)
-                        # Clear selections on click
-                        for p in self.panes:
-                            p.clear_selection()
-                            p.render()
-                        break
-
-        except:
-            pass
+        except Exception as e:
+            # Show the error to help debug
+            raise
 
     def run(self):
         """Main loop"""
@@ -767,8 +778,13 @@ class Dashboard:
                 try:
                     mouse_event = curses.getmouse()
                     self.handle_mouse(mouse_event)
-                except:
-                    pass
+                except Exception as e:
+                    # Temporarily show error for debugging
+                    try:
+                        self.stdscr.addstr(curses.LINES - 1, 0, f"Mouse error: {str(e)[:60]}" + " " * 20, curses.A_REVERSE)
+                        self.stdscr.refresh()
+                    except:
+                        pass
             elif key == curses.KEY_UP:
                 # Scroll up in selected pane
                 self.panes[self.selected_pane].scroll_up()
