@@ -726,6 +726,12 @@ class Dashboard:
                         # Update selection endpoint to release position
                         pane.update_selection(y, x)
                         pane.end_selection()
+
+                        # Automatically copy the selection
+                        selected_text = pane.get_selected_text()
+                        if selected_text:
+                            self.copy_to_clipboard(selected_text)
+
                         pane.render()
                         self.stdscr.refresh()
                         break
@@ -742,7 +748,7 @@ class Dashboard:
         self.panes[self.selected_pane].is_selected = True
 
         # Status line at bottom
-        status_text = "q:quit r:refresh c:copy selection Mouse:drag to select Up/Down:scroll PgUp/PgDn:page Tab:next pane"
+        status_text = "q:quit r:refresh Mouse:drag to select (auto-copies) Up/Down:scroll PgUp/PgDn:page Tab:next pane"
         self.stdscr.addstr(curses.LINES - 1, 0, "Loading all reports in parallel..." + " " * (curses.COLS - 35), curses.A_REVERSE)
         self.stdscr.refresh()
 
