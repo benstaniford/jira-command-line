@@ -188,33 +188,47 @@ class Dashboard:
         except Exception as e:
             stats['tickets_error'] = str(e)
 
-        # Get Git stats from the last 24 hours
+        # Get Git stats from the last 24 hours from Nick's branches on origin
         try:
             if os.path.exists(GIT_REPO_PATH):
                 repo = Repo(GIT_REPO_PATH)
                 yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
 
-                # Get commits from yesterday
-                commits = list(repo.iter_commits(since=yesterday.strftime('%Y-%m-%d')))
+                # Find all origin branches that start with "nc/"
+                nick_branches = []
+                try:
+                    all_branches = repo.git.branch('-r').split('\n')
+                    for branch in all_branches:
+                        branch = branch.strip()
+                        # Look for origin/nc/ branches
+                        if branch.startswith('origin/nc/'):
+                            nick_branches.append(branch)
+                except:
+                    pass
 
-                # Filter commits by Nick (using email)
-                nick_commits = [c for c in commits if TRACKED_USER in c.author.email]
-                stats['commits'] = len(nick_commits)
+                # Collect commits from Nick's branches
+                nick_commits = []
+                branches_with_commits = set()
 
-                # Get branches and line stats
-                branches_set = set()
-                for commit in nick_commits:
-                    # Get branches containing this commit
+                for branch in nick_branches:
                     try:
-                        branches = repo.git.branch('-r', '--contains', commit.hexsha).split('\n')
-                        for branch in branches:
-                            branch = branch.strip()
-                            if branch and not branch.startswith('origin/HEAD'):
-                                branches_set.add(branch.replace('origin/', ''))
+                        # Get commits from this branch since yesterday
+                        commits = list(repo.iter_commits(branch, since=yesterday.strftime('%Y-%m-%d')))
+
+                        # Filter by Nick's email
+                        for commit in commits:
+                            if TRACKED_USER in commit.author.email:
+                                nick_commits.append(commit)
+                                # Track which branch has commits
+                                branches_with_commits.add(branch.replace('origin/', ''))
                     except:
                         pass
 
-                    # Count lines changed
+                stats['commits'] = len(nick_commits)
+                stats['branches'] = sorted(list(branches_with_commits))
+
+                # Count lines changed
+                for commit in nick_commits:
                     try:
                         diff_stats = commit.stats.total
                         stats['lines_added'] += diff_stats.get('insertions', 0)
@@ -222,7 +236,6 @@ class Dashboard:
                     except:
                         pass
 
-                stats['branches'] = sorted(list(branches_set))
         except Exception as e:
             stats['git_error'] = str(e)
 
