@@ -32,6 +32,7 @@ class DashboardPane:
         self.selection_start = None  # (line, col) tuple
         self.selection_end = None    # (line, col) tuple
         self.is_selecting = False
+        self.word_select_mode = False  # True when double-clicked
 
     def add_line(self, text: str):
         """Add a line of text to the pane"""
@@ -120,6 +121,55 @@ class DashboardPane:
         self.selection_start = None
         self.selection_end = None
         self.is_selecting = False
+        self.word_select_mode = False
+
+    def find_word_boundaries(self, line: int, col: int) -> tuple:
+        """Find the start and end of the word at the given position"""
+        if line >= len(self.lines):
+            return (col, col)
+
+        text = self.lines[line]
+        if col >= len(text):
+            return (col, col)
+
+        # Find start of word (go backwards until we hit a non-word character)
+        start = col
+        while start > 0 and (text[start - 1].isalnum() or text[start - 1] in '_-'):
+            start -= 1
+
+        # Find end of word (go forwards until we hit a non-word character)
+        end = col
+        while end < len(text) and (text[end].isalnum() or text[end] in '_-'):
+            end += 1
+
+        return (start, end - 1)
+
+    def start_word_selection(self, y: int, x: int):
+        """Start word selection at given screen coordinates"""
+        pos = self.get_line_col_from_point(y, x)
+        if pos:
+            line, col = pos
+            start_col, end_col = self.find_word_boundaries(line, col)
+            self.selection_start = (line, start_col)
+            self.selection_end = (line, end_col)
+            self.is_selecting = True
+            self.word_select_mode = True
+
+    def update_word_selection(self, y: int, x: int):
+        """Update selection to include words from start to current position"""
+        if not self.selection_start:
+            return
+
+        pos = self.get_line_col_from_point(y, x)
+        if pos:
+            line, col = pos
+            start_line, start_col = self.selection_start
+
+            # Find word boundary at current position
+            _, end_col = self.find_word_boundaries(line, col)
+
+            # Update endpoint
+            self.selection_end = (line, end_col)
 
     def get_selected_text(self) -> str:
         """Get the currently selected text"""
@@ -689,8 +739,28 @@ class Dashboard:
         try:
             _, x, y, _, button_state = mouse_event
 
+            # Double-click - select word
+            if button_state & curses.BUTTON1_DOUBLE_CLICKED:
+                # Check which pane was clicked
+                for i, pane in enumerate(self.panes):
+                    if pane.contains_point(y, x):
+                        # Select the pane if not already selected
+                        if self.selected_pane != i:
+                            self.select_pane(i)
+
+                        # Clear any existing selections in OTHER panes
+                        for j, p in enumerate(self.panes):
+                            if j != i:
+                                p.clear_selection()
+
+                        # Start word selection
+                        pane.start_word_selection(y, x)
+                        pane.render()
+                        self.stdscr.refresh()
+                        break
+
             # Button 1 pressed (start or continue selection)
-            if button_state & curses.BUTTON1_PRESSED:
+            elif button_state & curses.BUTTON1_PRESSED:
                 # Check which pane was clicked
                 for i, pane in enumerate(self.panes):
                     if pane.contains_point(y, x):
@@ -712,7 +782,12 @@ class Dashboard:
                             pane.start_selection(y, x)
                         else:
                             # Already selecting - update endpoint (drag in progress)
-                            pane.update_selection(y, x)
+                            if pane.word_select_mode:
+                                # In word mode, extend by words
+                                pane.update_word_selection(y, x)
+                            else:
+                                # Normal character-by-character selection
+                                pane.update_selection(y, x)
 
                         # Render to show selection as we drag
                         pane.render()
@@ -724,7 +799,10 @@ class Dashboard:
                 for pane in self.panes:
                     if pane.is_selecting:
                         # Update selection endpoint to release position
-                        pane.update_selection(y, x)
+                        if pane.word_select_mode:
+                            pane.update_word_selection(y, x)
+                        else:
+                            pane.update_selection(y, x)
                         pane.end_selection()
 
                         # Automatically copy the selection
@@ -748,7 +826,7 @@ class Dashboard:
         self.panes[self.selected_pane].is_selected = True
 
         # Status line at bottom
-        status_text = "q:quit r:refresh Mouse:drag to select (auto-copies) Up/Down:scroll PgUp/PgDn:page Tab:next pane"
+        status_text = "q:quit r:refresh Drag:select Double-click:word Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
         self.stdscr.addstr(curses.LINES - 1, 0, "Loading all reports in parallel..." + " " * (curses.COLS - 35), curses.A_REVERSE)
         self.stdscr.refresh()
 
