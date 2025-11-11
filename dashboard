@@ -266,10 +266,9 @@ class Dashboard:
             pane.add_line(f"  Error: {stats['tickets_error']}")
         elif stats['tickets']:
             for ticket in stats['tickets']:
-                days_text = f"{ticket['days']}d ago" if ticket['days'] > 0 else "today"
-                pane.add_line(f"  {ticket['key']} [{ticket['status']}]")
-                pane.add_line(f"    {ticket['summary'][:50]}")
-                pane.add_line(f"    Updated: {days_text}")
+                days_text = f"{ticket['days']}d" if ticket['days'] > 0 else "today"
+                summary = ticket['summary'][:35] + "..." if len(ticket['summary']) > 35 else ticket['summary']
+                pane.add_line(f"  {ticket['key']} [{ticket['status']}] {summary} ({days_text})")
         else:
             pane.add_line("  No tickets assigned")
 
