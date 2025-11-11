@@ -659,50 +659,30 @@ class Dashboard:
         self.stdscr.refresh()
 
     def copy_to_clipboard(self, text: str) -> bool:
-        """Copy text to system clipboard using xclip"""
+        """Copy text to clipboard using OSC 52 escape sequence (works over SSH!)"""
         try:
-            import subprocess
-            # Try xclip first (most common on Linux)
-            process = subprocess.Popen(['xclip', '-selection', 'clipboard'],
-                                     stdin=subprocess.PIPE,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE)
-            process.communicate(input=text.encode('utf-8'))
-            return process.returncode == 0
-        except:
-            try:
-                # Fallback to xsel
-                import subprocess
-                process = subprocess.Popen(['xsel', '--clipboard', '--input'],
-                                         stdin=subprocess.PIPE,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
-                process.communicate(input=text.encode('utf-8'))
-                return process.returncode == 0
-            except:
-                return False
+            import base64
+            import sys
+
+            # Encode text to base64
+            b64_text = base64.b64encode(text.encode('utf-8')).decode('ascii')
+
+            # OSC 52 escape sequence: ESC ] 52 ; c ; <base64> BEL
+            # This works in Windows Terminal, iTerm2, tmux, and many other terminals
+            osc52 = f"\033]52;c;{b64_text}\007"
+
+            # Write directly to the terminal (bypassing curses)
+            sys.stdout.write(osc52)
+            sys.stdout.flush()
+
+            return True
+        except Exception as e:
+            return False
 
     def handle_mouse(self, mouse_event):
         """Handle mouse events including selection"""
         try:
             _, x, y, _, button_state = mouse_event
-
-            # Debug: Show what event we received (temporary)
-            event_desc = []
-            if button_state & curses.BUTTON1_PRESSED:
-                event_desc.append("PRESSED")
-            if button_state & curses.BUTTON1_RELEASED:
-                event_desc.append("RELEASED")
-            if button_state & curses.BUTTON1_CLICKED:
-                event_desc.append("CLICKED")
-
-            # Show debug info with raw button state
-            try:
-                debug_msg = f"Mouse: {','.join(event_desc) if event_desc else 'OTHER'} state=0x{button_state:x} selecting={any(p.is_selecting for p in self.panes)}"
-                self.stdscr.addstr(curses.LINES - 2, 0, debug_msg[:curses.COLS - 1] + " " * 20)
-                self.stdscr.refresh()
-            except:
-                pass
 
             # Button 1 pressed (start selection)
             if button_state & curses.BUTTON1_PRESSED:
@@ -737,9 +717,8 @@ class Dashboard:
                         self.stdscr.refresh()
                         break
 
-        except Exception as e:
-            # Show the error to help debug
-            raise
+        except:
+            pass
 
     def run(self):
         """Main loop"""
@@ -750,7 +729,7 @@ class Dashboard:
         self.panes[self.selected_pane].is_selected = True
 
         # Status line at bottom
-        status_text = "q:quit r:refresh c:copy selection Mouse:drag to select Up/Down:scroll PgUp/PgDn:page Tab:next"
+        status_text = "q:quit r:refresh c:copy selection Mouse:drag to select Up/Down:scroll PgUp/PgDn:page Tab:next pane"
         self.stdscr.addstr(curses.LINES - 1, 0, "Loading all reports in parallel..." + " " * (curses.COLS - 35), curses.A_REVERSE)
         self.stdscr.refresh()
 
@@ -762,7 +741,11 @@ class Dashboard:
 
         # Wait for user input
         while True:
-            key = self.stdscr.getch()
+            try:
+                key = self.stdscr.getch()
+            except KeyboardInterrupt:
+                # Ignore Ctrl-C so it doesn't quit - let terminal handle it
+                continue
 
             if key == ord('q') or key == ord('Q'):
                 break
@@ -778,13 +761,8 @@ class Dashboard:
                 try:
                     mouse_event = curses.getmouse()
                     self.handle_mouse(mouse_event)
-                except Exception as e:
-                    # Temporarily show error for debugging
-                    try:
-                        self.stdscr.addstr(curses.LINES - 1, 0, f"Mouse error: {str(e)[:60]}" + " " * 20, curses.A_REVERSE)
-                        self.stdscr.refresh()
-                    except:
-                        pass
+                except:
+                    pass
             elif key == curses.KEY_UP:
                 # Scroll up in selected pane
                 self.panes[self.selected_pane].scroll_up()
@@ -818,7 +796,7 @@ class Dashboard:
                         self.stdscr.refresh()
                     else:
                         # Show error message
-                        self.stdscr.addstr(curses.LINES - 1, 0, "Copy failed (xclip/xsel not found)" + " " * (curses.COLS - 36), curses.A_REVERSE)
+                        self.stdscr.addstr(curses.LINES - 1, 0, "Copy failed" + " " * (curses.COLS - 12), curses.A_REVERSE)
                         self.stdscr.refresh()
                         import time
                         time.sleep(2)  # Show for 2 seconds
