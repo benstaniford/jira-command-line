@@ -8,10 +8,17 @@ from libs.MyGithub import MyGithub
 from libs.MyJiraConfig import MyJiraConfig
 from git import Repo
 import os
+import tempfile
+import threading
+from pycopilot import CopilotClient, AuthCache, CopilotAuth
 
-# User to track
-TRACKED_USER = "ncrowley@beyondtrust.com"
-TRACKED_USER_DISPLAY = "Nick Crowley"
+# Users to track
+TRACKED_USERS = [
+    {"email": "ncrowley@beyondtrust.com", "display": "Nick Crowley", "initials": "nc"},
+    {"email": "nwicker@beyondtrust.com", "display": "Neil Wicker", "initials": "nw"},
+    {"email": "tvarady@beyondtrust.com", "display": "Tamas Varady", "initials": "tv"},
+    {"email": "jstephenson@beyondtrust.com", "display": "Josh Stephenson", "initials": "js"}
+]
 GIT_REPO_PATH = os.path.expanduser("~/Code/epm-windows")
 
 class DashboardPane:
@@ -136,25 +143,34 @@ class Dashboard:
         pane_height = height // 2
         pane_width = width // 2
 
-        # Create windows for each pane
-        # Top-left: Nick's Stats
-        win1 = curses.newwin(pane_height, pane_width, 0, 0)
-        self.panes.append(DashboardPane(win1, f"{TRACKED_USER_DISPLAY} - Last 24h"))
+        # Create windows for each pane, one per user
+        positions = [
+            (0, 0),  # Top-left
+            (0, pane_width),  # Top-right
+            (pane_height, 0),  # Bottom-left
+            (pane_height, pane_width)  # Bottom-right
+        ]
 
-        # Top-right: Placeholder
-        win2 = curses.newwin(pane_height, width - pane_width, 0, pane_width)
-        self.panes.append(DashboardPane(win2, "Pane 2 (Coming Soon)"))
+        sizes = [
+            (pane_height, pane_width),  # Top-left
+            (pane_height, width - pane_width),  # Top-right
+            (height - pane_height, pane_width),  # Bottom-left
+            (height - pane_height, width - pane_width)  # Bottom-right
+        ]
 
-        # Bottom-left: Placeholder
-        win3 = curses.newwin(height - pane_height, pane_width, pane_height, 0)
-        self.panes.append(DashboardPane(win3, "Pane 3 (Coming Soon)"))
+        for i, user_info in enumerate(TRACKED_USERS):
+            h, w = sizes[i]
+            y, x = positions[i]
+            win = curses.newwin(h, w, y, x)
+            pane = DashboardPane(win, f"{user_info['display']} - Last 24h")
+            pane.user_info = user_info  # Store user info in pane
+            self.panes.append(pane)
 
-        # Bottom-right: Placeholder
-        win4 = curses.newwin(height - pane_height, width - pane_width, pane_height, pane_width)
-        self.panes.append(DashboardPane(win4, "Pane 4 (Coming Soon)"))
+    def get_user_stats(self, user_info: Dict[str, str]) -> Dict[str, Any]:
+        """Gather statistics about a user from various sources"""
+        user_email = user_info['email']
+        user_initials = user_info['initials']
 
-    def get_nick_stats(self) -> Dict[str, Any]:
-        """Gather statistics about Nick from various sources"""
         stats = {
             'tickets': [],
             'commits': 0,
@@ -164,9 +180,9 @@ class Dashboard:
             'prs': []
         }
 
-        # Get Jira tickets assigned to Nick (excluding Done, Won't Do, New, Approved, and stale items)
+        # Get Jira tickets assigned to user (excluding Done, Won't Do, New, Approved, and stale items)
         try:
-            query = f'assignee = "{TRACKED_USER}" AND status not in (Done, Closed, New, Approved, "Won\'t Do") AND updated >= -15d ORDER BY updated DESC'
+            query = f'assignee = "{user_email}" AND status not in (Done, Closed, New, Approved, "Won\'t Do") AND updated >= -15d ORDER BY updated DESC'
             issues = self.jira.search_issues(query)
 
             for issue in issues:  # Show all matching tickets
@@ -188,47 +204,47 @@ class Dashboard:
         except Exception as e:
             stats['tickets_error'] = str(e)
 
-        # Get Git stats from the last 24 hours from Nick's branches on origin
+        # Get Git stats from the last 24 hours from user's branches on origin
         try:
             if os.path.exists(GIT_REPO_PATH):
                 repo = Repo(GIT_REPO_PATH)
                 yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
 
-                # Find all origin branches that start with "nc/"
-                nick_branches = []
+                # Find all origin branches that start with user's initials
+                user_branches = []
                 try:
                     all_branches = repo.git.branch('-r').split('\n')
                     for branch in all_branches:
                         branch = branch.strip()
-                        # Look for origin/nc/ branches
-                        if branch.startswith('origin/nc/'):
-                            nick_branches.append(branch)
+                        # Look for origin/{initials}/ branches
+                        if branch.startswith(f'origin/{user_initials}/'):
+                            user_branches.append(branch)
                 except:
                     pass
 
-                # Collect commits from Nick's branches
-                nick_commits = []
+                # Collect commits from user's branches
+                user_commits = []
                 branches_with_commits = set()
 
-                for branch in nick_branches:
+                for branch in user_branches:
                     try:
                         # Get commits from this branch since yesterday
                         commits = list(repo.iter_commits(branch, since=yesterday.strftime('%Y-%m-%d')))
 
-                        # Filter by Nick's email
+                        # Filter by user's email
                         for commit in commits:
-                            if TRACKED_USER in commit.author.email:
-                                nick_commits.append(commit)
+                            if user_email in commit.author.email:
+                                user_commits.append(commit)
                                 # Track which branch has commits
                                 branches_with_commits.add(branch.replace('origin/', ''))
                     except:
                         pass
 
-                stats['commits'] = len(nick_commits)
+                stats['commits'] = len(user_commits)
                 stats['branches'] = sorted(list(branches_with_commits))
 
                 # Count lines changed
-                for commit in nick_commits:
+                for commit in user_commits:
                     try:
                         diff_stats = commit.stats.total
                         stats['lines_added'] += diff_stats.get('insertions', 0)
@@ -245,11 +261,16 @@ class Dashboard:
                 # Get all open PRs
                 all_prs = self.mygithub.get_prs()
 
-                # Filter for Nick's PRs (by email or username)
+                # Extract username from email (everything before @)
+                username_hint = user_email.split('@')[0].lower()
+
+                # Filter for user's PRs (by email or username)
                 for pr in all_prs:
                     # Check if PR author matches
-                    if pr.get('user', {}).get('email') == TRACKED_USER or \
-                       'ncrowley' in pr.get('user', {}).get('login', '').lower():
+                    pr_email = pr.get('user', {}).get('email', '').lower()
+                    pr_login = pr.get('user', {}).get('login', '').lower()
+
+                    if pr_email == user_email.lower() or username_hint in pr_login:
                         age_days = self.mygithub.get_pr_agedays(pr)
                         stats['prs'].append({
                             'number': pr['number'],
@@ -262,16 +283,160 @@ class Dashboard:
 
         return stats
 
-    def update_pane1(self):
-        """Update the first pane with Nick's stats"""
-        pane = self.panes[0]
-        pane.clear()
+    def generate_daily_summary(self, user_info: Dict[str, str], stats: Dict[str, Any]) -> str:
+        """Generate a two-sentence AI summary of user's daily activities"""
+        user_email = user_info['email']
+        user_display = user_info['display']
 
+        try:
+            # Authenticate with GitHub Copilot (following interactive_chat.py pattern)
+            auth = CopilotAuth()
+            cache = AuthCache()
+
+            # Check for cached chat token first
+            cached_chat_token = cache.get_valid_cached_chat_token()
+            if not cached_chat_token:
+                return "Summary unavailable (not authenticated with GitHub Copilot)"
+
+            # Verify token is still valid
+            if not auth.verify_chat_token(cached_chat_token):
+                cache.clear_chat_token()
+                return "Summary unavailable (chat token expired)"
+
+            # Create client and set token
+            client = CopilotClient()
+            client.set_chat_token(cached_chat_token)
+
+            # Cache in memory for this session
+            auth.cache_tokens_in_memory("", cached_chat_token)
+
+            # Create long form report in temp file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                temp_file = f.name
+
+                f.write(f"=== Daily Activity Report for {user_display} ===\n")
+                f.write(f"Date: {datetime.datetime.now().strftime('%Y-%m-%d')}\n\n")
+
+                # Write Jira ticket activity
+                f.write("## Jira Tickets (Active)\n\n")
+                if stats.get('tickets'):
+                    for ticket in stats['tickets']:
+                        f.write(f"Ticket: {ticket['key']}\n")
+                        f.write(f"Status: {ticket['status']}\n")
+                        f.write(f"Summary: {ticket['summary']}\n")
+                        f.write(f"Last updated: {ticket['days']} days ago\n")
+
+                        # Get comments from last 24 hours
+                        try:
+                            issue = self.jira.get_issue_by_key(ticket['key'])
+                            comments = self.jira.jira.comments(issue)
+                            yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+
+                            recent_comments = []
+                            for comment in comments:
+                                comment_date = datetime.datetime.strptime(comment.created[:19], '%Y-%m-%dT%H:%M:%S')
+                                if comment_date >= yesterday and user_email in comment.author.emailAddress:
+                                    recent_comments.append(comment.body)
+
+                            if recent_comments:
+                                f.write(f"Recent comments by {user_display}:\n")
+                                for comment_body in recent_comments:
+                                    f.write(f"  - {comment_body[:200]}\n")
+                        except:
+                            pass
+
+                        f.write("\n")
+                else:
+                    f.write("No active tickets\n\n")
+
+                # Write Git commit activity
+                f.write("## Git Commits (Yesterday)\n\n")
+                f.write(f"Total commits: {stats.get('commits', 0)}\n")
+                f.write(f"Lines added: {stats.get('lines_added', 0)}\n")
+                f.write(f"Lines removed: {stats.get('lines_removed', 0)}\n")
+
+                if stats.get('branches'):
+                    f.write(f"Branches with commits:\n")
+                    for branch in stats['branches']:
+                        f.write(f"  - {branch}\n")
+
+                        # Get commit messages from this branch
+                        try:
+                            if os.path.exists(GIT_REPO_PATH):
+                                repo = Repo(GIT_REPO_PATH)
+                                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                                commits = list(repo.iter_commits(f'origin/{branch}', since=yesterday.strftime('%Y-%m-%d'), max_count=10))
+
+                                for commit in commits:
+                                    if user_email in commit.author.email:
+                                        f.write(f"    Commit: {commit.message.strip()}\n")
+                        except:
+                            pass
+                    f.write("\n")
+                else:
+                    f.write("No branches committed to\n\n")
+
+                # Write PR activity
+                f.write("## Pull Requests\n\n")
+                if stats.get('prs'):
+                    for pr in stats['prs']:
+                        f.write(f"PR #{pr['number']}: {pr['title']}\n")
+                        f.write(f"Open for: {pr['age_days']} days\n\n")
+                else:
+                    f.write("No open pull requests\n\n")
+
+            # Add the report as context
+            client.add_context(temp_file)
+
+            # Ask for a summary
+            prompt = f"Based on the activity report provided, write exactly two sentences summarizing what {user_display} did yesterday. Focus on the most important work items and commits. Be concise and specific."
+
+            summary = client.ask(prompt, stream=False)
+
+            # Clean up temp file
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+
+            return summary.strip()
+
+        except Exception as e:
+            return f"Summary unavailable: {str(e)[:50]}"
+
+    def update_pane(self, pane_index: int):
+        """Update a pane with user stats"""
+        pane = self.panes[pane_index]
+        user_info = pane.user_info
+
+        pane.clear()
         pane.add_line("Fetching stats...")
         pane.render()
 
-        stats = self.get_nick_stats()
+        stats = self.get_user_stats(user_info)
         pane.clear()
+
+        # Generate and display AI summary
+        pane.add_line("AI SUMMARY:")
+        pane.add_line("Generating summary...")
+        pane.render()
+
+        summary = self.generate_daily_summary(user_info, stats)
+        # Remove the last line (the "Generating..." message) and replace with summary
+        pane.lines = pane.lines[:-1]
+        # Split summary into multiple lines if needed (word wrap)
+        summary_words = summary.split()
+        current_line = "  "
+        for word in summary_words:
+            if len(current_line) + len(word) + 1 > 70:  # Wrap at 70 chars
+                pane.add_line(current_line)
+                current_line = "  " + word
+            else:
+                current_line += " " + word if current_line != "  " else word
+        if current_line.strip():
+            pane.add_line(current_line)
+
+        pane.add_line("")
 
         # Display tickets
         pane.add_line("CURRENT TICKETS:")
@@ -322,16 +487,19 @@ class Dashboard:
 
         pane.render()
 
-    def update_placeholder_panes(self):
-        """Update placeholder panes"""
-        for i in range(1, 4):
-            pane = self.panes[i]
-            pane.clear()
-            pane.add_line("")
-            pane.add_line("This pane is reserved for future use.")
-            pane.add_line("")
-            pane.add_line("Press 'q' to quit, 'r' to refresh")
-            pane.render()
+    def update_all_panes(self):
+        """Update all panes in parallel using threading"""
+        threads = []
+
+        # Create a thread for each pane
+        for i in range(len(self.panes)):
+            thread = threading.Thread(target=self.update_pane, args=(i,))
+            threads.append(thread)
+            thread.start()
+
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
 
     def select_pane(self, index: int):
         """Select a pane by index"""
@@ -368,16 +536,17 @@ class Dashboard:
         self.stdscr.clear()
         self.stdscr.refresh()
 
-        # Initial update
-        self.update_pane1()
-        self.update_placeholder_panes()
-
         # Select first pane by default
         self.panes[self.selected_pane].is_selected = True
-        self.render_all_panes()
 
         # Status line at bottom
         status_text = "q:quit r:refresh Mouse:click pane Up/Down:scroll PgUp/PgDn:page Tab:next pane"
+        self.stdscr.addstr(curses.LINES - 1, 0, "Loading all reports in parallel..." + " " * (curses.COLS - 35), curses.A_REVERSE)
+        self.stdscr.refresh()
+
+        # Initial update (all panes in parallel)
+        self.update_all_panes()
+
         self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
         self.stdscr.refresh()
 
@@ -388,10 +557,10 @@ class Dashboard:
             if key == ord('q') or key == ord('Q'):
                 break
             elif key == ord('r') or key == ord('R'):
-                # Refresh data
-                self.update_pane1()
-                self.stdscr.addstr(curses.LINES - 1, 0, "Refreshing..." + " " * (curses.COLS - 20), curses.A_REVERSE)
+                # Refresh data (all panes in parallel)
+                self.stdscr.addstr(curses.LINES - 1, 0, "Refreshing all reports..." + " " * (curses.COLS - 25), curses.A_REVERSE)
                 self.stdscr.refresh()
+                self.update_all_panes()
                 self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
                 self.stdscr.refresh()
             elif key == curses.KEY_MOUSE:
