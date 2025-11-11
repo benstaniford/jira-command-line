@@ -29,6 +29,9 @@ class DashboardPane:
         self.lines: List[str] = []
         self.scroll_offset = 0
         self.is_selected = False
+        self.selection_start = None  # (line, col) tuple
+        self.selection_end = None    # (line, col) tuple
+        self.is_selecting = False
 
     def add_line(self, text: str):
         """Add a line of text to the pane"""
@@ -71,6 +74,87 @@ class DashboardPane:
         return (pane_y <= y < pane_y + pane_h and
                 pane_x <= x < pane_x + pane_w)
 
+    def get_line_col_from_point(self, y: int, x: int) -> Optional[tuple]:
+        """Convert screen coordinates to (line, col) within pane content"""
+        pane_y, pane_x = self.window.getbegyx()
+        pane_h, pane_w = self.window.getmaxyx()
+
+        # Calculate relative position within pane
+        rel_y = y - pane_y - 1  # -1 for border
+        rel_x = x - pane_x - 1  # -1 for border
+
+        # Check if within content area
+        if rel_y < 0 or rel_y >= pane_h - 2 or rel_x < 0 or rel_x >= pane_w - 2:
+            return None
+
+        # Calculate actual line number with scroll offset
+        line = self.scroll_offset + rel_y
+
+        # Check if line exists
+        if line >= len(self.lines):
+            return None
+
+        return (line, rel_x)
+
+    def start_selection(self, y: int, x: int):
+        """Start text selection at given screen coordinates"""
+        pos = self.get_line_col_from_point(y, x)
+        if pos:
+            self.selection_start = pos
+            self.selection_end = pos
+            self.is_selecting = True
+
+    def update_selection(self, y: int, x: int):
+        """Update selection end point"""
+        if self.is_selecting:
+            pos = self.get_line_col_from_point(y, x)
+            if pos:
+                self.selection_end = pos
+
+    def end_selection(self):
+        """End selection"""
+        self.is_selecting = False
+
+    def clear_selection(self):
+        """Clear the current selection"""
+        self.selection_start = None
+        self.selection_end = None
+        self.is_selecting = False
+
+    def get_selected_text(self) -> str:
+        """Get the currently selected text"""
+        if not self.selection_start or not self.selection_end:
+            return ""
+
+        start_line, start_col = self.selection_start
+        end_line, end_col = self.selection_end
+
+        # Ensure start is before end
+        if start_line > end_line or (start_line == end_line and start_col > end_col):
+            start_line, start_col, end_line, end_col = end_line, end_col, start_line, start_col
+
+        selected_text = []
+
+        if start_line == end_line:
+            # Single line selection
+            line_text = self.lines[start_line]
+            selected_text.append(line_text[start_col:end_col + 1])
+        else:
+            # Multi-line selection
+            # First line
+            selected_text.append(self.lines[start_line][start_col:])
+
+            # Middle lines
+            for line_num in range(start_line + 1, end_line):
+                if line_num < len(self.lines):
+                    selected_text.append(self.lines[line_num])
+
+            # Last line
+            if end_line < len(self.lines):
+                selected_text.append(self.lines[end_line][:end_col + 1])
+
+        return '\n'.join(selected_text)
+
     def render(self):
         """Render the pane content"""
         self.window.clear()
@@ -98,17 +182,67 @@ class DashboardPane:
             except:
                 pass
 
-        # Draw content with scroll offset
+        # Draw content with scroll offset and selection highlighting
         y = 1
         for i, line in enumerate(self.lines[self.scroll_offset:]):
             if y >= h - 1:  # Leave space for bottom border
                 break
-            # Truncate line if too long
+
+            line_num = self.scroll_offset + i
             display_line = line[:w-3] if len(line) > w-3 else line
-            try:
-                self.window.addstr(y, 1, display_line)
-            except:
-                pass  # Ignore if we can't write (edge of screen)
+
+            # Check if this line has selection
+            if self.selection_start and self.selection_end:
+                start_line, start_col = self.selection_start
+                end_line, end_col = self.selection_end
+
+                # Normalize selection (ensure start is before end)
+                if start_line > end_line or (start_line == end_line and start_col > end_col):
+                    start_line, start_col, end_line, end_col = end_line, end_col, start_line, start_col
+
+                # Check if current line is in selection range
+                if start_line <= line_num <= end_line:
+                    # Determine selection range for this line
+                    sel_start = 0
+                    sel_end = len(display_line)
+
+                    if line_num == start_line:
+                        sel_start = start_col
+                    if line_num == end_line:
+                        sel_end = min(end_col + 1, len(display_line))
+
+                    # Draw line with selection highlighting
+                    try:
+                        x_pos = 1
+                        # Before selection
+                        if sel_start > 0:
+                            self.window.addstr(y, x_pos, display_line[:sel_start])
+                            x_pos += sel_start
+
+                        # Selection
+                        if sel_start < sel_end:
+                            selected_part = display_line[sel_start:sel_end]
+                            self.window.addstr(y, x_pos, selected_part, curses.A_REVERSE)
+                            x_pos += len(selected_part)
+
+                        # After selection
+                        if sel_end < len(display_line):
+                            self.window.addstr(y, x_pos, display_line[sel_end:])
+                    except:
+                        pass
+                else:
+                    # No selection on this line
+                    try:
+                        self.window.addstr(y, 1, display_line)
+                    except:
+                        pass
+            else:
+                # No selection at all
+                try:
+                    self.window.addstr(y, 1, display_line)
+                except:
+                    pass
+
             y += 1
 
         self.window.refresh()
@@ -119,7 +253,9 @@ class Dashboard:
     def __init__(self, stdscr):
         self.stdscr = stdscr
         curses.curs_set(0)  # Hide cursor
-        curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
+
+        # Enable mouse events - don't use REPORT_MOUSE_POSITION as it causes constant redraws
+        curses.mousemask(curses.BUTTON1_PRESSED | curses.BUTTON1_RELEASED | curses.BUTTON1_CLICKED)
 
         # Load config and initialize services
         config_file = MyJiraConfig()
@@ -518,16 +654,79 @@ class Dashboard:
             pane.render()
         self.stdscr.refresh()
 
+    def copy_to_clipboard(self, text: str) -> bool:
+        """Copy text to system clipboard using xclip"""
+        try:
+            import subprocess
+            # Try xclip first (most common on Linux)
+            process = subprocess.Popen(['xclip', '-selection', 'clipboard'],
+                                     stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+            process.communicate(input=text.encode('utf-8'))
+            return process.returncode == 0
+        except:
+            try:
+                # Fallback to xsel
+                import subprocess
+                process = subprocess.Popen(['xsel', '--clipboard', '--input'],
+                                         stdin=subprocess.PIPE,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
+                process.communicate(input=text.encode('utf-8'))
+                return process.returncode == 0
+            except:
+                return False
+
     def handle_mouse(self, mouse_event):
-        """Handle mouse click events"""
+        """Handle mouse events including selection"""
         try:
             _, x, y, _, button_state = mouse_event
-            if button_state & curses.BUTTON1_CLICKED:
+
+            # Button 1 pressed (start or continue selection)
+            if button_state & curses.BUTTON1_PRESSED:
                 # Check which pane was clicked
                 for i, pane in enumerate(self.panes):
                     if pane.contains_point(y, x):
-                        self.select_pane(i)
+                        # Select the pane if not already selected
+                        if self.selected_pane != i:
+                            self.select_pane(i)
+
+                        # If not currently selecting, start new selection
+                        if not pane.is_selecting:
+                            # Clear any existing selections in all panes
+                            for p in self.panes:
+                                p.clear_selection()
+
+                            # Start selection in this pane
+                            pane.start_selection(y, x)
+                        else:
+                            # Continue selection (drag)
+                            pane.update_selection(y, x)
+
+                        pane.render()
                         break
+
+            # Button 1 released (end selection)
+            elif button_state & curses.BUTTON1_RELEASED:
+                for pane in self.panes:
+                    if pane.is_selecting:
+                        pane.end_selection()
+                        pane.render()
+                        break
+
+            # Button 1 clicked (just select pane, clear selection)
+            elif button_state & curses.BUTTON1_CLICKED:
+                for i, pane in enumerate(self.panes):
+                    if pane.contains_point(y, x):
+                        if self.selected_pane != i:
+                            self.select_pane(i)
+                        # Clear selections on click
+                        for p in self.panes:
+                            p.clear_selection()
+                            p.render()
+                        break
+
         except:
             pass
 
@@ -540,7 +739,7 @@ class Dashboard:
         self.panes[self.selected_pane].is_selected = True
 
         # Status line at bottom
-        status_text = "q:quit r:refresh Mouse:click pane Up/Down:scroll PgUp/PgDn:page Tab:next pane"
+        status_text = "q:quit r:refresh c:copy selection Mouse:drag to select Up/Down:scroll PgUp/PgDn:page Tab:next"
         self.stdscr.addstr(curses.LINES - 1, 0, "Loading all reports in parallel..." + " " * (curses.COLS - 35), curses.A_REVERSE)
         self.stdscr.refresh()
 
@@ -588,13 +787,60 @@ class Dashboard:
                 # Switch to next pane
                 next_pane = (self.selected_pane + 1) % len(self.panes)
                 self.select_pane(next_pane)
+            elif key == ord('c') or key == ord('C'):  # Copy selection
+                # Get selected text from active pane
+                pane = self.panes[self.selected_pane]
+                selected_text = pane.get_selected_text()
+                if selected_text:
+                    if self.copy_to_clipboard(selected_text):
+                        # Show success message
+                        self.stdscr.addstr(curses.LINES - 1, 0, "Copied to clipboard!" + " " * (curses.COLS - 21), curses.A_REVERSE)
+                        self.stdscr.refresh()
+                        import time
+                        time.sleep(1)  # Show for 1 second
+                        self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
+                        self.stdscr.refresh()
+                    else:
+                        # Show error message
+                        self.stdscr.addstr(curses.LINES - 1, 0, "Copy failed (xclip/xsel not found)" + " " * (curses.COLS - 36), curses.A_REVERSE)
+                        self.stdscr.refresh()
+                        import time
+                        time.sleep(2)  # Show for 2 seconds
+                        self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
+                        self.stdscr.refresh()
+                else:
+                    # No selection
+                    self.stdscr.addstr(curses.LINES - 1, 0, "No text selected" + " " * (curses.COLS - 17), curses.A_REVERSE)
+                    self.stdscr.refresh()
+                    import time
+                    time.sleep(1)  # Show for 1 second
+                    self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
+                    self.stdscr.refresh()
+            elif key == 27:  # Escape key - clear selection
+                for pane in self.panes:
+                    pane.clear_selection()
+                    pane.render()
 
 
 def main(stdscr):
     """Main entry point"""
-    dashboard = Dashboard(stdscr)
-    dashboard.run()
+    try:
+        dashboard = Dashboard(stdscr)
+        dashboard.run()
+    except Exception as e:
+        # Make sure we exit curses mode before printing error
+        curses.endwin()
+        import traceback
+        print("Error occurred:")
+        print(traceback.format_exc())
+        raise
 
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    try:
+        curses.wrapper(main)
+    except Exception as e:
+        # Ensure terminal is restored
+        import sys
+        print(f"\nFatal error: {e}", file=sys.stderr)
+        sys.exit(1)
