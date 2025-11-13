@@ -304,6 +304,14 @@ class Dashboard:
         self.stdscr = stdscr
         curses.curs_set(0)  # Hide cursor
 
+        # Initialize colors for diff display
+        if curses.has_colors():
+            curses.start_color()
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_GREEN, -1)  # Added lines
+            curses.init_pair(2, curses.COLOR_RED, -1)    # Removed lines
+            curses.init_pair(3, curses.COLOR_CYAN, -1)   # Diff headers
+
         # Enable mouse events - need ALL_MOUSE_EVENTS for drag selection
         curses.mousemask(curses.ALL_MOUSE_EVENTS)
 
@@ -734,6 +742,127 @@ class Dashboard:
         except Exception as e:
             return False
 
+    def show_commit_details(self):
+        """Show detailed commit diffs for the currently selected user"""
+        pane = self.panes[self.selected_pane]
+        user_info = pane.user_info
+        user_email = user_info['email']
+        user_initials = user_info['initials']
+
+        # Collect commit diffs
+        commit_details = []
+
+        try:
+            if os.path.exists(GIT_REPO_PATH):
+                repo = Repo(GIT_REPO_PATH)
+                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+
+                # Find all origin branches that start with user's initials
+                user_branches = []
+                try:
+                    all_branches = repo.git.branch('-r').split('\n')
+                    for branch in all_branches:
+                        branch = branch.strip()
+                        if branch.startswith(f'origin/{user_initials}/'):
+                            user_branches.append(branch)
+                except:
+                    pass
+
+                # Collect commits from user's branches
+                for branch in user_branches:
+                    try:
+                        commits = list(repo.iter_commits(branch, since=yesterday.strftime('%Y-%m-%d')))
+
+                        for commit in commits:
+                            if user_email in commit.author.email:
+                                # Get the full diff for this commit
+                                try:
+                                    diff_text = repo.git.show(commit.hexsha, color=False)
+                                    commit_details.append(diff_text)
+                                except:
+                                    pass
+                    except:
+                        pass
+        except Exception as e:
+            commit_details.append(f"Error getting commit details: {str(e)}")
+
+        if not commit_details:
+            commit_details.append(f"No commits found for {user_info['display']} in the last 24 hours")
+
+        # Display in a full-screen view
+        self.show_detail_view(f"Commit Details - {user_info['display']}", commit_details)
+
+    def show_detail_view(self, title: str, content_blocks: List[str]):
+        """Show a full-screen scrollable detail view"""
+        # Split content into lines
+        all_lines = []
+        for block in content_blocks:
+            all_lines.extend(block.split('\n'))
+
+        scroll_offset = 0
+
+        while True:
+            self.stdscr.clear()
+            h, w = self.stdscr.getmaxyx()
+
+            # Draw title
+            title_text = f"=== {title} ==="
+            try:
+                self.stdscr.addstr(0, 0, title_text.center(w)[:w], curses.A_BOLD | curses.A_REVERSE)
+            except:
+                pass
+
+            # Draw content with scroll
+            visible_lines = h - 3  # Leave room for title and status bar
+            for i, line in enumerate(all_lines[scroll_offset:scroll_offset + visible_lines]):
+                if i + 1 >= h - 1:
+                    break
+                try:
+                    # Color git diff lines
+                    if line.startswith('+') and not line.startswith('+++'):
+                        self.stdscr.addstr(i + 1, 0, line[:w-1], curses.color_pair(1) if curses.has_colors() else curses.A_NORMAL)
+                    elif line.startswith('-') and not line.startswith('---'):
+                        self.stdscr.addstr(i + 1, 0, line[:w-1], curses.color_pair(2) if curses.has_colors() else curses.A_NORMAL)
+                    elif line.startswith('@@'):
+                        self.stdscr.addstr(i + 1, 0, line[:w-1], curses.color_pair(3) if curses.has_colors() else curses.A_BOLD)
+                    else:
+                        self.stdscr.addstr(i + 1, 0, line[:w-1])
+                except:
+                    pass
+
+            # Status bar
+            max_offset = max(0, len(all_lines) - visible_lines)
+            status = f"q/ESC:back Up/Down:scroll PgUp/PgDn:page [{scroll_offset + 1}-{min(scroll_offset + visible_lines, len(all_lines))}/{len(all_lines)}]"
+            try:
+                self.stdscr.addstr(h - 1, 0, status[:w-1], curses.A_REVERSE)
+            except:
+                pass
+
+            self.stdscr.refresh()
+
+            # Handle input
+            try:
+                key = self.stdscr.getch()
+            except KeyboardInterrupt:
+                continue
+
+            if key == ord('q') or key == ord('Q') or key == 27:  # q or ESC
+                break
+            elif key == curses.KEY_UP:
+                scroll_offset = max(0, scroll_offset - 1)
+            elif key == curses.KEY_DOWN:
+                scroll_offset = min(max_offset, scroll_offset + 1)
+            elif key == curses.KEY_PPAGE:  # Page Up
+                scroll_offset = max(0, scroll_offset - visible_lines)
+            elif key == curses.KEY_NPAGE:  # Page Down
+                scroll_offset = min(max_offset, scroll_offset + visible_lines)
+
+        # Redraw the dashboard
+        self.render_all_panes()
+        status_text = "q:quit r:refresh c:commits Drag:select Double-click:word Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
+        self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
+        self.stdscr.refresh()
+
     def handle_mouse(self, mouse_event):
         """Handle mouse events including selection"""
         try:
@@ -826,7 +955,7 @@ class Dashboard:
         self.panes[self.selected_pane].is_selected = True
 
         # Status line at bottom
-        status_text = "q:quit r:refresh Drag:select Double-click:word Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
+        status_text = "q:quit r:refresh c:commits Drag:select Double-click:word Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
         self.stdscr.addstr(curses.LINES - 1, 0, "Loading all reports in parallel..." + " " * (curses.COLS - 35), curses.A_REVERSE)
         self.stdscr.refresh()
 
@@ -878,35 +1007,8 @@ class Dashboard:
                 # Switch to next pane
                 next_pane = (self.selected_pane + 1) % len(self.panes)
                 self.select_pane(next_pane)
-            elif key == ord('c') or key == ord('C'):  # Copy selection
-                # Get selected text from active pane
-                pane = self.panes[self.selected_pane]
-                selected_text = pane.get_selected_text()
-                if selected_text:
-                    if self.copy_to_clipboard(selected_text):
-                        # Show success message
-                        self.stdscr.addstr(curses.LINES - 1, 0, "Copied to clipboard!" + " " * (curses.COLS - 21), curses.A_REVERSE)
-                        self.stdscr.refresh()
-                        import time
-                        time.sleep(1)  # Show for 1 second
-                        self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
-                        self.stdscr.refresh()
-                    else:
-                        # Show error message
-                        self.stdscr.addstr(curses.LINES - 1, 0, "Copy failed" + " " * (curses.COLS - 12), curses.A_REVERSE)
-                        self.stdscr.refresh()
-                        import time
-                        time.sleep(2)  # Show for 2 seconds
-                        self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
-                        self.stdscr.refresh()
-                else:
-                    # No selection
-                    self.stdscr.addstr(curses.LINES - 1, 0, "No text selected" + " " * (curses.COLS - 17), curses.A_REVERSE)
-                    self.stdscr.refresh()
-                    import time
-                    time.sleep(1)  # Show for 1 second
-                    self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
-                    self.stdscr.refresh()
+            elif key == ord('c') or key == ord('C'):  # Show commit details
+                self.show_commit_details()
             elif key == 27:  # Escape key - clear selection
                 for pane in self.panes:
                     pane.clear_selection()
