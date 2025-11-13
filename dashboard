@@ -742,6 +742,169 @@ class Dashboard:
         except Exception as e:
             return False
 
+    def show_detailed_summary(self):
+        """Show detailed AI summary for the currently selected user"""
+        pane = self.panes[self.selected_pane]
+        user_info = pane.user_info
+        user_email = user_info['email']
+        user_display = user_info['display']
+
+        # Show loading message
+        self.stdscr.addstr(curses.LINES - 1, 0, f"Generating detailed summary for {user_display}..." + " " * 20, curses.A_REVERSE)
+        self.stdscr.refresh()
+
+        try:
+            # Get user stats
+            stats = self.get_user_stats(user_info)
+
+            # Authenticate with GitHub Copilot
+            auth = CopilotAuth()
+            cache = AuthCache()
+
+            cached_chat_token = cache.get_valid_cached_chat_token()
+            if not cached_chat_token:
+                summary = "Summary unavailable (not authenticated with GitHub Copilot)"
+                self.show_detail_view(f"Detailed Summary - {user_display}", [summary])
+                return
+
+            if not auth.verify_chat_token(cached_chat_token):
+                cache.clear_chat_token()
+                summary = "Summary unavailable (chat token expired)"
+                self.show_detail_view(f"Detailed Summary - {user_display}", [summary])
+                return
+
+            client = CopilotClient()
+            client.set_chat_token(cached_chat_token)
+            auth.cache_tokens_in_memory("", cached_chat_token)
+
+            # Create comprehensive report
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                temp_file = f.name
+
+                f.write(f"=== Detailed Activity Report for {user_display} ===\n")
+                f.write(f"Date: {datetime.datetime.now().strftime('%Y-%m-%d')}\n\n")
+
+                # Jira tickets with comments
+                f.write("## Jira Tickets and Comments\n\n")
+                if stats.get('tickets'):
+                    for ticket in stats['tickets']:
+                        f.write(f"### {ticket['key']}: {ticket['summary']}\n")
+                        f.write(f"Status: {ticket['status']}\n")
+                        f.write(f"Last updated: {ticket['days']} days ago\n")
+                        f.write(f"URL: {ticket['url']}\n\n")
+
+                        # Get all comments from last 24 hours
+                        try:
+                            issue = self.jira.get_issue_by_key(ticket['key'])
+                            comments = self.jira.jira.comments(issue)
+                            yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+
+                            recent_comments = []
+                            for comment in comments:
+                                comment_date = datetime.datetime.strptime(comment.created[:19], '%Y-%m-%dT%H:%M:%S')
+                                if comment_date >= yesterday and user_email in comment.author.emailAddress:
+                                    recent_comments.append({
+                                        'date': comment_date.strftime('%Y-%m-%d %H:%M'),
+                                        'body': comment.body
+                                    })
+
+                            if recent_comments:
+                                f.write(f"Recent comments by {user_display}:\n")
+                                for comment_info in recent_comments:
+                                    f.write(f"\n[{comment_info['date']}]\n")
+                                    f.write(f"{comment_info['body']}\n")
+                            else:
+                                f.write("No recent comments\n")
+                        except:
+                            f.write("Could not retrieve comments\n")
+
+                        f.write("\n" + "="*80 + "\n\n")
+                else:
+                    f.write("No active tickets\n\n")
+
+                # Git commits with detailed info
+                f.write("## Git Commits (Last 24 Hours)\n\n")
+                f.write(f"Total commits: {stats.get('commits', 0)}\n")
+                f.write(f"Lines added: {stats.get('lines_added', 0)}\n")
+                f.write(f"Lines removed: {stats.get('lines_removed', 0)}\n")
+                f.write(f"Net lines: {stats.get('lines_added', 0) - stats.get('lines_removed', 0):+d}\n\n")
+
+                if stats.get('branches'):
+                    for branch in stats['branches']:
+                        f.write(f"### Branch: {branch}\n\n")
+
+                        # Get detailed commit info
+                        try:
+                            if os.path.exists(GIT_REPO_PATH):
+                                repo = Repo(GIT_REPO_PATH)
+                                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                                commits = list(repo.iter_commits(f'origin/{branch}', since=yesterday.strftime('%Y-%m-%d'), max_count=20))
+
+                                for commit in commits:
+                                    if user_email in commit.author.email:
+                                        f.write(f"Commit: {commit.hexsha[:8]}\n")
+                                        f.write(f"Date: {commit.authored_datetime.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                                        f.write(f"Message: {commit.message.strip()}\n")
+
+                                        # Get file changes
+                                        try:
+                                            diff_stats = commit.stats.files
+                                            f.write(f"Files changed ({len(diff_stats)}):\n")
+                                            for file_path, stats_dict in list(diff_stats.items())[:10]:  # First 10 files
+                                                f.write(f"  {file_path}: +{stats_dict.get('insertions', 0)} -{stats_dict.get('deletions', 0)}\n")
+                                            if len(diff_stats) > 10:
+                                                f.write(f"  ... and {len(diff_stats) - 10} more files\n")
+                                        except:
+                                            pass
+
+                                        f.write("\n")
+                        except:
+                            pass
+
+                        f.write("\n")
+                else:
+                    f.write("No branches committed to\n\n")
+
+                # Pull requests
+                f.write("## Pull Requests\n\n")
+                if stats.get('prs'):
+                    for pr in stats['prs']:
+                        f.write(f"### PR #{pr['number']}: {pr['title']}\n")
+                        f.write(f"Open for: {pr['age_days']} days\n")
+                        f.write(f"URL: {pr['url']}\n\n")
+                else:
+                    f.write("No open pull requests\n\n")
+
+            # Add the report as context
+            client.add_context(temp_file)
+
+            # Ask for detailed summary
+            prompt = f"""Based on the comprehensive activity report provided, write a detailed 4-paragraph summary of {user_display}'s work over the last 24 hours.
+
+Paragraph 1: Overview of main accomplishments and focus areas
+Paragraph 2: Detailed analysis of code changes and technical work (commits, files modified, etc.)
+Paragraph 3: Jira ticket progress, comments, and communication/collaboration
+Paragraph 4: Overall assessment of productivity and any notable patterns or concerns
+
+After the 4 paragraphs, add a section titled "Suggested Standup Questions:" with exactly 2 insightful questions that would be good to ask this person during a daily standup meeting. These questions should be based on their actual work and help uncover blockers, progress, or areas needing clarification.
+
+Be specific and reference actual work items, commit messages, and comments. Write in a professional tone suitable for a daily standup report."""
+
+            summary = client.ask(prompt, stream=False)
+
+            # Clean up temp file
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+
+            # Display the summary
+            self.show_detail_view(f"Detailed Summary - {user_display}", [summary.strip()])
+
+        except Exception as e:
+            error_msg = f"Error generating summary: {str(e)}"
+            self.show_detail_view(f"Detailed Summary - {user_display}", [error_msg])
+
     def show_commit_details(self):
         """Show detailed commit diffs for the currently selected user"""
         pane = self.panes[self.selected_pane]
@@ -792,18 +955,60 @@ class Dashboard:
         # Display in a full-screen view
         self.show_detail_view(f"Commit Details - {user_info['display']}", commit_details)
 
+    def wrap_line(self, line: str, width: int) -> List[str]:
+        """Wrap a line to fit within the specified width"""
+        if len(line) <= width:
+            return [line]
+
+        wrapped_lines = []
+        current_line = ""
+
+        # Split into words
+        words = line.split(' ')
+
+        for word in words:
+            # If adding this word would exceed width
+            if current_line and len(current_line) + len(word) + 1 > width:
+                wrapped_lines.append(current_line)
+                current_line = word
+            # If the word itself is longer than width, split it
+            elif len(word) > width:
+                if current_line:
+                    wrapped_lines.append(current_line)
+                    current_line = ""
+                # Split long word into chunks
+                while len(word) > width:
+                    wrapped_lines.append(word[:width])
+                    word = word[width:]
+                current_line = word
+            else:
+                # Add word to current line
+                if current_line:
+                    current_line += " " + word
+                else:
+                    current_line = word
+
+        # Add remaining text
+        if current_line:
+            wrapped_lines.append(current_line)
+
+        return wrapped_lines if wrapped_lines else [""]
+
     def show_detail_view(self, title: str, content_blocks: List[str]):
         """Show a full-screen scrollable detail view"""
-        # Split content into lines
-        all_lines = []
-        for block in content_blocks:
-            all_lines.extend(block.split('\n'))
-
         scroll_offset = 0
 
         while True:
             self.stdscr.clear()
             h, w = self.stdscr.getmaxyx()
+
+            # Split content into lines and wrap them
+            all_lines = []
+            for block in content_blocks:
+                for line in block.split('\n'):
+                    # Wrap each line to fit the window width
+                    wrapped = self.wrap_line(line, w - 2)  # -2 for margins
+                    all_lines.extend(wrapped)
 
             # Draw title
             title_text = f"=== {title} ==="
@@ -859,7 +1064,7 @@ class Dashboard:
 
         # Redraw the dashboard
         self.render_all_panes()
-        status_text = "q:quit r:refresh c:commits Drag:select Double-click:word Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
+        status_text = "q:quit r:refresh s:summary c:commits Drag:select Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
         self.stdscr.addstr(curses.LINES - 1, 0, status_text[:curses.COLS - 1], curses.A_REVERSE)
         self.stdscr.refresh()
 
@@ -955,7 +1160,7 @@ class Dashboard:
         self.panes[self.selected_pane].is_selected = True
 
         # Status line at bottom
-        status_text = "q:quit r:refresh c:commits Drag:select Double-click:word Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
+        status_text = "q:quit r:refresh s:summary c:commits Drag:select Up/Down:scroll PgUp/PgDn:page Tab:next Esc:clear"
         self.stdscr.addstr(curses.LINES - 1, 0, "Loading all reports in parallel..." + " " * (curses.COLS - 35), curses.A_REVERSE)
         self.stdscr.refresh()
 
@@ -1007,6 +1212,8 @@ class Dashboard:
                 # Switch to next pane
                 next_pane = (self.selected_pane + 1) % len(self.panes)
                 self.select_pane(next_pane)
+            elif key == ord('s') or key == ord('S'):  # Show detailed summary
+                self.show_detailed_summary()
             elif key == ord('c') or key == ord('C'):  # Show commit details
                 self.show_commit_details()
             elif key == 27:  # Escape key - clear selection
