@@ -10,7 +10,7 @@ from git import Repo
 import os
 import tempfile
 import threading
-from pycopilot import CopilotClient, AuthCache, CopilotAuth
+from pycopilot import AuthCache
 
 # Users to track
 TRACKED_USERS = [
@@ -489,26 +489,12 @@ class Dashboard:
         user_display = user_info['display']
 
         try:
-            # Authenticate with GitHub Copilot (following interactive_chat.py pattern)
-            auth = CopilotAuth()
+            # Authenticate with GitHub Copilot (following bropilot pattern)
             cache = AuthCache()
+            client = cache.authenticate()
 
-            # Check for cached chat token first
-            cached_chat_token = cache.get_valid_cached_chat_token()
-            if not cached_chat_token:
+            if not client:
                 return "Summary unavailable (not authenticated with GitHub Copilot)"
-
-            # Verify token is still valid
-            if not auth.verify_chat_token(cached_chat_token):
-                cache.clear_chat_token()
-                return "Summary unavailable (chat token expired)"
-
-            # Create client and set token
-            client = CopilotClient()
-            client.set_chat_token(cached_chat_token)
-
-            # Cache in memory for this session
-            auth.cache_tokens_in_memory("", cached_chat_token)
 
             # Create long form report in temp file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
@@ -757,25 +743,14 @@ class Dashboard:
             # Get user stats
             stats = self.get_user_stats(user_info)
 
-            # Authenticate with GitHub Copilot
-            auth = CopilotAuth()
+            # Authenticate with GitHub Copilot (following bropilot pattern)
             cache = AuthCache()
+            client = cache.authenticate()
 
-            cached_chat_token = cache.get_valid_cached_chat_token()
-            if not cached_chat_token:
+            if not client:
                 summary = "Summary unavailable (not authenticated with GitHub Copilot)"
                 self.show_detail_view(f"Detailed Summary - {user_display}", [summary])
                 return
-
-            if not auth.verify_chat_token(cached_chat_token):
-                cache.clear_chat_token()
-                summary = "Summary unavailable (chat token expired)"
-                self.show_detail_view(f"Detailed Summary - {user_display}", [summary])
-                return
-
-            client = CopilotClient()
-            client.set_chat_token(cached_chat_token)
-            auth.cache_tokens_in_memory("", cached_chat_token)
 
             # Create comprehensive report
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
