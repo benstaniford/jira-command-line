@@ -330,10 +330,22 @@ class Dashboard:
         self.jira = MyJira(config.get('jira'))
         self.mygithub = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
 
+        # Calculate lookback period (extend on Mondays to include Friday)
+        self.lookback_days = self._calculate_lookback_days()
+        self.lookback_label = f"Last {self.lookback_days * 24}h" if self.lookback_days > 1 else "Last 24h"
+
         # Set up panes
         self.panes: List[DashboardPane] = []
         self.selected_pane = 0  # Index of currently selected pane
         self._create_panes()
+
+    def _calculate_lookback_days(self) -> int:
+        """Calculate how many days to look back based on current day.
+        On Mondays, look back 3 days to include Friday's activity."""
+        today = datetime.datetime.now()
+        if today.weekday() == 0:  # Monday
+            return 3
+        return 1
 
     def _create_panes(self):
         """Create the 4 panes in a 2x2 grid"""
@@ -362,7 +374,7 @@ class Dashboard:
             h, w = sizes[i]
             y, x = positions[i]
             win = curses.newwin(h, w, y, x)
-            pane = DashboardPane(win, f"{user_info['display']} - Last 24h")
+            pane = DashboardPane(win, f"{user_info['display']} - {self.lookback_label}")
             pane.user_info = user_info  # Store user info in pane
             self.panes.append(pane)
 
@@ -404,11 +416,11 @@ class Dashboard:
         except Exception as e:
             stats['tickets_error'] = str(e)
 
-        # Get Git stats from the last 24 hours from user's branches on origin
+        # Get Git stats from the lookback period from user's branches on origin
         try:
             if os.path.exists(GIT_REPO_PATH):
                 repo = Repo(GIT_REPO_PATH)
-                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                yesterday = datetime.datetime.now() - datetime.timedelta(days=self.lookback_days)
 
                 # Find all origin branches that start with user's initials
                 user_branches = []
@@ -512,11 +524,11 @@ class Dashboard:
                         f.write(f"Summary: {ticket['summary']}\n")
                         f.write(f"Last updated: {ticket['days']} days ago\n")
 
-                        # Get comments from last 24 hours
+                        # Get comments from lookback period
                         try:
                             issue = self.jira.get_issue_by_key(ticket['key'])
                             comments = self.jira.jira.comments(issue)
-                            yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                            yesterday = datetime.datetime.now() - datetime.timedelta(days=self.lookback_days)
 
                             recent_comments = []
                             for comment in comments:
@@ -536,7 +548,7 @@ class Dashboard:
                     f.write("No active tickets\n\n")
 
                 # Write Git commit activity
-                f.write("## Git Commits (Yesterday)\n\n")
+                f.write("## Git Commits (Recent Activity)\n\n")
                 f.write(f"Total commits: {stats.get('commits', 0)}\n")
                 f.write(f"Lines added: {stats.get('lines_added', 0)}\n")
                 f.write(f"Lines removed: {stats.get('lines_removed', 0)}\n")
@@ -550,7 +562,7 @@ class Dashboard:
                         try:
                             if os.path.exists(GIT_REPO_PATH):
                                 repo = Repo(GIT_REPO_PATH)
-                                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                                yesterday = datetime.datetime.now() - datetime.timedelta(days=self.lookback_days)
                                 commits = list(repo.iter_commits(f'origin/{branch}', since=yesterday.strftime('%Y-%m-%d'), max_count=10))
 
                                 for commit in commits:
@@ -575,7 +587,8 @@ class Dashboard:
             client.add_context(temp_file)
 
             # Ask for a summary
-            prompt = f"Based on the activity report provided, write exactly two sentences summarizing what {user_display} did yesterday. Focus on the most important work items and commits. Be concise and specific."
+            time_period = f"over the last {self.lookback_days} days" if self.lookback_days > 1 else "yesterday"
+            prompt = f"Based on the activity report provided, write exactly two sentences summarizing what {user_display} did {time_period}. Focus on the most important work items and commits. Be concise and specific."
 
             summary = client.ask(prompt, stream=False)
 
@@ -633,7 +646,8 @@ class Dashboard:
         pane.add_line("")
 
         # Display commit stats
-        pane.add_line("YESTERDAY'S ACTIVITY:")
+        activity_label = "RECENT ACTIVITY:" if self.lookback_days > 1 else "YESTERDAY'S ACTIVITY:"
+        pane.add_line(activity_label)
         if 'git_error' in stats:
             pane.add_line(f"  Error: {stats['git_error']}")
         else:
@@ -768,11 +782,11 @@ class Dashboard:
                         f.write(f"Last updated: {ticket['days']} days ago\n")
                         f.write(f"URL: {ticket['url']}\n\n")
 
-                        # Get all comments from last 24 hours
+                        # Get all comments from lookback period
                         try:
                             issue = self.jira.get_issue_by_key(ticket['key'])
                             comments = self.jira.jira.comments(issue)
-                            yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                            yesterday = datetime.datetime.now() - datetime.timedelta(days=self.lookback_days)
 
                             recent_comments = []
                             for comment in comments:
@@ -798,7 +812,7 @@ class Dashboard:
                     f.write("No active tickets\n\n")
 
                 # Git commits with detailed info
-                f.write("## Git Commits (Last 24 Hours)\n\n")
+                f.write("## Git Commits (Recent Activity)\n\n")
                 f.write(f"Total commits: {stats.get('commits', 0)}\n")
                 f.write(f"Lines added: {stats.get('lines_added', 0)}\n")
                 f.write(f"Lines removed: {stats.get('lines_removed', 0)}\n")
@@ -812,7 +826,7 @@ class Dashboard:
                         try:
                             if os.path.exists(GIT_REPO_PATH):
                                 repo = Repo(GIT_REPO_PATH)
-                                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                                yesterday = datetime.datetime.now() - datetime.timedelta(days=self.lookback_days)
                                 commits = list(repo.iter_commits(f'origin/{branch}', since=yesterday.strftime('%Y-%m-%d'), max_count=20))
 
                                 for commit in commits:
@@ -854,7 +868,8 @@ class Dashboard:
             client.add_context(temp_file)
 
             # Ask for detailed summary
-            prompt = f"""Based on the comprehensive activity report provided, write a detailed 4-paragraph summary of {user_display}'s work over the last 24 hours.
+            time_period = f"over the last {self.lookback_days} days" if self.lookback_days > 1 else "over the last 24 hours"
+            prompt = f"""Based on the comprehensive activity report provided, write a detailed 4-paragraph summary of {user_display}'s work {time_period}.
 
 Paragraph 1: Overview of main accomplishments and focus areas
 Paragraph 2: Detailed analysis of code changes and technical work (commits, files modified, etc.)
@@ -893,7 +908,7 @@ Be specific and reference actual work items, commit messages, and comments. Writ
         try:
             if os.path.exists(GIT_REPO_PATH):
                 repo = Repo(GIT_REPO_PATH)
-                yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+                yesterday = datetime.datetime.now() - datetime.timedelta(days=self.lookback_days)
 
                 # Find all origin branches that start with user's initials
                 user_branches = []
@@ -925,7 +940,8 @@ Be specific and reference actual work items, commit messages, and comments. Writ
             commit_details.append(f"Error getting commit details: {str(e)}")
 
         if not commit_details:
-            commit_details.append(f"No commits found for {user_info['display']} in the last 24 hours")
+            time_period = f"last {self.lookback_days * 24} hours" if self.lookback_days > 1 else "last 24 hours"
+            commit_details.append(f"No commits found for {user_info['display']} in the {time_period}")
 
         # Display in a full-screen view
         self.show_detail_view(f"Commit Details - {user_info['display']}", commit_details)
