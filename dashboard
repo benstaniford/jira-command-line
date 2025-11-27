@@ -773,7 +773,30 @@ class Dashboard:
                 f.write(f"=== Detailed Activity Report for {user_display} ===\n")
                 f.write(f"Date: {datetime.datetime.now().strftime('%Y-%m-%d')}\n\n")
 
-                # Jira tickets with comments
+                # Calculate WIP metrics
+                wip_count = 0
+                in_review_count = 0
+                blocked_count = 0
+                for ticket in stats.get('tickets', []):
+                    status = ticket['status'].lower()
+                    if 'in progress' in status or 'doing' in status:
+                        wip_count += 1
+                    elif 'review' in status or 'testing' in status:
+                        in_review_count += 1
+                    elif 'blocked' in status or 'waiting' in status:
+                        blocked_count += 1
+
+                f.write("## Work In Progress (WIP) Analysis\n\n")
+                f.write(f"Total active tickets: {len(stats.get('tickets', []))}\n")
+                f.write(f"  - In Progress: {wip_count}\n")
+                f.write(f"  - In Review/Testing: {in_review_count}\n")
+                f.write(f"  - Blocked/Waiting: {blocked_count}\n")
+                f.write(f"  - Other statuses: {len(stats.get('tickets', [])) - wip_count - in_review_count - blocked_count}\n\n")
+
+                if wip_count > 3:
+                    f.write(f"⚠️  WARNING: {wip_count} items in progress may indicate too much WIP\n\n")
+
+                # Jira tickets with comments and unanswered questions
                 f.write("## Jira Tickets and Comments\n\n")
                 if stats.get('tickets'):
                     for ticket in stats['tickets']:
@@ -782,30 +805,67 @@ class Dashboard:
                         f.write(f"Last updated: {ticket['days']} days ago\n")
                         f.write(f"URL: {ticket['url']}\n\n")
 
-                        # Get all comments from lookback period
+                        # Get all comments (not just from the user)
                         try:
                             issue = self.jira.get_issue_by_key(ticket['key'])
                             comments = self.jira.jira.comments(issue)
-                            yesterday = datetime.datetime.now() - datetime.timedelta(days=self.lookback_days)
+                            yesterday = datetime.datetime.now() - datetime.timedelta(days=15)  # Look back further for unanswered questions
 
-                            recent_comments = []
+                            # Separate user's comments from others
+                            user_comments = []
+                            other_comments = []
+
                             for comment in comments:
                                 comment_date = datetime.datetime.strptime(comment.created[:19], '%Y-%m-%dT%H:%M:%S')
-                                if comment_date >= yesterday and user_email in comment.author.emailAddress:
-                                    recent_comments.append({
+                                if comment_date >= yesterday:
+                                    comment_info = {
                                         'date': comment_date.strftime('%Y-%m-%d %H:%M'),
-                                        'body': comment.body
-                                    })
+                                        'body': comment.body,
+                                        'author': comment.author.displayName,
+                                        'is_user': user_email in comment.author.emailAddress
+                                    }
 
-                            if recent_comments:
+                                    if comment_info['is_user']:
+                                        user_comments.append(comment_info)
+                                    else:
+                                        other_comments.append(comment_info)
+
+                            # Check for unanswered questions (other people's comments with '?' that came after user's last comment)
+                            unanswered_questions = []
+                            last_user_comment_date = None
+                            if user_comments:
+                                last_user_comment_date = max(c['date'] for c in user_comments)
+
+                            for comment in other_comments:
+                                # Check if it contains a question mark and came after user's last comment
+                                if '?' in comment['body']:
+                                    if not last_user_comment_date or comment['date'] > last_user_comment_date:
+                                        unanswered_questions.append(comment)
+
+                            if unanswered_questions:
+                                f.write(f"⚠️  UNANSWERED QUESTIONS ({len(unanswered_questions)}):\n")
+                                for q in unanswered_questions:
+                                    f.write(f"\n[{q['date']}] {q['author']} asked:\n")
+                                    # Extract sentences with question marks
+                                    sentences = q['body'].split('.')
+                                    for sentence in sentences:
+                                        if '?' in sentence:
+                                            f.write(f"  {sentence.strip()}?\n")
+                                f.write("\n")
+
+                            if user_comments:
                                 f.write(f"Recent comments by {user_display}:\n")
-                                for comment_info in recent_comments:
+                                for comment_info in user_comments:
                                     f.write(f"\n[{comment_info['date']}]\n")
                                     f.write(f"{comment_info['body']}\n")
-                            else:
+
+                            if other_comments and not unanswered_questions:
+                                f.write(f"Recent comments from others ({len(other_comments)} total)\n")
+
+                            if not user_comments and not other_comments:
                                 f.write("No recent comments\n")
-                        except:
-                            f.write("Could not retrieve comments\n")
+                        except Exception as e:
+                            f.write(f"Could not retrieve comments: {str(e)}\n")
 
                         f.write("\n" + "="*80 + "\n\n")
                 else:
@@ -854,13 +914,53 @@ class Dashboard:
                 else:
                     f.write("No branches committed to\n\n")
 
-                # Pull requests
-                f.write("## Pull Requests\n\n")
+                # Pull requests with detailed health analysis
+                f.write("## Pull Requests and Review Status\n\n")
                 if stats.get('prs'):
+                    old_prs = [pr for pr in stats['prs'] if pr['age_days'] > 7]
+                    if old_prs:
+                        f.write(f"⚠️  WARNING: {len(old_prs)} PRs open for more than 7 days\n\n")
+
                     for pr in stats['prs']:
                         f.write(f"### PR #{pr['number']}: {pr['title']}\n")
                         f.write(f"Open for: {pr['age_days']} days\n")
-                        f.write(f"URL: {pr['url']}\n\n")
+                        f.write(f"URL: {pr['url']}\n")
+
+                        # Get PR details including review status and comments
+                        try:
+                            if self.mygithub:
+                                pr_details = self.mygithub.get_pr_by_number(pr['number'])
+
+                                # Review state
+                                if pr_details.get('requested_reviewers'):
+                                    reviewers = [r['login'] for r in pr_details['requested_reviewers']]
+                                    f.write(f"Requested reviewers: {', '.join(reviewers)}\n")
+
+                                # Check for review comments and changes requested
+                                # Note: This would require additional API calls to get review comments
+                                # For now, we'll note the review state if available
+                                if 'reviews' in pr_details:
+                                    approved_count = sum(1 for r in pr_details['reviews'] if r.get('state') == 'APPROVED')
+                                    changes_requested = sum(1 for r in pr_details['reviews'] if r.get('state') == 'CHANGES_REQUESTED')
+                                    if approved_count > 0:
+                                        f.write(f"Approvals: {approved_count}\n")
+                                    if changes_requested > 0:
+                                        f.write(f"⚠️  Changes requested: {changes_requested}\n")
+
+                                # Check for merge conflicts
+                                if pr_details.get('mergeable') is False:
+                                    f.write("⚠️  MERGE CONFLICTS DETECTED\n")
+                                elif pr_details.get('mergeable') is True:
+                                    f.write("✓ No merge conflicts\n")
+
+                                # Draft status
+                                if pr_details.get('draft'):
+                                    f.write("Status: DRAFT\n")
+
+                        except Exception as e:
+                            f.write(f"Could not retrieve PR details: {str(e)}\n")
+
+                        f.write("\n")
                 else:
                     f.write("No open pull requests\n\n")
 
@@ -869,16 +969,29 @@ class Dashboard:
 
             # Ask for detailed summary
             time_period = f"over the last {self.lookback_days} days" if self.lookback_days > 1 else "over the last 24 hours"
-            prompt = f"""Based on the comprehensive activity report provided, write a detailed 4-paragraph summary of {user_display}'s work {time_period}.
+            prompt = f"""You are {user_display}'s manager. Based on the comprehensive activity report provided, write a detailed 4-paragraph summary of their work {time_period}, focusing on managerial insights.
 
 Paragraph 1: Overview of main accomplishments and focus areas
-Paragraph 2: Detailed analysis of code changes and technical work (commits, files modified, etc.)
-Paragraph 3: Jira ticket progress, comments, and communication/collaboration
-Paragraph 4: Overall assessment of productivity and any notable patterns or concerns
+Paragraph 2: Work-in-Progress (WIP) Analysis
+  - Are they juggling too many items simultaneously? (healthy WIP is typically 1-3 items)
+  - Are items stuck in certain statuses for too long?
+  - Are there any blocked or stalled items that need attention?
+Paragraph 3: Communication and Collaboration Health
+  - Are there unanswered questions on their tickets from team members or stakeholders?
+  - Are they responding to feedback and comments in a timely manner?
+  - Are they actively communicating about their work?
+Paragraph 4: Pull Request Health and Code Review
+  - Are their PRs in a good state (getting reviewed, not too old, no conflicts)?
+  - Are there any PRs with requested changes that haven't been addressed?
+  - Are they creating appropriately-sized PRs or mega-PRs that are hard to review?
 
-After the 4 paragraphs, add a section titled "Suggested Standup Questions:" with exactly 2 insightful questions that would be good to ask this person during a daily standup meeting. These questions should be based on their actual work and help uncover blockers, progress, or areas needing clarification.
+After the 4 paragraphs, add a section titled "Manager Questions to Ask:" with 3-5 specific questions you should ask {user_display} during your next 1-on-1 or standup. These questions should:
+  - Address specific concerns identified in the report (WIP issues, stale tickets, unanswered questions, PR problems)
+  - Help uncover blockers or challenges they might be facing
+  - Reference actual work items by ticket number or PR number
+  - Be supportive and collaborative in tone (you're trying to help, not criticize)
 
-Be specific and reference actual work items, commit messages, and comments. Write in a professional tone suitable for a daily standup report."""
+Be specific and direct. Reference actual ticket numbers, PR numbers, and specific concerns. Write in a professional managerial tone."""
 
             summary = client.ask(prompt, stream=False)
 
