@@ -16,6 +16,9 @@ class JiraIssueMarkdownFormatter:
     def _add_field_section(self, wrapped_issue: Any, whole_description: str, field_name: str, section_title: str) -> str:
         if wrapped_issue.has_field(field_name):
             field_value = getattr(wrapped_issue, field_name, "")
+            # Convert ADF content to text if needed
+            if field_value and not isinstance(field_value, str):
+                field_value = self._adf_to_text(field_value)
             whole_description = self.add_titled_section(whole_description, section_title, field_value)
         return whole_description
 
@@ -115,6 +118,101 @@ class JiraIssueMarkdownFormatter:
         text = text.replace('\r', '')
         return text
 
+    def _adf_to_text(self, adf_content: Any) -> str:
+        """
+        Convert Atlassian Document Format (ADF) to plain text.
+        Args:
+            adf_content: ADF content (can be dict, object, or string)
+        Returns:
+            Plain text string
+        """
+        # Handle if it's already a string
+        if isinstance(adf_content, str):
+            return adf_content
+
+        # Handle if it's a PropertyHolder or similar object - try to get raw attribute
+        if hasattr(adf_content, '__dict__') and not isinstance(adf_content, dict):
+            # Try common attributes that might contain the actual data
+            for attr in ['raw', '_raw', 'value', '_value']:
+                if hasattr(adf_content, attr):
+                    adf_content = getattr(adf_content, attr)
+                    break
+            else:
+                # If no known attribute, convert to string as fallback
+                return str(adf_content)
+
+        # Handle if it's not a dict at this point
+        if not isinstance(adf_content, dict):
+            return str(adf_content)
+
+        # Process ADF structure
+        text_parts = []
+
+        def extract_text(node):
+            if isinstance(node, dict):
+                node_type = node.get('type', '')
+
+                # Text node
+                if node_type == 'text':
+                    text_parts.append(node.get('text', ''))
+
+                # Hard break
+                elif node_type == 'hardBreak':
+                    text_parts.append('\n')
+
+                # Paragraph - add newline after
+                elif node_type == 'paragraph':
+                    if 'content' in node:
+                        for child in node['content']:
+                            extract_text(child)
+                    text_parts.append('\n\n')
+
+                # Heading
+                elif node_type == 'heading':
+                    level = node.get('attrs', {}).get('level', 1)
+                    text_parts.append('#' * level + ' ')
+                    if 'content' in node:
+                        for child in node['content']:
+                            extract_text(child)
+                    text_parts.append('\n\n')
+
+                # List items
+                elif node_type in ['bulletList', 'orderedList']:
+                    if 'content' in node:
+                        for item in node['content']:
+                            extract_text(item)
+
+                elif node_type == 'listItem':
+                    text_parts.append('- ')
+                    if 'content' in node:
+                        for child in node['content']:
+                            extract_text(child)
+
+                # Code block
+                elif node_type == 'codeBlock':
+                    text_parts.append('```\n')
+                    if 'content' in node:
+                        for child in node['content']:
+                            extract_text(child)
+                    text_parts.append('```\n\n')
+
+                # Generic content processing
+                elif 'content' in node:
+                    for child in node['content']:
+                        extract_text(child)
+
+            elif isinstance(node, list):
+                for item in node:
+                    extract_text(item)
+
+        extract_text(adf_content)
+        result = ''.join(text_parts).strip()
+
+        # Clean up excessive newlines
+        result = re.sub(r'\n{3,}', '\n\n', result)
+
+        return result
+
     def format(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
         wrapped_issue = MyJiraIssue(issue, self.jira)
         whole_description = ""
@@ -137,7 +235,9 @@ class JiraIssueMarkdownFormatter:
             comments = self.jira.comments(issue.key)
             comments.reverse()
             for comment in comments:
-                whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment.body)
+                # Convert ADF comment body to plain text
+                comment_text = self._adf_to_text(comment.body)
+                whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment_text)
         whole_description = self._strip_invisible_unicode(whole_description)
         if format_as_html:
             return markdown.markdown(whole_description, extensions=['fenced_code', 'tables'])
