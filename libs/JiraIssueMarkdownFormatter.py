@@ -118,6 +118,53 @@ class JiraIssueMarkdownFormatter:
         text = text.replace('\r', '')
         return text
 
+    def _unwrap_property_holder(self, obj: Any) -> Any:
+        """
+        Unwrap a Jira PropertyHolder object to get its actual data by recursively converting it to dict.
+        """
+        if isinstance(obj, (str, int, float, bool, type(None))):
+            return obj
+
+        if isinstance(obj, dict):
+            # Recursively unwrap dict values
+            return {k: self._unwrap_property_holder(v) for k, v in obj.items()}
+
+        if isinstance(obj, list):
+            # Recursively unwrap list items
+            return [self._unwrap_property_holder(item) for item in obj]
+
+        if not hasattr(obj, '__dict__'):
+            return str(obj) if obj else ""
+
+        # Try common attributes first
+        for attr in ['raw', '_raw']:
+            if hasattr(obj, attr):
+                raw_val = getattr(obj, attr)
+                # Recursively unwrap the raw value
+                return self._unwrap_property_holder(raw_val)
+
+        # Build dict from all public attributes recursively
+        obj_dict = {}
+        try:
+            for key in dir(obj):
+                if key.startswith('_') or key in ['raw', 'self']:
+                    continue
+                try:
+                    value = getattr(obj, key)
+                    if not callable(value):
+                        # Recursively unwrap nested objects
+                        obj_dict[key] = self._unwrap_property_holder(value)
+                except:
+                    continue
+
+            # Return the constructed dictionary if it has content
+            if obj_dict:
+                return obj_dict
+        except:
+            pass
+
+        return ""
+
     def _adf_to_text(self, adf_content: Any) -> str:
         """
         Convert Atlassian Document Format (ADF) to plain text.
@@ -126,24 +173,16 @@ class JiraIssueMarkdownFormatter:
         Returns:
             Plain text string
         """
+        # Unwrap PropertyHolder first
+        adf_content = self._unwrap_property_holder(adf_content)
+
         # Handle if it's already a string
         if isinstance(adf_content, str):
             return adf_content
 
-        # Handle if it's a PropertyHolder or similar object - try to get raw attribute
-        if hasattr(adf_content, '__dict__') and not isinstance(adf_content, dict):
-            # Try common attributes that might contain the actual data
-            for attr in ['raw', '_raw', 'value', '_value']:
-                if hasattr(adf_content, attr):
-                    adf_content = getattr(adf_content, attr)
-                    break
-            else:
-                # If no known attribute, convert to string as fallback
-                return str(adf_content)
-
-        # Handle if it's not a dict at this point
+        # Handle if it's still not a dict
         if not isinstance(adf_content, dict):
-            return str(adf_content)
+            return str(adf_content) if adf_content else ""
 
         # Process ADF structure
         text_parts = []
@@ -237,7 +276,8 @@ class JiraIssueMarkdownFormatter:
             for comment in comments:
                 # Convert ADF comment body to plain text
                 comment_text = self._adf_to_text(comment.body)
-                whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment_text)
+                if comment_text:  # Only add non-empty comments
+                    whole_description = self.add_titled_section(whole_description, f"Comment by {comment.author.displayName}", comment_text)
         whole_description = self._strip_invisible_unicode(whole_description)
         if format_as_html:
             return markdown.markdown(whole_description, extensions=['fenced_code', 'tables'])
