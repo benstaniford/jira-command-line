@@ -33,7 +33,8 @@
       "Bash(az devops configure:*)",
       "Bash(sort:*)",
       "Bash(cat:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(~/dot-files/scripts/dashboard:*)"
     ],
     "deny": [],
     "ask": [],
