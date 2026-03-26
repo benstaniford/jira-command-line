@@ -34,7 +34,11 @@
       "Bash(sort:*)",
       "Bash(cat:*)",
       "Bash(python3:*)",
-      "Bash(~/dot-files/scripts/dashboard:*)"
+      "Bash(~/dot-files/scripts/dashboard:*)",
+      "mcp__AzDo__list_pipelines",
+      "mcp__AzDo__get_pipeline_runs",
+      "mcp__AzDo__get_test_results",
+      "mcp__AzDo__get_test_runs"
     ],
     "deny": [],
     "ask": [],

@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+"""
+Regression Trend - Graphs nightly RunRegression pass rates over 4 weeks.
+
+Produces a PNG chart and prints a summary table to stdout with links
+to each run and absolute pass/fail numbers.
+
+Only considers runs against 'main' that started within 30 minutes of midnight.
+"""
+
+import os
+import sys
+import requests
+from requests.auth import HTTPBasicAuth
+from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Any
+
+# Same regression test suite filters used by whydiditfail
+REGRESSION_SUITES = [
+    'WindowsDriver', 'AntiTamper', 'AgentProtection', 'AppControl',
+    'AppMatching', 'AppMatchingUninstallers', 'AppPrivMan',
+    'BeyondInsightIntegration', 'Compatibility', 'ContentControl',
+    'ContentMatching', 'ContentPrivMan', 'DLLControl', 'EndpointApp',
+    'EventAuditJson', 'EventAuditLegacy', 'EventAuditWindowsEvents',
+    'FileInformationCaching', 'Filters', 'Identity', 'JITAdmin',
+    'JITApplicationAccess', 'Licensing', 'Messaging', 'OnDemand',
+    'PasswordSafe', 'Personas', 'PowerRules', 'RegistryKeys',
+    'TAP', 'UAC', 'Upgrading', 'Utilities'
+]
+
+PIPELINE_NAME = "RunRegression"
+
+
+class AzDoConnection:
+    """Handles Azure DevOps API connection and requests."""
+
+    def __init__(self):
+        self.pat_token = os.getenv("AZURE_DEVOPS_EXT_PAT")
+        self.org_url = os.getenv("AZ_ORG")
+        self.project = os.getenv("AZ_PROJECT")
+
+        if not all([self.pat_token, self.org_url, self.project]):
+            raise ValueError(
+                "Missing required environment variables: "
+                "AZURE_DEVOPS_EXT_PAT, AZ_ORG, AZ_PROJECT"
+            )
+
+        self.session = requests.Session()
+        self.session.auth = HTTPBasicAuth("", self.pat_token)
+        self.session.headers.update({
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        })
+
+    def make_request(self, url: str) -> Dict[str, Any]:
+        response = self.session.get(url, timeout=120)
+        response.raise_for_status()
+        return response.json()
+
+    def find_pipeline_by_name(self, name: str) -> int:
+        url = f"{self.org_url}/{self.project}/_apis/build/definitions?api-version=6.0"
+        data = self.make_request(url)
+        for pipeline in data.get("value", []):
+            if pipeline["name"] == name:
+                return pipeline["id"]
+        raise ValueError(f"Pipeline '{name}' not found")
+
+    def get_pipeline_runs(self, pipeline_id: int, top: int = 200) -> List[Dict[str, Any]]:
+        url = (
+            f"{self.org_url}/{self.project}/_apis/build/builds?"
+            f"definitions={pipeline_id}&$top={top}&api-version=6.0"
+        )
+        data = self.make_request(url)
+        return data.get("value", [])
+
+    def get_test_runs_for_build(self, build_id: int) -> List[Dict[str, Any]]:
+        """Get test runs using the build's time range, filtered to regression suites."""
+        # Get build details for time range
+        build_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}?api-version=6.0"
+        build_data = self.make_request(build_url)
+
+        start_time = build_data.get('startTime')
+        finish_time = build_data.get('finishTime')
+
+        if not start_time or not finish_time:
+            return []
+
+        # Query test runs within the build's time range
+        runs_url = (
+            f"{self.org_url}/{self.project}/_apis/test/runs?"
+            f"minLastUpdatedDate={start_time}&maxLastUpdatedDate={finish_time}&api-version=7.0"
+        )
+        runs_data = self.make_request(runs_url)
+
+        if not runs_data.get('value'):
+            return []
+
+        # Filter to completed runs matching regression suites
+        completed_runs = [
+            r for r in runs_data['value']
+            if r.get('state') == 'Completed'
+        ]
+
+        # Group by name, keep highest ID (most recent) per suite
+        latest_runs = {}
+        for run in completed_runs:
+            run_name = run.get('name', 'Unknown')
+            run_id = run['id']
+
+            if not any(f in run_name for f in REGRESSION_SUITES):
+                continue
+
+            if run_name not in latest_runs or run_id > latest_runs[run_name]['id']:
+                latest_runs[run_name] = run
+
+        return list(latest_runs.values())
+
+    def get_build_web_url(self, build_id: int) -> str:
+        return f"{self.org_url}/{self.project}/_build/results?buildId={build_id}"
+
+
+def parse_time(time_str: str) -> datetime:
+    """Parse Azure DevOps timestamp to datetime."""
+    # Handle various formats with/without fractional seconds
+    time_str = time_str.rstrip('Z')
+    if '.' in time_str:
+        # Truncate fractional seconds to 6 digits for strptime
+        base, frac = time_str.split('.')
+        frac = frac[:6]
+        time_str = f"{base}.{frac}"
+        return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S.%f").replace(tzinfo=timezone.utc)
+    return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+
+
+def is_nightly_run(build: Dict[str, Any]) -> bool:
+    """Check if a build is a nightly run: main branch, started within 30 min of midnight."""
+    branch = build.get('sourceBranch', '')
+    if branch != 'refs/heads/main':
+        return False
+
+    start_time = build.get('startTime')
+    if not start_time:
+        return False
+
+    dt = parse_time(start_time)
+    # Minutes since midnight
+    minutes = dt.hour * 60 + dt.minute
+    # Within 30 minutes of midnight (00:00) — either side
+    return minutes <= 30 or minutes >= (24 * 60 - 30)
+
+
+def collect_data(conn: AzDoConnection) -> List[Dict[str, Any]]:
+    """Collect nightly regression run data for the last 4 weeks."""
+    pipeline_id = conn.find_pipeline_by_name(PIPELINE_NAME)
+    print(f"Found {PIPELINE_NAME} pipeline (ID: {pipeline_id})", file=sys.stderr)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(weeks=4)
+
+    # Fetch enough runs to cover 4 weeks (nightly + ad-hoc runs)
+    all_runs = conn.get_pipeline_runs(pipeline_id, top=200)
+    print(f"Fetched {len(all_runs)} total runs", file=sys.stderr)
+
+    # Filter to nightly main-branch runs within the last 4 weeks
+    nightly_runs = []
+    for run in all_runs:
+        if run.get('status') != 'completed':
+            continue
+        start_time = run.get('startTime')
+        if not start_time:
+            continue
+        dt = parse_time(start_time)
+        if dt < cutoff:
+            continue
+        if is_nightly_run(run):
+            nightly_runs.append(run)
+
+    # Sort by start time ascending
+    nightly_runs.sort(key=lambda r: r['startTime'])
+    print(f"Found {len(nightly_runs)} nightly runs in the last 4 weeks", file=sys.stderr)
+
+    results = []
+    for i, run in enumerate(nightly_runs):
+        build_id = run['id']
+        build_number = run.get('buildNumber', '')
+        start_time = parse_time(run['startTime'])
+        url = conn.get_build_web_url(build_id)
+
+        print(f"  [{i+1}/{len(nightly_runs)}] Fetching test data for build {build_id} "
+              f"({start_time.strftime('%Y-%m-%d')})...", file=sys.stderr)
+
+        test_runs = conn.get_test_runs_for_build(build_id)
+
+        total_passed = 0
+        total_failed = 0
+        total_other = 0
+        for tr in test_runs:
+            passed = tr.get('passedTests', 0) or 0
+            failed = tr.get('failedTests', 0) or 0
+            total = tr.get('totalTests', 0) or 0
+            total_passed += passed
+            total_failed += failed
+            total_other += max(0, total - passed - failed)
+
+        total_tests = total_passed + total_failed + total_other
+        pass_pct = (total_passed / total_tests * 100) if total_tests > 0 else 0
+
+        results.append({
+            'build_id': build_id,
+            'build_number': build_number,
+            'date': start_time,
+            'url': url,
+            'passed': total_passed,
+            'failed': total_failed,
+            'other': total_other,
+            'total': total_tests,
+            'pass_pct': pass_pct,
+        })
+
+    return results
+
+
+def print_table(results: List[Dict[str, Any]]):
+    """Print a summary table to stdout."""
+    if not results:
+        print("No nightly regression runs found in the last 4 weeks.")
+        return
+
+    # Header
+    print(f"{'Date':<12} {'Pass%':>6} {'Passed':>7} {'Failed':>7} {'Other':>7} "
+          f"{'Total':>7}  {'Build':<40}  URL")
+    print("-" * 140)
+
+    for r in results:
+        date_str = r['date'].strftime('%Y-%m-%d')
+        build = r['build_number'][:40]
+        print(f"{date_str:<12} {r['pass_pct']:>5.1f}% {r['passed']:>7} {r['failed']:>7} "
+              f"{r['other']:>7} {r['total']:>7}  {build:<40}  {r['url']}")
+
+    # Summary
+    print("-" * 140)
+    avg_pct = sum(r['pass_pct'] for r in results) / len(results)
+    print(f"{'Average':<12} {avg_pct:>5.1f}%")
+
+
+def generate_chart(results: List[Dict[str, Any]], output_path: str):
+    """Generate a PNG chart of pass percentage over time."""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+    if not results:
+        print("No data to chart.", file=sys.stderr)
+        return
+
+    dates = [r['date'] for r in results]
+    pass_pcts = [r['pass_pct'] for r in results]
+
+    fig, ax1 = plt.subplots(figsize=(14, 6))
+
+    # Pass percentage line
+    color_pass = '#2ecc71'
+    color_fail = '#e74c3c'
+
+    ax1.plot(dates, pass_pcts, 'o-', color=color_pass, linewidth=2,
+             markersize=8, label='Pass %', zorder=3)
+
+    # Fill area under the curve
+    ax1.fill_between(dates, pass_pcts, alpha=0.15, color=color_pass)
+
+    # Reference line at 100%
+    ax1.axhline(y=100, color='#95a5a6', linestyle='--', linewidth=1, alpha=0.5)
+
+    # Formatting
+    ax1.set_xlabel('Date', fontsize=12)
+    ax1.set_ylabel('Pass Rate (%)', fontsize=12)
+    ax1.set_title('RunRegression Nightly Pass Rate (main branch, last 4 weeks)',
+                  fontsize=14, fontweight='bold')
+
+    ax1.set_ylim(bottom=max(0, min(pass_pcts) - 5), top=101)
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
+    fig.autofmt_xdate()
+
+    ax1.grid(True, alpha=0.3)
+    ax1.legend(loc='lower left', fontsize=10)
+
+    # Add a secondary axis for absolute counts as a stacked bar
+    ax2 = ax1.twinx()
+    bar_width = 0.5  # in days
+    passed_counts = [r['passed'] for r in results]
+    failed_counts = [r['failed'] for r in results]
+
+    ax2.bar(dates, passed_counts, width=bar_width, alpha=0.25, color=color_pass,
+            label='Passed')
+    ax2.bar(dates, failed_counts, width=bar_width, bottom=passed_counts,
+            alpha=0.25, color=color_fail, label='Failed')
+    ax2.set_ylabel('Test Count', fontsize=12)
+    ax2.legend(loc='lower right', fontsize=10)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    print(f"Chart saved to {output_path}", file=sys.stderr)
+
+
+def main():
+    output_png = "regression-trend.png"
+    if len(sys.argv) > 1:
+        output_png = sys.argv[1]
+
+    conn = AzDoConnection()
+    results = collect_data(conn)
+    print_table(results)
+    generate_chart(results, output_png)
+
+
+if __name__ == "__main__":
+    main()
