@@ -8,12 +8,14 @@ to each run and absolute pass/fail numbers.
 Only considers runs against 'main' that started within 30 minutes of midnight.
 """
 
+import argparse
 import os
 import sys
 import requests
 from requests.auth import HTTPBasicAuth
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 # Same regression test suite filters used by whydiditfail
 REGRESSION_SUITES = [
@@ -115,6 +117,73 @@ class AzDoConnection:
 
         return list(latest_runs.values())
 
+    def get_failed_tests_for_build(self, build_id: int) -> List[Dict[str, str]]:
+        """Get failed test names for a build, using the same approach as whydiditfail."""
+        build_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}?api-version=6.0"
+        build_data = self.make_request(build_url)
+
+        start_time = build_data.get('startTime')
+        finish_time = build_data.get('finishTime')
+
+        if not start_time or not finish_time:
+            return []
+
+        runs_url = (
+            f"{self.org_url}/{self.project}/_apis/test/runs?"
+            f"minLastUpdatedDate={start_time}&maxLastUpdatedDate={finish_time}&api-version=7.0"
+        )
+        runs_data = self.make_request(runs_url)
+
+        if not runs_data.get('value'):
+            return []
+
+        completed_runs = [
+            r for r in runs_data['value']
+            if r.get('state') == 'Completed'
+        ]
+
+        # Group by name, keep highest ID per suite
+        latest_runs = {}
+        for run in completed_runs:
+            run_name = run.get('name', 'Unknown')
+            run_id = run['id']
+            if not any(f in run_name for f in REGRESSION_SUITES):
+                continue
+            if run_name not in latest_runs or run_id > latest_runs[run_name]['id']:
+                latest_runs[run_name] = run
+
+        # Fetch failed results from each run
+        failures = []
+        for run_name in sorted(latest_runs.keys()):
+            run = latest_runs[run_name]
+            run_id = run['id']
+
+            results_url = (
+                f"{self.org_url}/{self.project}/_apis/test/Runs/{run_id}/results?"
+                f"outcomes=Failed&$top=1000&api-version=7.0"
+            )
+
+            try:
+                results_data = self.make_request(results_url)
+            except requests.exceptions.Timeout:
+                continue
+
+            for result in results_data.get('value', []):
+                if result.get('outcome') != 'Failed':
+                    continue
+
+                test_name = result.get(
+                    'testCaseTitle',
+                    result.get('automatedTestName', 'Unknown')
+                )
+
+                failures.append({
+                    'suite': run_name,
+                    'test': test_name,
+                })
+
+        return failures
+
     def get_build_web_url(self, build_id: int) -> str:
         return f"{self.org_url}/{self.project}/_build/results?buildId={build_id}"
 
@@ -149,34 +218,9 @@ def is_nightly_run(build: Dict[str, Any]) -> bool:
     return minutes <= 30 or minutes >= (24 * 60 - 30)
 
 
-def collect_data(conn: AzDoConnection) -> List[Dict[str, Any]]:
-    """Collect nightly regression run data for the last 4 weeks."""
-    pipeline_id = conn.find_pipeline_by_name(PIPELINE_NAME)
-    print(f"Found {PIPELINE_NAME} pipeline (ID: {pipeline_id})", file=sys.stderr)
-
-    cutoff = datetime.now(timezone.utc) - timedelta(weeks=4)
-
-    # Fetch enough runs to cover 4 weeks (nightly + ad-hoc runs)
-    all_runs = conn.get_pipeline_runs(pipeline_id, top=200)
-    print(f"Fetched {len(all_runs)} total runs", file=sys.stderr)
-
-    # Filter to nightly main-branch runs within the last 4 weeks
-    nightly_runs = []
-    for run in all_runs:
-        if run.get('status') != 'completed':
-            continue
-        start_time = run.get('startTime')
-        if not start_time:
-            continue
-        dt = parse_time(start_time)
-        if dt < cutoff:
-            continue
-        if is_nightly_run(run):
-            nightly_runs.append(run)
-
-    # Sort by start time ascending
-    nightly_runs.sort(key=lambda r: r['startTime'])
-    print(f"Found {len(nightly_runs)} nightly runs in the last 4 weeks", file=sys.stderr)
+def collect_data(conn: AzDoConnection, weeks: int = 4) -> List[Dict[str, Any]]:
+    """Collect nightly regression run data for the last N weeks."""
+    nightly_runs = get_nightly_runs(conn, weeks=weeks)
 
     results = []
     for i, run in enumerate(nightly_runs):
@@ -242,7 +286,7 @@ def print_table(results: List[Dict[str, Any]]):
     print(f"{'Average':<12} {avg_pct:>5.1f}%")
 
 
-def generate_chart(results: List[Dict[str, Any]], output_path: str):
+def generate_chart(results: List[Dict[str, Any]], output_path: str, weeks: int = 4):
     """Generate a PNG chart of pass percentage over time."""
     import matplotlib
     matplotlib.use('Agg')
@@ -274,7 +318,7 @@ def generate_chart(results: List[Dict[str, Any]], output_path: str):
     # Formatting
     ax1.set_xlabel('Date', fontsize=12)
     ax1.set_ylabel('Pass Rate (%)', fontsize=12)
-    ax1.set_title('RunRegression Nightly Pass Rate (main branch, last 4 weeks)',
+    ax1.set_title(f'RunRegression Nightly Pass Rate (main branch, last {weeks} week{"s" if weeks != 1 else ""})',
                   fontsize=14, fontweight='bold')
 
     ax1.set_ylim(bottom=max(0, min(pass_pcts) - 5), top=101)
@@ -303,15 +347,119 @@ def generate_chart(results: List[Dict[str, Any]], output_path: str):
     print(f"Chart saved to {output_path}", file=sys.stderr)
 
 
+def get_nightly_runs(conn: AzDoConnection, weeks: int = 4) -> List[Dict[str, Any]]:
+    """Get completed nightly main-branch runs from the last N weeks."""
+    pipeline_id = conn.find_pipeline_by_name(PIPELINE_NAME)
+    print(f"Found {PIPELINE_NAME} pipeline (ID: {pipeline_id})", file=sys.stderr)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(weeks=weeks)
+
+    all_runs = conn.get_pipeline_runs(pipeline_id, top=200)
+    print(f"Fetched {len(all_runs)} total runs", file=sys.stderr)
+
+    nightly_runs = []
+    for run in all_runs:
+        if run.get('status') != 'completed':
+            continue
+        start_time = run.get('startTime')
+        if not start_time:
+            continue
+        dt = parse_time(start_time)
+        if dt < cutoff:
+            continue
+        if is_nightly_run(run):
+            nightly_runs.append(run)
+
+    nightly_runs.sort(key=lambda r: r['startTime'])
+    print(f"Found {len(nightly_runs)} nightly runs in the last {weeks} week(s)", file=sys.stderr)
+    return nightly_runs
+
+
+def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]) -> None:
+    """Collect failed test names across all nightly runs and write flakey.md."""
+    # test_name -> list of (date, suite) tuples
+    failure_map = defaultdict(list)
+
+    for i, run in enumerate(nightly_runs):
+        build_id = run['id']
+        start_time = parse_time(run['startTime'])
+        date_str = start_time.strftime('%Y-%m-%d')
+
+        print(f"  [{i+1}/{len(nightly_runs)}] Fetching failures for build {build_id} "
+              f"({date_str})...", file=sys.stderr)
+
+        failures = conn.get_failed_tests_for_build(build_id)
+
+        for f in failures:
+            failure_map[f['test']].append({
+                'date': date_str,
+                'suite': f['suite'],
+                'build_id': build_id,
+            })
+
+    if not failure_map:
+        print("No failed tests found across nightly runs.", file=sys.stderr)
+        return
+
+    # Sort by frequency descending, then alphabetically
+    sorted_tests = sorted(failure_map.items(), key=lambda x: (-len(x[1]), x[0]))
+
+    total_runs = len(nightly_runs)
+    date_range_start = parse_time(nightly_runs[0]['startTime']).strftime('%Y-%m-%d')
+    date_range_end = parse_time(nightly_runs[-1]['startTime']).strftime('%Y-%m-%d')
+
+    lines = []
+    lines.append("# Flakey Regression Tests")
+    lines.append("")
+    lines.append(f"Period: **{date_range_start}** to **{date_range_end}** "
+                 f"({total_runs} nightly runs)")
+    lines.append("")
+    lines.append(f"| # | Failures | Rate | Test | Suite(s) | Dates |")
+    lines.append("|---|----------|------|------|----------|-------|")
+
+    for rank, (test_name, occurrences) in enumerate(sorted_tests, 1):
+        count = len(occurrences)
+        rate = f"{count}/{total_runs}"
+        pct = count / total_runs * 100
+        suites = sorted(set(o['suite'] for o in occurrences))
+        suites_str = ", ".join(suites)
+        dates = sorted(set(o['date'] for o in occurrences))
+        dates_str = ", ".join(dates)
+        lines.append(f"| {rank} | {count} ({pct:.0f}%) | {rate} | {test_name} | "
+                     f"{suites_str} | {dates_str} |")
+
+    lines.append("")
+    lines.append(f"*Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}*")
+    lines.append("")
+
+    output_path = "flakey.md"
+    with open(output_path, 'w') as f:
+        f.write("\n".join(lines))
+
+    print(f"\nWrote {len(sorted_tests)} flakey tests to {output_path}", file=sys.stderr)
+
+
 def main():
-    output_png = "regression-trend.png"
-    if len(sys.argv) > 1:
-        output_png = sys.argv[1]
+    parser = argparse.ArgumentParser(
+        description="Graph nightly RunRegression pass rates"
+    )
+    parser.add_argument('output', nargs='?', default='regression-trend.png',
+                        help='Output PNG path (default: regression-trend.png)')
+    parser.add_argument('--flakey', action='store_true',
+                        help='Identify flakey tests by failure frequency and write flakey.md')
+    parser.add_argument('--weeks', type=int, default=4,
+                        help='Number of weeks to look back (default: 4)')
+    args = parser.parse_args()
 
     conn = AzDoConnection()
-    results = collect_data(conn)
-    print_table(results)
-    generate_chart(results, output_png)
+
+    if args.flakey:
+        nightly_runs = get_nightly_runs(conn, weeks=args.weeks)
+        collect_flakey_data(conn, nightly_runs)
+    else:
+        results = collect_data(conn, weeks=args.weeks)
+        print_table(results)
+        generate_chart(results, args.output, weeks=args.weeks)
 
 
 if __name__ == "__main__":
