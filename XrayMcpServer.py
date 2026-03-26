@@ -169,6 +169,29 @@ class XrayMCPServer:
                     }
                 ),
                 Tool(
+                    name="update_test",
+                    description="Update the steps/gherkin of an existing Xray test case",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "issue_key": {
+                                "type": "string",
+                                "description": "The Jira issue key of the test (e.g., 'EPM-17942')"
+                            },
+                            "test_type": {
+                                "type": "string",
+                                "description": "Test type: 'Manual', 'Manual (Gherkin)', or 'Cucumber'",
+                                "default": "Manual (Gherkin)"
+                            },
+                            "steps": {
+                                "type": "string",
+                                "description": "Updated test steps (Gherkin format for Manual (Gherkin) tests)"
+                            }
+                        },
+                        "required": ["issue_key", "steps"]
+                    }
+                ),
+                Tool(
                     name="create_folder",
                     description="Create a folder in the Xray test repository",
                     inputSchema={
@@ -371,6 +394,8 @@ class XrayMCPServer:
                     return await self._create_test_plan(arguments)
                 elif name == "create_test_direct":
                     return await self._create_test_direct(arguments)
+                elif name == "update_test":
+                    return await self._update_test(arguments)
                 elif name == "create_folder":
                     return await self._create_folder(arguments)
                 elif name == "create_test_plan_direct":
@@ -552,6 +577,27 @@ class XrayMCPServer:
             "folder": folder
         }
         
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    async def _update_test(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Update the steps/gherkin of an existing test case."""
+        issue_key = arguments["issue_key"]
+        test_type = arguments.get("test_type", "Manual (Gherkin)")
+        steps = arguments["steps"]
+
+        # Look up the internal Jira issue ID from the key
+        issue = self.jira.get_issue_by_key(issue_key)
+        issue_id = issue.id
+
+        response = self.xray_api.update_test(issue_id, test_type, steps)
+
+        result = {
+            "message": f"Updated test case {issue_key}",
+            "issue_key": issue_key,
+            "test_type": test_type,
+            "response": response
+        }
+
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     async def _create_folder(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:

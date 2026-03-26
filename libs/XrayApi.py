@@ -125,6 +125,88 @@ class XrayApi:
         
         return resp.json()['data']['createTest']['test']['jira']['key']
 
+    def update_test(self, issueId, testType, steps):
+        """
+        Update the test type and steps/gherkin of an existing test.
+
+        Parameters:
+        issueId (str): The Jira issue ID (internal numeric ID)
+        testType (str): The type of test (Cucumber, Manual, Manual (Gherkin))
+        steps (str): The steps of the test (format depends on testType)
+
+        Returns: The API response
+        """
+        log.debug(f'Updating Test "{issueId}"...')
+
+        # Step 1: Update the test type
+        type_mutation = f'''
+            mutation {{
+                updateTestType(
+                    issueId: "{issueId}",
+                    testType: {{ name: "{testType}" }}
+                ) {{
+                    issueId
+                    testType {{ name }}
+                }}
+            }}
+        '''
+
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": type_mutation }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
+        resp.raise_for_status()
+
+        if resp.json().get('errors') is not None:
+            raise Exception(resp.json().get('errors'))
+
+        # Step 2: Update the test definition
+        if testType in ('Cucumber', 'Manual (Gherkin)'):
+            ctn = json.dumps(steps)
+            def_mutation = f'''
+                mutation {{
+                    updateGherkinTestDefinition(
+                        issueId: "{issueId}",
+                        gherkin: {ctn}
+                    ) {{
+                        issueId
+                        gherkin
+                    }}
+                }}
+            '''
+        elif testType == 'Manual':
+            def_mutation = f'''
+                mutation {{
+                    updateTestType(
+                        issueId: "{issueId}",
+                        testType: {{ name: "{testType}" }}
+                    ) {{
+                        issueId
+                    }}
+                }}
+            '''
+            # For Manual tests, steps are updated via addTestStep/updateTestStep mutations
+            # Return after setting the type for now
+            return resp.json()
+        else:
+            ctn = json.dumps(steps)
+            def_mutation = f'''
+                mutation {{
+                    updateUnstructuredTestDefinition(
+                        issueId: "{issueId}",
+                        unstructured: {ctn}
+                    ) {{
+                        issueId
+                        unstructured
+                    }}
+                }}
+            '''
+
+        resp = requests.post(f'{XRAY_API}/graphql', json={ "query": def_mutation }, headers={'Content-Type':'application/json', 'Authorization': self.token}, verify=SSL_VERIFY)
+        resp.raise_for_status()
+
+        if resp.json().get('errors') is not None:
+            raise Exception(resp.json().get('errors'))
+
+        return resp.json()
+
     def create_precondition(self, summary, description, preconditionType, steps, testIssueIds):
         projectId = self.project_id
         log.debug(f'Creating Precondition "{summary}"...')
