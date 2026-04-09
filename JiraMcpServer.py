@@ -159,6 +159,14 @@ class JiraMCPServer:
                             "status": {
                                 "type": "string",
                                 "description": "Status to transition to (optional)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Plain text description to set on the issue (optional, converted to ADF)"
+                            },
+                            "description_adf": {
+                                "type": "object",
+                                "description": "Rich description in Atlassian Document Format (ADF) JSON (optional, takes precedence over description)"
                             }
                         },
                         "required": ["key"]
@@ -395,6 +403,15 @@ class JiraMCPServer:
             self.jira.set_story_points(issue, points)
             updates.append(f"Set story points to {points}")
         
+        # Handle description update (ADF takes precedence over plain text)
+        if "description_adf" in arguments:
+            issue.update(fields={"description": arguments["description_adf"]})
+            updates.append("Updated description (ADF)")
+        elif "description" in arguments:
+            adf = self.jira._convert_to_adf(arguments["description"])
+            issue.update(fields={"description": adf})
+            updates.append("Updated description")
+
         # Handle status change
         if "status" in arguments:
             status = arguments["status"]

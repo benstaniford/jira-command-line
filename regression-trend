@@ -76,21 +76,11 @@ class AzDoConnection:
         return data.get("value", [])
 
     def get_test_runs_for_build(self, build_id: int) -> List[Dict[str, Any]]:
-        """Get test runs using the build's time range, filtered to regression suites."""
-        # Get build details for time range
-        build_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}?api-version=6.0"
-        build_data = self.make_request(build_url)
-
-        start_time = build_data.get('startTime')
-        finish_time = build_data.get('finishTime')
-
-        if not start_time or not finish_time:
-            return []
-
-        # Query test runs within the build's time range
+        """Get test runs for a specific build, filtered to regression suites."""
+        build_uri = f"vstfs:///Build/Build/{build_id}"
         runs_url = (
             f"{self.org_url}/{self.project}/_apis/test/runs?"
-            f"minLastUpdatedDate={start_time}&maxLastUpdatedDate={finish_time}&api-version=7.0"
+            f"buildUri={build_uri}&api-version=7.0"
         )
         runs_data = self.make_request(runs_url)
 
@@ -118,19 +108,11 @@ class AzDoConnection:
         return list(latest_runs.values())
 
     def get_failed_tests_for_build(self, build_id: int) -> List[Dict[str, str]]:
-        """Get failed test names for a build, using the same approach as whydiditfail."""
-        build_url = f"{self.org_url}/{self.project}/_apis/build/builds/{build_id}?api-version=6.0"
-        build_data = self.make_request(build_url)
-
-        start_time = build_data.get('startTime')
-        finish_time = build_data.get('finishTime')
-
-        if not start_time or not finish_time:
-            return []
-
+        """Get failed test names for a build."""
+        build_uri = f"vstfs:///Build/Build/{build_id}"
         runs_url = (
             f"{self.org_url}/{self.project}/_apis/test/runs?"
-            f"minLastUpdatedDate={start_time}&maxLastUpdatedDate={finish_time}&api-version=7.0"
+            f"buildUri={build_uri}&api-version=7.0"
         )
         runs_data = self.make_request(runs_url)
 
@@ -375,7 +357,7 @@ def get_nightly_runs(conn: AzDoConnection, weeks: int = 4) -> List[Dict[str, Any
     return nightly_runs
 
 
-def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]) -> None:
+def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]], full_detail: int = 20) -> None:
     """Collect failed test names across all nightly runs and write flakey.md."""
     # test_name -> list of (date, suite) tuples
     failure_map = defaultdict(list)
@@ -428,7 +410,24 @@ def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]
         lines.append(f"| {rank} | {count} ({pct:.0f}%) | {rate} | {test_name} | "
                      f"{suites_str} | {dates_str} |")
 
+    # Detailed section: top N tests with links to regression runs
+    top_n = min(full_detail, len(sorted_tests))
     lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append(f"## Top {top_n} Flakey Tests — Regression Run Links")
+    lines.append("")
+
+    for rank, (test_name, occurrences) in enumerate(sorted_tests[:top_n], 1):
+        count = len(occurrences)
+        pct = count / total_runs * 100
+        lines.append(f"### {rank}. {test_name} ({count} failures, {pct:.0f}%)")
+        lines.append("")
+        for o in sorted(occurrences, key=lambda x: x['date']):
+            url = conn.get_build_web_url(o['build_id'])
+            lines.append(f"- {o['date']} — [{o['suite']}]({url})")
+        lines.append("")
+
     lines.append(f"*Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}*")
     lines.append("")
 
@@ -449,13 +448,15 @@ def main():
                         help='Identify flakey tests by failure frequency and write flakey.md')
     parser.add_argument('--weeks', type=int, default=4,
                         help='Number of weeks to look back (default: 4)')
+    parser.add_argument('--fulldetail', type=int, default=20,
+                        help='Number of top failures to show with full links (default: 20)')
     args = parser.parse_args()
 
     conn = AzDoConnection()
 
     if args.flakey:
         nightly_runs = get_nightly_runs(conn, weeks=args.weeks)
-        collect_flakey_data(conn, nightly_runs)
+        collect_flakey_data(conn, nightly_runs, full_detail=args.fulldetail)
     else:
         results = collect_data(conn, weeks=args.weeks)
         print_table(results)
