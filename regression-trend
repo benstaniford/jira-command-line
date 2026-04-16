@@ -200,10 +200,8 @@ def is_nightly_run(build: Dict[str, Any]) -> bool:
     return minutes <= 30 or minutes >= (24 * 60 - 30)
 
 
-def collect_data(conn: AzDoConnection, weeks: int = 4) -> List[Dict[str, Any]]:
-    """Collect nightly regression run data for the last N weeks."""
-    nightly_runs = get_nightly_runs(conn, weeks=weeks)
-
+def collect_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collect test result data for the given nightly runs."""
     results = []
     for i, run in enumerate(nightly_runs):
         build_id = run['id']
@@ -438,6 +436,41 @@ def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]
     print(f"\nWrote {len(sorted_tests)} flakey tests to {output_path}", file=sys.stderr)
 
 
+def display_results(results: List[Dict[str, Any]]) -> None:
+    """Print numbered list of runs with pass/fail data for user review."""
+    print(f"\nFound {len(results)} nightly run(s):\n", file=sys.stderr)
+    print(f"  {'#':<4} {'Date':<12} {'Pass%':>6} {'Passed':>7} {'Failed':>7} {'Total':>7}", file=sys.stderr)
+    print(f"  {'---':<4} {'----------':<12} {'-----':>6} {'------':>7} {'------':>7} {'-----':>7}", file=sys.stderr)
+    for i, r in enumerate(results, 1):
+        date_str = r['date'].strftime('%Y-%m-%d')
+        print(f"  {i:<4} {date_str:<12} {r['pass_pct']:>5.1f}% {r['passed']:>7} "
+              f"{r['failed']:>7} {r['total']:>7}", file=sys.stderr)
+    print(file=sys.stderr)
+
+
+def prompt_omit(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Prompt user to omit runs by number. Returns filtered list."""
+    response = input("Runs to omit (e.g. 2,5 or blank for none): ").strip()
+    if not response:
+        return results
+
+    omit_indices = set()
+    for part in response.split(','):
+        part = part.strip()
+        if part.isdigit():
+            idx = int(part)
+            if 1 <= idx <= len(results):
+                omit_indices.add(idx)
+            else:
+                print(f"  Warning: #{idx} is out of range, ignoring.", file=sys.stderr)
+
+    filtered = [r for i, r in enumerate(results, 1) if i not in omit_indices]
+    omitted_count = len(results) - len(filtered)
+    if omitted_count:
+        print(f"  Omitted {omitted_count} run(s), {len(filtered)} remaining.\n", file=sys.stderr)
+    return filtered
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Graph nightly RunRegression pass rates"
@@ -454,11 +487,26 @@ def main():
 
     conn = AzDoConnection()
 
+    nightly_runs = get_nightly_runs(conn, weeks=args.weeks)
+    if not nightly_runs:
+        print("No nightly regression runs found.", file=sys.stderr)
+        return
+
+    # Fetch test data upfront so user can see pass/fail before deciding what to omit
+    results = collect_data(conn, nightly_runs)
+    display_results(results)
+    results = prompt_omit(results)
+
+    if not results:
+        print("All runs omitted, nothing to do.", file=sys.stderr)
+        return
+
     if args.flakey:
-        nightly_runs = get_nightly_runs(conn, weeks=args.weeks)
-        collect_flakey_data(conn, nightly_runs, full_detail=args.fulldetail)
+        # Rebuild nightly_runs list from the filtered results
+        remaining_build_ids = {r['build_id'] for r in results}
+        filtered_runs = [r for r in nightly_runs if r['id'] in remaining_build_ids]
+        collect_flakey_data(conn, filtered_runs, full_detail=args.fulldetail)
     else:
-        results = collect_data(conn, weeks=args.weeks)
         print_table(results)
         generate_chart(results, args.output, weeks=args.weeks)
 
