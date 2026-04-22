@@ -634,19 +634,17 @@ class MyJira:
         Raises:
             Exception: If the reference issue has more than one sprint.
         """
-        # Automatically retrieve reference issue if not cached
+        # Sprint creation needs a reference issue that is actually on a sprint,
+        # so only the sprint view is consulted here (not the backlog fallback).
         if self.reference_issue is None:
-            # Get current sprint issues to set reference issue
             self.get_sprint_issues()
-            
-            # If still no reference issue after getting sprint issues, raise an error
             if self.reference_issue is None:
                 raise Exception("No reference issue available and no sprint issues found to use as reference")
-        
+
         issue_dict = self.__build_issue(None, title, description, issue_type, found_in_build, component_id)
         ref_issue = MyJiraIssue(self.reference_issue, self.jira)
-        
-        if len(ref_issue.sprint) > 1:
+
+        if ref_issue.sprint is None or len(ref_issue.sprint) > 1:
             raise Exception("Reference issue has more than one sprint, please select a single sprint issue")
 
         issue_dict[ref_issue.sprint_fieldname] = int(ref_issue.sprint[-1].id)     # Sprint
@@ -674,9 +672,25 @@ class MyJira:
         Returns:
             List of possible issue types.
         """
+        self._ensure_reference_issue()
         possible_types = self.jira.issue_types_for_project(self.reference_issue.fields.project.id)
         possible_types = [i for i in possible_types if i.name not in self.ignored_issue_types]
         return possible_types
+
+    def _ensure_reference_issue(self) -> None:
+        """
+        Ensure a reference issue is available, lazily loading from the current
+        sprint then the backlog if needed.
+        Raises:
+            Exception: If no reference issue can be found in either view.
+        """
+        if self.reference_issue is not None:
+            return
+        self.get_sprint_issues()
+        if self.reference_issue is None:
+            self.get_backlog_issues()
+        if self.reference_issue is None:
+            raise Exception("No reference issue available; load a sprint or backlog view first")
 
     def get_statuses(self, issue: Any) -> List[Any]:
         """
@@ -906,8 +920,7 @@ class MyJira:
         Raises:
             Exception: If no reference issue is set.
         """
-        if (self.reference_issue == None):
-            raise Exception("No reference issue found, please call get_backlog_issues() or get_sprint_issues() first")
+        self._ensure_reference_issue()
 
         ref_issue = MyJiraIssue(self.reference_issue, self.jira)
 
