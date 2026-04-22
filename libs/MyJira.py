@@ -680,17 +680,22 @@ class MyJira:
     def _ensure_reference_issue(self) -> None:
         """
         Ensure a reference issue is available, lazily loading from the current
-        sprint then the backlog if needed.
+        sprint then the backlog if needed. Falls back to the first returned
+        issue if set_reference_issue could not match one on sprint criteria
+        (e.g. when the sprint custom field is not resolvable on the issue).
         Raises:
             Exception: If no reference issue can be found in either view.
         """
         if self.reference_issue is not None:
             return
-        self.get_sprint_issues()
-        if self.reference_issue is None:
-            self.get_backlog_issues()
-        if self.reference_issue is None:
-            raise Exception("No reference issue available; load a sprint or backlog view first")
+        for fetch in (self.get_sprint_issues, self.get_backlog_issues):
+            issues = fetch()
+            if self.reference_issue is not None:
+                return
+            if issues:
+                self.reference_issue = issues[0]
+                return
+        raise Exception("No reference issue available; load a sprint or backlog view first")
 
     def get_statuses(self, issue: Any) -> List[Any]:
         """
