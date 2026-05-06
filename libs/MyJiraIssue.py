@@ -70,7 +70,8 @@ class MyJiraIssue:
                 hard_name_mappings = {
                     'test_results': 'customfield_10097',
                     'product': 'customfield_10108',
-                    'team': 'customfield_10001'
+                    'team': 'customfield_10001',
+                    'sprint': 'customfield_10020'
                 }
                 
                 # Check if this field matches any of our desired mappings
