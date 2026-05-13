@@ -426,6 +426,65 @@ class MyJira:
                 # Try with body wrapper as fallback
                 self.jira.add_comment(issue, {"body": comment})
 
+    def user_acted_on_issue(self, issue: Any, user_email: str, since: datetime.datetime) -> bool:
+        """
+        Check whether a user personally performed an action on an issue since a given datetime.
+
+        An "action" means either:
+          - authoring a comment, or
+          - a changelog entry (status change, field edit, transition, etc.) attributed
+            to the user.
+
+        Updates made by other users or automated Jira processes do not count. For best
+        results, the issue should be fetched with `changelog=True` so the changelog is
+        available without an extra round-trip.
+
+        Args:
+            issue: Jira issue object.
+            user_email: Email address of the user to match against authors.
+            since: Naive datetime; only actions on or after this point count.
+        Returns:
+            True if the user personally acted on the issue in the window.
+        """
+        user_email_lower = (user_email or '').lower()
+        if not user_email_lower:
+            return False
+
+        def _matches_user(author: Any) -> bool:
+            if author is None:
+                return False
+            email = getattr(author, 'emailAddress', '') or ''
+            return user_email_lower in email.lower()
+
+        def _parse_dt(value: str) -> Optional[datetime.datetime]:
+            if not value:
+                return None
+            try:
+                return datetime.datetime.strptime(value[:19], '%Y-%m-%dT%H:%M:%S')
+            except (ValueError, TypeError):
+                return None
+
+        changelog = getattr(issue, 'changelog', None)
+        if changelog is not None:
+            for history in getattr(changelog, 'histories', None) or []:
+                if not _matches_user(getattr(history, 'author', None)):
+                    continue
+                created = _parse_dt(getattr(history, 'created', ''))
+                if created is not None and created >= since:
+                    return True
+
+        try:
+            for comment in self.jira.comments(issue):
+                if not _matches_user(getattr(comment, 'author', None)):
+                    continue
+                created = _parse_dt(getattr(comment, 'created', ''))
+                if created is not None and created >= since:
+                    return True
+        except Exception:
+            pass
+
+        return False
+
     def set_reference_issue(self, issues: Any) -> None:
         """
         Set the reference issue for creating new issues.
