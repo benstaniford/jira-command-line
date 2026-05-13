@@ -485,6 +485,51 @@ class MyJira:
 
         return False
 
+    def days_active(self, issue: Any, inactive_statuses: Optional[List[str]] = None) -> Optional[int]:
+        """
+        Return the number of days since the issue last transitioned out of an
+        inactive status (default: New, Approved, Ready) into any other status.
+
+        Returns None if no such transition is found in the changelog. For best
+        results, fetch the issue with `changelog=True` so the changelog is
+        available without an extra round-trip.
+
+        Args:
+            issue: Jira issue object.
+            inactive_statuses: Status names considered "not yet active".
+        Returns:
+            Days since the most recent out-of-inactive transition, or None.
+        """
+        if inactive_statuses is None:
+            inactive_statuses = ['New', 'Approved', 'Ready']
+        inactive_lower = {s.lower() for s in inactive_statuses}
+
+        changelog = getattr(issue, 'changelog', None)
+        if changelog is None:
+            return None
+
+        most_recent: Optional[datetime.datetime] = None
+        for history in getattr(changelog, 'histories', None) or []:
+            created_str = getattr(history, 'created', '') or ''
+            try:
+                created = datetime.datetime.strptime(created_str[:19], '%Y-%m-%dT%H:%M:%S')
+            except (ValueError, TypeError):
+                continue
+
+            for item in getattr(history, 'items', None) or []:
+                if getattr(item, 'field', '') != 'status':
+                    continue
+                from_status = (getattr(item, 'fromString', '') or '').lower()
+                to_status = (getattr(item, 'toString', '') or '').lower()
+                if from_status in inactive_lower and to_status not in inactive_lower:
+                    if most_recent is None or created > most_recent:
+                        most_recent = created
+
+        if most_recent is None:
+            return None
+
+        return (datetime.datetime.now() - most_recent).days
+
     def set_reference_issue(self, issues: Any) -> None:
         """
         Set the reference issue for creating new issues.
