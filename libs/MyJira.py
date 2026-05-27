@@ -485,6 +485,50 @@ class MyJira:
 
         return False
 
+    def user_assigned_within(self, issue: Any, user_display: str, since: datetime.datetime) -> bool:
+        """
+        Check whether an issue was assigned to a given user on or after a given datetime.
+
+        Matches assignee-change entries in the changelog whose `toString` equals the
+        supplied display name. Useful for spotting tickets that have been handed to
+        someone recently but where they haven't yet commented or transitioned anything
+        themselves. For best results, fetch the issue with `changelog=True`.
+
+        Args:
+            issue: Jira issue object.
+            user_display: Display name to match against the assignee change's toString.
+            since: Naive datetime; only assignments on or after this point count.
+        Returns:
+            True if the issue was assigned to the user in the window.
+        """
+        if not user_display:
+            return False
+        target = user_display.strip().lower()
+
+        def _parse_dt(value: str) -> Optional[datetime.datetime]:
+            if not value:
+                return None
+            try:
+                return datetime.datetime.strptime(value[:19], '%Y-%m-%dT%H:%M:%S')
+            except (ValueError, TypeError):
+                return None
+
+        changelog = getattr(issue, 'changelog', None)
+        if changelog is None:
+            return False
+
+        for history in getattr(changelog, 'histories', None) or []:
+            created = _parse_dt(getattr(history, 'created', ''))
+            if created is None or created < since:
+                continue
+            for item in getattr(history, 'items', None) or []:
+                if getattr(item, 'field', '') != 'assignee':
+                    continue
+                to_string = (getattr(item, 'toString', '') or '').strip().lower()
+                if to_string == target:
+                    return True
+        return False
+
     def days_active(self, issue: Any, inactive_statuses: Optional[List[str]] = None) -> Optional[int]:
         """
         Return the number of days since the issue last transitioned out of an
