@@ -130,7 +130,7 @@ def remedy_issue_impact_areas(jira, issue, all_subtasks):
 
     impact_subtasks = get_subtasks(issue, all_subtasks, lambda_could_need_impact_areas)
     if issue.fields.status.name in needs_impact_areas_progress_states or impact_subtasks:
-        wrapped_issue = MyJiraIssue(issue)
+        wrapped_issue = MyJiraIssue(issue, jira.jira)
         if not wrapped_issue.impact_areas or wrapped_issue.impact_areas == "":
             subtask = jira.create_sub_task(issue, "Add impact areas", "Add impact areas to the issue")
             print(f"Need to add impact areas to {issue.key}")
