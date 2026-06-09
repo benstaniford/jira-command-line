@@ -1,0 +1,120 @@
+{
+  "matches": {
+    "Upgrading_AdvancedParentTracking_GrandChildMatches": [
+      {
+        "number": 3813,
+        "title": "test: extend DeferredDummy window-enumeration timeout for ARM64 [EPM-54750]",
+        "merge_date": "2026-05-06"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroupAndAWindowsGroup": [
+      {
+        "number": 3815,
+        "title": "test: wait for AzureAD cache warmup deterministically [EPM-54753]",
+        "merge_date": "2026-05-07"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAllAzureADGroups": [
+      {
+        "number": 3815,
+        "title": "test: wait for AzureAD cache warmup deterministically [EPM-54753]",
+        "merge_date": "2026-05-07"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroup": [
+      {
+        "number": 3815,
+        "title": "test: wait for AzureAD cache warmup deterministically [EPM-54753]",
+        "merge_date": "2026-05-07"
+      }
+    ],
+    "ContentMatching_ParentProcess_DOC": [
+      {
+        "number": 3795,
+        "title": "test: build ParentProcess content policy per scenario with ConfigBuilder [EPM-53689]",
+        "merge_date": "2026-04-29"
+      }
+    ],
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant0": [
+      {
+        "number": 3802,
+        "title": "test: bump Settings window matcher timeout to 15s [EPM-53106]",
+        "merge_date": "2026-05-01"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser": [
+      {
+        "number": 3731,
+        "title": "test: extend HasIdPAuthCompleted wait to 120s [EPM-53692]",
+        "merge_date": "2026-05-08"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser_ChildApp": [
+      {
+        "number": 3731,
+        "title": "test: extend HasIdPAuthCompleted wait to 120s [EPM-53692]",
+        "merge_date": "2026-05-08"
+      }
+    ]
+  },
+  "fixed_by_pr": {
+    "Upgrading_AdvancedParentTracking_GrandChildMatches": [
+      {
+        "number": 3813,
+        "title": "test: extend DeferredDummy window-enumeration timeout for ARM64 [EPM-54750]",
+        "merge_date": "2026-05-06"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroupAndAWindowsGroup": [
+      {
+        "number": 3815,
+        "title": "test: wait for AzureAD cache warmup deterministically [EPM-54753]",
+        "merge_date": "2026-05-07"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAllAzureADGroups": [
+      {
+        "number": 3815,
+        "title": "test: wait for AzureAD cache warmup deterministically [EPM-54753]",
+        "merge_date": "2026-05-07"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroup": [
+      {
+        "number": 3815,
+        "title": "test: wait for AzureAD cache warmup deterministically [EPM-54753]",
+        "merge_date": "2026-05-07"
+      }
+    ],
+    "ContentMatching_ParentProcess_DOC": [
+      {
+        "number": 3795,
+        "title": "test: build ParentProcess content policy per scenario with ConfigBuilder [EPM-53689]",
+        "merge_date": "2026-04-29"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser": [
+      {
+        "number": 3731,
+        "title": "test: extend HasIdPAuthCompleted wait to 120s [EPM-53692]",
+        "merge_date": "2026-05-08"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser_ChildApp": [
+      {
+        "number": 3731,
+        "title": "test: extend HasIdPAuthCompleted wait to 120s [EPM-53692]",
+        "merge_date": "2026-05-08"
+      }
+    ]
+  },
+  "fix_didnt_work_pr": {
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant0": [
+      {
+        "number": 3802,
+        "title": "test: bump Settings window matcher timeout to 15s [EPM-53106]",
+        "merge_date": "2026-05-01"
+      }
+    ]
+  }
+}

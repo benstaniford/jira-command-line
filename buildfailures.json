@@ -1,0 +1,21 @@
+{
+    "buildId":  "25662468257",
+    "buildNumber":  "26.2.1.288",
+    "pipelineName":  "RunTestSuite",
+    "sourceBranch":  "ckershaw/fix-uac-runas-psexec-timeout",
+    "totalRuns":  1,
+    "failedRuns":  1,
+    "totalFailures":  1,
+    "failures":  [
+                     {
+                         "executionPath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994",
+                         "executionDefinition":  "PMfW Regression - BeyondInsightIntegration",
+                         "endpointName":  "B-11-24H2-UAC-1",
+                         "os":  "Windows 11 24H2 UAC",
+                         "testName":  "ApplySingleUserPolicyToMultipleUsers",
+                         "result":  "Failed",
+                         "duration":  "33s",
+                         "exception":  "Test method BeyondTrust.Automation.Windows.BeyondInsightIntegration.Features.ApplyPolicyFeature.ApplySingleUserPolicyToMultipleUsers threw exception: \r\nBeyondTrust.Automation.Windows.Framework.Helpers.CommonFrameworkException: Failed to run process, exited with -1073741502     at BeyondTrust.Automation.Windows.Framework.Helpers.ProcessHelpers.StartProcessRunner(ProcessRunner runner, Boolean wait, Boolean runAsSystemForUAC)\r\n   at BeyondTrust.Automation.Windows.Framework.Helpers.ShellScripts.RunPowershellScriptAsUser(String psScript, AccountType accountType, String userName)\r\n   at BeyondTrust.Automation.Windows.Bindings.Common.RunProcessBindings.GivenIRunTheResourceFromAsAUser(String appType, String resourceFile, String path, String domainType, String accountType)\r\n   at lambda_method(Closure , IContextManager , String , String , String , String , String )\r\n   at TechTalk.SpecFlow.Bindings.BindingInvoker.InvokeBinding(IBinding binding, IContextManager contextManager, Object[] arguments, ITestTracer testTracer, TimeSpan\u0026 duration)\r\n   at TechTalk.SpecFlow.Infrastructure.TestExecutionEngine.ExecuteStepMatch(BindingMatch match, Object[] arguments, TimeSpan\u0026 duration)\r\n   at TechTalk.SpecFlow.Infrastructure.TestExecutionEngine.ExecuteStep(IContextManager contextManager, StepInstance stepInstance)\r\n   at TechTalk.SpecFlow.Infrastructure.TestExecutionEngine.OnAfterLastStep()\r\n   at TechTalk.SpecFlow.TestRunner.CollectScenarioErrors()\r\n   at BeyondTrust.Automation.Windows.BeyondInsightIntegration.Features.ApplyPolicyFeature.ScenarioCleanup()\r\n   at BeyondTrust.Automation.Windows.BeyondInsightIntegration.Features.ApplyPolicyFeature.ApplySingleUserPolicyToMultipleUsers()\r\n"
+                     }
+                 ]
+}
