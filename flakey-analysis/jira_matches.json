@@ -1,0 +1,542 @@
+{
+  "matches": {
+    "Upgrading_AdvancedParentTracking_GrandChildMatches": [
+      {
+        "key": "EPM-54750",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Upgrading_AdvancedParentTracking_GrandChildMatches intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "PGHookLoadedWhenDefaultIsAPCAndProcessIsInOverrideList_UsesIDT": [
+      {
+        "key": "EPM-54751",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Compatibility PGHookLoadedWhenDefault* tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "PGHookLoadedWhenDefaultIsIDTAndProcessIsInOverrideList_UsesAPC": [
+      {
+        "key": "EPM-54751",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Compatibility PGHookLoadedWhenDefault* tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "PGHookLoadedWhenDefaultIsIDTAndProcessIsNOTInOverrideList_UsesIDT": [
+      {
+        "key": "EPM-54751",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Compatibility PGHookLoadedWhenDefault* tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_SameCatalogMapIsNotAddedToTheCacheAgain": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_SameHashIsNotAddedToTheCacheAgain": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsCopiedCachePersists_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsCopiedCachePersists_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsMovedCachePersists_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsMovedCachePersists_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsRemovedItIsDeletedFromCache_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsRemovedItIsDeletedFromCache_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFilesContentsChangeItIsDeletedFromCache_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFilesContentsChangeItIsDeletedFromCache_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroupAndAWindowsGroup": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAllAzureADGroups": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroup": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsNotAppliedBecauseUserDoesNotMatchAllAzureADGroups": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsNotAppliedBecauseUserMatchesAnAzureADGroupButNotAWindowsGroup": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ContentMatching_ParentProcess_DOC": [
+      {
+        "key": "EPM-53689",
+        "res_date": "2026-04-29",
+        "summary": "[Flaky] ContentMatching_ParentProcess_DOC intermittently failing",
+        "match_type": "exact"
+      },
+      {
+        "key": "EPM-52385",
+        "res_date": "2026-04-16",
+        "summary": "COM timeout interacting with Word",
+        "match_type": "exact"
+      }
+    ],
+    "Acrobat_Exploitables_64_Bit_Wscript_Exe": [
+      {
+        "key": "EPM-53687",
+        "res_date": "2026-04-17",
+        "summary": "[Flaky] Acrobat_Exploitables_64_Bit_Wscript_Exe intermittently failing",
+        "match_type": "exact"
+      },
+      {
+        "key": "EPM-53088",
+        "res_date": "2026-04-13",
+        "summary": "[Flaky] Acrobat_Exploitables_64_Bit_Wscript_Exe intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "ServiceNow_BadOAuthCredentials": [
+      {
+        "key": "EPM-51155",
+        "res_date": "2026-04-16",
+        "summary": "PowerRules dialog box not clicked",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant0": [
+      {
+        "key": "EPM-53106",
+        "res_date": "2026-05-01",
+        "summary": "[Flaky] SystemSettings_Auth_MSI_ModifyUninstall_Variant0 intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant1": [
+      {
+        "key": "EPM-51758",
+        "res_date": "2026-04-16",
+        "summary": "Failed to find system settings window",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Reason_EXE_Modify": [
+      {
+        "key": "EPM-50316",
+        "res_date": "2026-04-16",
+        "summary": "Failed to click the Uninstall button on confirmation dialog",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Reason_EXE_Uninstall": [
+      {
+        "key": "EPM-50316",
+        "res_date": "2026-04-16",
+        "summary": "Failed to click the Uninstall button on confirmation dialog",
+        "match_type": "exact"
+      }
+    ],
+    "Upgrading_Challenge_Response_Network": [
+      {
+        "key": "EPM-51313",
+        "res_date": "2026-04-16",
+        "summary": "Service restarts midway through test",
+        "match_type": "exact"
+      }
+    ],
+    "AppControl_AllowExecution_Challenge_Forever_AfterServiceRestart_HostedFile_UNCPath": [
+      {
+        "key": "EPM-48075",
+        "res_date": "2026-04-29",
+        "summary": "Driver unable to send message to service due to disconnected port",
+        "match_type": "exact"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser": [
+      {
+        "key": "EPM-53692",
+        "res_date": "2026-05-08",
+        "summary": "[Flaky] IdentityCheckSkippedForMFA_DifferentUser_ChildApp intermittently failing",
+        "match_type": "exact"
+      },
+      {
+        "key": "EPM-53691",
+        "res_date": "2026-05-08",
+        "summary": "[Flaky] IdentityCheckSkippedForMFA_DifferentUser intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser_ChildApp": [
+      {
+        "key": "EPM-53692",
+        "res_date": "2026-05-08",
+        "summary": "[Flaky] IdentityCheckSkippedForMFA_DifferentUser_ChildApp intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "Identity_IdentityGroupsRefreshEncountersFatalError_SignsOut": [
+      {
+        "key": "EPM-51358",
+        "res_date": "2026-04-16",
+        "summary": "Failed to find notification for identity error",
+        "match_type": "exact"
+      }
+    ]
+  },
+  "fixed_by_jira": {
+    "Upgrading_AdvancedParentTracking_GrandChildMatches": [
+      {
+        "key": "EPM-54750",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Upgrading_AdvancedParentTracking_GrandChildMatches intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "PGHookLoadedWhenDefaultIsAPCAndProcessIsInOverrideList_UsesIDT": [
+      {
+        "key": "EPM-54751",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Compatibility PGHookLoadedWhenDefault* tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "PGHookLoadedWhenDefaultIsIDTAndProcessIsInOverrideList_UsesAPC": [
+      {
+        "key": "EPM-54751",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Compatibility PGHookLoadedWhenDefault* tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "PGHookLoadedWhenDefaultIsIDTAndProcessIsNOTInOverrideList_UsesIDT": [
+      {
+        "key": "EPM-54751",
+        "res_date": "2026-05-06",
+        "summary": "[Flaky] Compatibility PGHookLoadedWhenDefault* tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_SameCatalogMapIsNotAddedToTheCacheAgain": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_SameHashIsNotAddedToTheCacheAgain": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsCopiedCachePersists_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsCopiedCachePersists_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsMovedCachePersists_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsMovedCachePersists_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsRemovedItIsDeletedFromCache_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFileIsRemovedItIsDeletedFromCache_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFilesContentsChangeItIsDeletedFromCache_Catalog": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ReFS_WhenFilesContentsChangeItIsDeletedFromCache_Hash": [
+      {
+        "key": "EPM-54752",
+        "res_date": "2026-05-05",
+        "summary": "[Flaky] FileInformationCaching ReFS_* tests intermittently failing (10 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroupAndAWindowsGroup": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAllAzureADGroups": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroup": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsNotAppliedBecauseUserDoesNotMatchAllAzureADGroups": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "BIPolicyIsNotAppliedBecauseUserMatchesAnAzureADGroupButNotAWindowsGroup": [
+      {
+        "key": "EPM-54753",
+        "res_date": "2026-05-07",
+        "summary": "[Flaky] Filters BIPolicyIsApplied AzureAD tests intermittently failing (3 tests)",
+        "match_type": "exact"
+      }
+    ],
+    "ContentMatching_ParentProcess_DOC": [
+      {
+        "key": "EPM-53689",
+        "res_date": "2026-04-29",
+        "summary": "[Flaky] ContentMatching_ParentProcess_DOC intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "AppControl_AllowExecution_Challenge_Forever_AfterServiceRestart_HostedFile_UNCPath": [
+      {
+        "key": "EPM-48075",
+        "res_date": "2026-04-29",
+        "summary": "Driver unable to send message to service due to disconnected port",
+        "match_type": "exact"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser": [
+      {
+        "key": "EPM-53692",
+        "res_date": "2026-05-08",
+        "summary": "[Flaky] IdentityCheckSkippedForMFA_DifferentUser_ChildApp intermittently failing",
+        "match_type": "exact"
+      },
+      {
+        "key": "EPM-53691",
+        "res_date": "2026-05-08",
+        "summary": "[Flaky] IdentityCheckSkippedForMFA_DifferentUser intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "IdentityCheckSkippedForMFA_DifferentUser_ChildApp": [
+      {
+        "key": "EPM-53692",
+        "res_date": "2026-05-08",
+        "summary": "[Flaky] IdentityCheckSkippedForMFA_DifferentUser_ChildApp intermittently failing",
+        "match_type": "exact"
+      }
+    ]
+  },
+  "fix_didnt_work_jira": {
+    "ContentMatching_ParentProcess_DOC": [
+      {
+        "key": "EPM-52385",
+        "res_date": "2026-04-16",
+        "summary": "COM timeout interacting with Word",
+        "match_type": "exact"
+      }
+    ],
+    "Acrobat_Exploitables_64_Bit_Wscript_Exe": [
+      {
+        "key": "EPM-53687",
+        "res_date": "2026-04-17",
+        "summary": "[Flaky] Acrobat_Exploitables_64_Bit_Wscript_Exe intermittently failing",
+        "match_type": "exact"
+      },
+      {
+        "key": "EPM-53088",
+        "res_date": "2026-04-13",
+        "summary": "[Flaky] Acrobat_Exploitables_64_Bit_Wscript_Exe intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "ServiceNow_BadOAuthCredentials": [
+      {
+        "key": "EPM-51155",
+        "res_date": "2026-04-16",
+        "summary": "PowerRules dialog box not clicked",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant0": [
+      {
+        "key": "EPM-53106",
+        "res_date": "2026-05-01",
+        "summary": "[Flaky] SystemSettings_Auth_MSI_ModifyUninstall_Variant0 intermittently failing",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant1": [
+      {
+        "key": "EPM-51758",
+        "res_date": "2026-04-16",
+        "summary": "Failed to find system settings window",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Reason_EXE_Modify": [
+      {
+        "key": "EPM-50316",
+        "res_date": "2026-04-16",
+        "summary": "Failed to click the Uninstall button on confirmation dialog",
+        "match_type": "exact"
+      }
+    ],
+    "SystemSettings_Reason_EXE_Uninstall": [
+      {
+        "key": "EPM-50316",
+        "res_date": "2026-04-16",
+        "summary": "Failed to click the Uninstall button on confirmation dialog",
+        "match_type": "exact"
+      }
+    ],
+    "Upgrading_Challenge_Response_Network": [
+      {
+        "key": "EPM-51313",
+        "res_date": "2026-04-16",
+        "summary": "Service restarts midway through test",
+        "match_type": "exact"
+      }
+    ],
+    "Identity_IdentityGroupsRefreshEncountersFatalError_SignsOut": [
+      {
+        "key": "EPM-51358",
+        "res_date": "2026-04-16",
+        "summary": "Failed to find notification for identity error",
+        "match_type": "exact"
+      }
+    ]
+  }
+}

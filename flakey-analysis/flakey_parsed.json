@@ -1,0 +1,4433 @@
+{
+  "earliest_failure_date": "2026-04-14",
+  "latest_failure_date": "2026-05-11",
+  "total_tests": 244,
+  "tests": {
+    "Conhost_ChildInstanceIsNotElevatedIfInAnUntrustedLocation_CWindowsSystem32SpoolDriversColor": {
+      "rank": 1,
+      "failures": "27 (129%)",
+      "rate": "27/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-21",
+        "2026-04-27",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-21",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24698306838"
+        },
+        {
+          "date": "2026-04-27",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24971630723"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        },
+        {
+          "date": "2026-05-04",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25296042132"
+        },
+        {
+          "date": "2026-05-04",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25296042132"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-07",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25469916017"
+        },
+        {
+          "date": "2026-05-07",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25469916017"
+        },
+        {
+          "date": "2026-05-08",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25530622749"
+        },
+        {
+          "date": "2026-05-08",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25530622749"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        }
+      ]
+    },
+    "Upgrading_AdvancedParentTracking_GrandChildMatches": {
+      "rank": 2,
+      "failures": "22 (105%)",
+      "rate": "22/21",
+      "suites": "PMfW Regression - Upgrading",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-20",
+        "2026-04-21",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06"
+      ],
+      "latest_date": "2026-05-06",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-21",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24698306838"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        },
+        {
+          "date": "2026-05-04",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25296042132"
+        },
+        {
+          "date": "2026-05-04",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25296042132"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - Upgrading",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        }
+      ]
+    },
+    "Conhost_ChildInstanceIsNotElevatedIfInAnUntrustedLocation_CWindowsTasks": {
+      "rank": 3,
+      "failures": "20 (95%)",
+      "rate": "20/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-27",
+        "2026-04-28",
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-27",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24971630723"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        },
+        {
+          "date": "2026-05-04",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25296042132"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-07",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25469916017"
+        },
+        {
+          "date": "2026-05-08",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25530622749"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        }
+      ]
+    },
+    "Conhost_ChildInstanceIsNotElevatedIfInAnUntrustedLocation_Syswow64Path": {
+      "rank": 4,
+      "failures": "20 (95%)",
+      "rate": "20/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-27",
+        "2026-04-28",
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-27",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24971630723"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        },
+        {
+          "date": "2026-05-04",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25296042132"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-07",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25469916017"
+        },
+        {
+          "date": "2026-05-08",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25530622749"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - AppPrivMan",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        }
+      ]
+    },
+    "PGHookLoadedWhenDefaultIsAPCAndProcessIsInOverrideList_UsesIDT": {
+      "rank": 5,
+      "failures": "16 (76%)",
+      "rate": "16/21",
+      "suites": "PMfW Regression - Compatibility",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": [
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        }
+      ]
+    },
+    "PGHookLoadedWhenDefaultIsIDTAndProcessIsInOverrideList_UsesAPC": {
+      "rank": 6,
+      "failures": "16 (76%)",
+      "rate": "16/21",
+      "suites": "PMfW Regression - Compatibility",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": [
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        }
+      ]
+    },
+    "PGHookLoadedWhenDefaultIsIDTAndProcessIsNOTInOverrideList_UsesIDT": {
+      "rank": 7,
+      "failures": "16 (76%)",
+      "rate": "16/21",
+      "suites": "PMfW Regression - Compatibility",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": [
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        },
+        {
+          "date": "2026-04-20",
+          "suite": "PMfW Regression - Compatibility",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24643511667"
+        }
+      ]
+    },
+    "ReFS_SameCatalogMapIsNotAddedToTheCacheAgain": {
+      "rank": 8,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_SameHashIsNotAddedToTheCacheAgain": {
+      "rank": 9,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFileIsCopiedCachePersists_Catalog": {
+      "rank": 10,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFileIsCopiedCachePersists_Hash": {
+      "rank": 11,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFileIsMovedCachePersists_Catalog": {
+      "rank": 12,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFileIsMovedCachePersists_Hash": {
+      "rank": 13,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFileIsRemovedItIsDeletedFromCache_Catalog": {
+      "rank": 14,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFileIsRemovedItIsDeletedFromCache_Hash": {
+      "rank": 15,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFilesContentsChangeItIsDeletedFromCache_Catalog": {
+      "rank": 16,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "ReFS_WhenFilesContentsChangeItIsDeletedFromCache_Hash": {
+      "rank": 17,
+      "failures": "12 (57%)",
+      "rate": "12/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-17",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - FileInformationCaching",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        }
+      ]
+    },
+    "Identity_CancelIdentityVerificationViaTaskTray": {
+      "rank": 18,
+      "failures": "11 (52%)",
+      "rate": "11/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-04-17",
+        "2026-04-21",
+        "2026-04-24",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": [
+        {
+          "date": "2026-04-17",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24542037725"
+        },
+        {
+          "date": "2026-04-21",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24698306838"
+        },
+        {
+          "date": "2026-04-21",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24698306838"
+        },
+        {
+          "date": "2026-04-24",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24866667736"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-07",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25469916017"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - IdentityCore",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        }
+      ]
+    },
+    "ApplySingleUserPolicyToMultipleUsers": {
+      "rank": 19,
+      "failures": "10 (48%)",
+      "rate": "10/21",
+      "suites": "PMfW Regression - BeyondInsightIntegration",
+      "dates": [
+        "2026-04-16",
+        "2026-04-28",
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": [
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25070184562"
+        },
+        {
+          "date": "2026-04-30",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25141932603"
+        },
+        {
+          "date": "2026-05-01",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25197279777"
+        },
+        {
+          "date": "2026-05-04",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25296042132"
+        },
+        {
+          "date": "2026-05-05",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25352063141"
+        },
+        {
+          "date": "2026-05-06",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25410717948"
+        },
+        {
+          "date": "2026-05-07",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25469916017"
+        },
+        {
+          "date": "2026-05-08",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25530622749"
+        },
+        {
+          "date": "2026-05-11",
+          "suite": "PMfW Regression - BeyondInsightIntegration",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25645017340"
+        }
+      ]
+    },
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroupAndAWindowsGroup": {
+      "rank": 20,
+      "failures": "10 (48%)",
+      "rate": "10/21",
+      "suites": "PMfW Regression - Filters",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-21",
+        "2026-04-23",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-05-07"
+      ],
+      "latest_date": "2026-05-07",
+      "run_links": [
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-14",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24415134496"
+        },
+        {
+          "date": "2026-04-16",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24486209007"
+        },
+        {
+          "date": "2026-04-21",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24698306838"
+        },
+        {
+          "date": "2026-04-23",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/24810691324"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25028030370"
+        },
+        {
+          "date": "2026-04-28",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25081806786"
+        },
+        {
+          "date": "2026-04-29",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25085687687"
+        },
+        {
+          "date": "2026-05-07",
+          "suite": "PMfW Regression - Filters",
+          "url": "https://github.com/BeyondTrust/epm-windows/actions/runs/25469916017"
+        }
+      ]
+    },
+    "AppControl_BlockExecution_ApplicationTypes_DummyPS1File_Ps1": {
+      "rank": 21,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - AppControlCore",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "BIPolicyIsAppliedBecauseUserMatchesAllAzureADGroups": {
+      "rank": 22,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - Filters",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-21",
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "BIPolicyIsAppliedBecauseUserMatchesAnAzureADGroup": {
+      "rank": 23,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - Filters",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-21",
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "BIPolicyIsNotAppliedBecauseUserDoesNotMatchAllAzureADGroups": {
+      "rank": 24,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - Filters",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-21",
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_AddAdmin_Users_Msc_LocalUser": {
+      "rank": 25,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_Custom_Users_Exe_LocalUser": {
+      "rank": 26,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_DropAdmin_Admins_Msc_LocalAdmin": {
+      "rank": 27,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_Passive_LocalUser_Exe": {
+      "rank": 28,
+      "failures": "8 (38%)",
+      "rate": "8/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "AppControl_BlockExecution_ApplicationTypes_ServiceStoppedWhileMessageVisible_DummyPS1File_Ps1": {
+      "rank": 29,
+      "failures": "6 (29%)",
+      "rate": "6/21",
+      "suites": "PMfW Regression - AppControlCore",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_DropAdmin_Admins_Msc_DomainAdmin": {
+      "rank": 30,
+      "failures": "6 (29%)",
+      "rate": "6/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_DropAdmin_Admins_Msi_DomainAdmin": {
+      "rank": 31,
+      "failures": "6 (29%)",
+      "rate": "6/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_DropAdmin_Admins_Msi_LocalAdmin": {
+      "rank": 32,
+      "failures": "6 (29%)",
+      "rate": "6/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_DropAdmin_Admins_Vbs_LocalAdmin": {
+      "rank": 33,
+      "failures": "6 (29%)",
+      "rate": "6/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "BIPolicyIsNotAppliedBecauseUserMatchesAnAzureADGroupButNotAWindowsGroup": {
+      "rank": 34,
+      "failures": "5 (24%)",
+      "rate": "5/21",
+      "suites": "PMfW Regression - Filters",
+      "dates": [
+        "2026-04-14",
+        "2026-04-16",
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Mshta_Exe": {
+      "rank": 35,
+      "failures": "4 (19%)",
+      "rate": "4/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-14",
+        "2026-04-28",
+        "2026-04-30",
+        "2026-05-06"
+      ],
+      "latest_date": "2026-05-06",
+      "run_links": []
+    },
+    "ContentMatching_ParentProcess_DOC": {
+      "rank": 36,
+      "failures": "4 (19%)",
+      "rate": "4/21",
+      "suites": "PMfW Regression - ContentMatching",
+      "dates": [
+        "2026-04-16",
+        "2026-04-27",
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "PowerRules_ChangeABlockRuleAnAllowRule_Uninstallers_AvectoQATestEXEInstaller": {
+      "rank": 37,
+      "failures": "4 (19%)",
+      "rate": "4/21",
+      "suites": "PMfW Regression - PowerRules",
+      "dates": [
+        "2026-04-17",
+        "2026-04-20",
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Reg_Exe": {
+      "rank": 38,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-23",
+        "2026-04-29",
+        "2026-05-04"
+      ],
+      "latest_date": "2026-05-04",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Wscript_Exe": {
+      "rank": 39,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-16",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": []
+    },
+    "AgentProtection_AttemptToDeleteRegKeyWhileProtectionActive_64_Bit": {
+      "rank": 40,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AgentProtection",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_Upgrade_Firefox_EXE": {
+      "rank": 41,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20",
+        "2026-04-28",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "Identity_AuthenticationUsesConfigAcr_ValuesAndScopes": {
+      "rank": 42,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-04-14",
+        "2026-04-24",
+        "2026-05-07"
+      ],
+      "latest_date": "2026-05-07",
+      "run_links": []
+    },
+    "MappedDriveApplicationWithCRMessage_MappedDrive": {
+      "rank": 43,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AppControl",
+      "dates": [
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "MappedDriveApplicationWithCRMessage_UNCPath": {
+      "rank": 44,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AppControl",
+      "dates": [
+        "2026-05-01",
+        "2026-05-05",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "PowerRules_ChangeABlockRuleAnAllowRule_Uninstallers_AvectoQATestMSIInstaller": {
+      "rank": 45,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - PowerRules",
+      "dates": [
+        "2026-04-17",
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Reason_UninstallOptionsViaRightClick_Variant1": {
+      "rank": 46,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-04-16",
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ProtectTheFilesAndFoldersProgramFilesX86_ElevatedWithNonAntiTamperToken_FullPaths": {
+      "rank": 47,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AgentProtection",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "ProtectTheFilesAndFoldersProgramFilesX86_ElevatedWithNonAntiTamperToken_PartialPath": {
+      "rank": 48,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AgentProtection",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "ProtectTheFilesAndFolders_ElevatedWithAddAdminToken_FullPaths_System32": {
+      "rank": 49,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AgentProtection",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "ProtectTheFilesAndFolders_ElevatedWithAddAdminToken_PartialPath_System32": {
+      "rank": 50,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AgentProtection",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "ProtectTheFilesAndFolders_ElevatedWithNonAntiTamperToken_FullPaths": {
+      "rank": 51,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AgentProtection",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "ProtectTheFilesAndFolders_ElevatedWithNonAntiTamperToken_PartialPath": {
+      "rank": 52,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AgentProtection",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "SystemSettings_Allow_MSI_Uninstall_PerUserScope": {
+      "rank": 53,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-04-23",
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "SystemSettings_Reason_MSI_UninstallAudit_AvectoQATestMSIInstaller": {
+      "rank": 54,
+      "failures": "3 (14%)",
+      "rate": "3/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-04-23",
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Ieexec_Exe": {
+      "rank": 55,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-27",
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Powershell_Exe": {
+      "rank": 56,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Regsvr32_Exe": {
+      "rank": 57,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-27",
+        "2026-04-30"
+      ],
+      "latest_date": "2026-04-30",
+      "run_links": []
+    },
+    "AppControl_CustomMessaging_Allow_English": {
+      "rank": 58,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppControl",
+      "dates": [
+        "2026-04-16",
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_JSE": {
+      "rank": 59,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20",
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_WSF": {
+      "rank": 60,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-14",
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "Identity_CancellingOSAuthenticationAbortsLinkingIdentity": {
+      "rank": 61,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-04-14",
+        "2026-05-06"
+      ],
+      "latest_date": "2026-05-06",
+      "run_links": []
+    },
+    "Identity_EntraUser_GroupsRefreshedSuccessfullyAfterServiceRestart": {
+      "rank": 62,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_GroupsAreRefreshedOnPolicyChanges": {
+      "rank": 63,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-23",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_IdentityGroupsRefreshedSuccessfully_0Groups": {
+      "rank": 64,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-14",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "InstallPostgresAndBuildJavaMavenProject": {
+      "rank": 65,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - Personas",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "PMCJSONEvent_ECSFormat_199": {
+      "rank": 66,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - EventAuditJson",
+      "dates": [
+        "2026-05-01",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "PowerRules_ChangeAnAllowRuleToABlockRule_Uninstallers_AvectoQATestEXEInstaller": {
+      "rank": 67,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - PowerRules",
+      "dates": [
+        "2026-04-17",
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "PrivilegeManagement_Applications_Custom_Users_Exe_DomainUser": {
+      "rank": 68,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-05-05",
+        "2026-05-06"
+      ],
+      "latest_date": "2026-05-06",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Allow_CommandLineUninstallOfMsi_PerUserScope": {
+      "rank": 69,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Allow_UninstallOptionsViaRightClick_PerUserScope_Variant0": {
+      "rank": 70,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Allow_UninstallOptionsViaRightClick_PerUserScope_Variant1": {
+      "rank": 71,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Reason_CommandLineUninstallOfMsi": {
+      "rank": 72,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Reason_UninstallOptionsViaHeaderButtons_Change": {
+      "rank": 73,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Reason_UninstallOptionsViaHeaderButtons_Uninstall": {
+      "rank": 74,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ProgramsAndFeatures_Reason_UninstallOptionsViaRightClick_Variant0": {
+      "rank": 75,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "ServiceNow_BadOAuthCredentials": {
+      "rank": 76,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - PowerRules",
+      "dates": [
+        "2026-04-23",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant0": {
+      "rank": 77,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-04-28",
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "SystemSettings_Auth_MSI_ModifyUninstall_Variant1": {
+      "rank": 78,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "SystemSettings_CR_EXE_ModifyUninstall_Variant0": {
+      "rank": 79,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-04-20",
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "SystemSettings_Reason_EXE_Modify": {
+      "rank": 80,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "SystemSettings_Reason_EXE_Uninstall": {
+      "rank": 81,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "SystemSettings_Reason_MSI_Modify_AvectoQATestMSIInstaller": {
+      "rank": 82,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04",
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "UWPAppsCanMatchNon_ElevateRulesButTheTokenIsNotApplied": {
+      "rank": 83,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "UWPAppsCannotBeElevated": {
+      "rank": 84,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "Upgrading_Challenge_Response_Network": {
+      "rank": 85,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - Upgrading",
+      "dates": [
+        "2026-04-30",
+        "2026-05-05"
+      ],
+      "latest_date": "2026-05-05",
+      "run_links": []
+    },
+    "VerifyingIdentityViaTaskTrayHidesIdentityPromptOnTheMessageAfterClickingVerifyIdentityLink": {
+      "rank": 86,
+      "failures": "2 (10%)",
+      "rate": "2/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29",
+        "2026-04-30"
+      ],
+      "latest_date": "2026-04-30",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Cmd_Exe": {
+      "rank": 87,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-05-11"
+      ],
+      "latest_date": "2026-05-11",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Cscript_Exe": {
+      "rank": 88,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Msbuild_Exe": {
+      "rank": 89,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-27"
+      ],
+      "latest_date": "2026-04-27",
+      "run_links": []
+    },
+    "Acrobat_Exploitables_64_Bit_Psexec_Exe": {
+      "rank": 90,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-05-05"
+      ],
+      "latest_date": "2026-05-05",
+      "run_links": []
+    },
+    "AppControlRuleTriggered_ValidPrivManEvaluationLicense_EXE": {
+      "rank": 91,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - Licensing",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "AppControlRuleTriggered_ValidPrivManEvaluationLicense_MSI": {
+      "rank": 92,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - Licensing",
+      "dates": [
+        "2026-04-24"
+      ],
+      "latest_date": "2026-04-24",
+      "run_links": []
+    },
+    "AppControl_AllowExecution_Challenge_Forever_AfterServiceRestart_HostedFile_UNCPath": {
+      "rank": 93,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppControl",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppControl_CustomMessaging_Allow_Cyrillic": {
+      "rank": 94,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppControl",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "AppControl_RemotePowerShellCommand_AllowedWhenAllowMessageNoAuth": {
+      "rank": 95,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppControl",
+      "dates": [
+        "2026-04-27"
+      ],
+      "latest_date": "2026-04-27",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_BAT": {
+      "rank": 96,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_CMD": {
+      "rank": 97,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_CPL": {
+      "rank": 98,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_EXE": {
+      "rank": 99,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_JS": {
+      "rank": 100,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_MSC": {
+      "rank": 101,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_MSI": {
+      "rank": 102,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_MSP": {
+      "rank": 103,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_MSU": {
+      "rank": 104,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_PS1": {
+      "rank": 105,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_REG": {
+      "rank": 106,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_VBE": {
+      "rank": 107,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_AvectoZoneId_FileDownload_Firefox_VBS": {
+      "rank": 108,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatching",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "AppMatching_NotCmdLineMatching_CplFile": {
+      "rank": 109,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotCmdLineMatching_ExeFile_DoesNotMatch": {
+      "rank": 110,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotCmdLineMatching_MSIFile_DoesNotMatch": {
+      "rank": 111,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotCmdLineMatching_MscFile": {
+      "rank": 112,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotCmdLineMatching_PS1File": {
+      "rank": 113,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotCmdLineMatching_RegFile": {
+      "rank": 114,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotCmdLineMatching_VbsFile": {
+      "rank": 115,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_BatFile": {
+      "rank": 116,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_CplFile": {
+      "rank": 117,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_ExeFile": {
+      "rank": 118,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_MSIFile": {
+      "rank": 119,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_MscFile": {
+      "rank": 120,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_PS1File": {
+      "rank": 121,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_RegFile": {
+      "rank": 122,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotDriveTypeMatching_VbsFile": {
+      "rank": 123,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_BatFile": {
+      "rank": 124,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_CplFile": {
+      "rank": 125,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_ExeFile": {
+      "rank": 126,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_MSIFile": {
+      "rank": 127,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_MscFile": {
+      "rank": 128,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_PS1File": {
+      "rank": 129,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_RegFile": {
+      "rank": 130,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_RemotePowershellScript": {
+      "rank": 131,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-16"
+      ],
+      "latest_date": "2026-04-16",
+      "run_links": []
+    },
+    "AppMatching_NotFileHashMatching_VbsFile": {
+      "rank": 132,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_BatFile": {
+      "rank": 133,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_CplFile": {
+      "rank": 134,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_ExeFile": {
+      "rank": 135,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_MSIFile": {
+      "rank": 136,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_MscFile": {
+      "rank": 137,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_PS1File": {
+      "rank": 138,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_RegFile": {
+      "rank": 139,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFileNameMatching_VbsFile": {
+      "rank": 140,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_BatFile": {
+      "rank": 141,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_CplFile": {
+      "rank": 142,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_ExeFile": {
+      "rank": 143,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_MSIFile": {
+      "rank": 144,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_MscFile": {
+      "rank": 145,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_PS1File": {
+      "rank": 146,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_RegFile": {
+      "rank": 147,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotFolderPathMatching_VbsFile": {
+      "rank": 148,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotProductDescriptionMatching_CplFile": {
+      "rank": 149,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotProductDescriptionMatching_ExeFile_DoesNotMatch": {
+      "rank": 150,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotProductNameMatching_ExeFile_DoesNotMatch": {
+      "rank": 151,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotProductNameMatching_MsiFile_DoesNotMatch": {
+      "rank": 152,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotProductVersionMatching_CplFile": {
+      "rank": 153,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotProductVersionMatching_ExeFile": {
+      "rank": 154,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotProductVersionMatching_MsiFile": {
+      "rank": 155,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotPublisherMatching_CplFile": {
+      "rank": 156,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotPublisherMatching_ExeFile_DoesNotMatch": {
+      "rank": 157,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotPublisherMatching_MSIFile_DoesNotMatch": {
+      "rank": 158,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotPublisherMatching_MscFile": {
+      "rank": 159,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "AppMatching_NotPublisherMatching_PS1File": {
+      "rank": 160,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingNegation",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "ApplicationInstalledForTwoUsersRemovesApplicationForOneUser_PerUserScope": {
+      "rank": 161,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04"
+      ],
+      "latest_date": "2026-05-04",
+      "run_links": []
+    },
+    "ApplyMultipleUserPoliciesToOneUser": {
+      "rank": 162,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - BeyondInsightIntegration",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "BlockChildProcessLaunch_Block_116_APT_Enabled": {
+      "rank": 163,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - EventAuditLegacy",
+      "dates": [
+        "2026-05-01"
+      ],
+      "latest_date": "2026-05-01",
+      "run_links": []
+    },
+    "CancellingIdentityFlowOnOSAuthPopupStageRe_EnablesTheLinkOnMessage": {
+      "rank": 164,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "CancellingIdentityFlowViaTaskTrayRe_EnablesTheLinkOnMessage": {
+      "rank": 165,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "CentennialAppsCanBeBlocked": {
+      "rank": 166,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "CentennialAppsCanBeElevated": {
+      "rank": 167,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "CentennialAppsStartWhenNotMatchingARuleWithAParentThatDid": {
+      "rank": 168,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "CurrentIdentityFlowRestartedOnClickingVerifyIdentityLinkOnMessage": {
+      "rank": 169,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "DriverSoC_AllEnabled_AvectoZoneID": {
+      "rank": 170,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - RegistryKeys",
+      "dates": [
+        "2026-05-05"
+      ],
+      "latest_date": "2026-05-05",
+      "run_links": []
+    },
+    "EndpointApp_SingleInstance_AttemptToLaunchMultipleInstancesFromAllLaunchMethods": {
+      "rank": 171,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - EndpointApp",
+      "dates": [
+        "2026-04-16"
+      ],
+      "latest_date": "2026-04-16",
+      "run_links": []
+    },
+    "ErrorDialogOnClickingVerifyIdentityLinkIfIdPErrorOccurs": {
+      "rank": 172,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "ErrorDialogOnClickingVerifyIdentityLinkIfIdentityFeatureSwitchedOffInPolicy": {
+      "rank": 173,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "FirefoxChildren_Exploitables_Psexec_Exe": {
+      "rank": 174,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - TAP",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "HashCalculatedFirstTimeIsAddedToTheCache_MSI": {
+      "rank": 175,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - FileInformationCaching",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "IdentityCheckSkippedForMFA_DifferentUser": {
+      "rank": 176,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "IdentityCheckSkippedForMFA_DifferentUser_ChildApp": {
+      "rank": 177,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "Identity_ClosingOSAuthenticationAbortsLinkingIdentity": {
+      "rank": 178,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-05-06"
+      ],
+      "latest_date": "2026-05-06",
+      "run_links": []
+    },
+    "Identity_EndpointUtility_RefreshesIdentityFailsWhenIdentityIsntConfiguredForUser": {
+      "rank": 179,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EndpointUtility_RefreshesIdentityGroupsWhenSignedIn": {
+      "rank": 180,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EndpointUtility_RefreshesPMCGroupsWhenIdentityReturnsNoGroups": {
+      "rank": 181,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_FallsBackToPMCGroupsAfterIdentityIsRemoved": {
+      "rank": 182,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_FallsBackToPMCGroupsAfterIdentitySettingsChanged": {
+      "rank": 183,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_FallsBackToPMCGroupsForNon_ActiveUserAfterIdentitySettingsChanged": {
+      "rank": 184,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_IdentityGroupsRefreshedSuccessfully_0Groups_FallbackToPMC": {
+      "rank": 185,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_IdentityGroupsRefreshedSuccessfully_NewGroups": {
+      "rank": 186,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_NoIdentityGroupsReturnedContinuesToUsePMCGroups": {
+      "rank": 187,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_NoTokenReturnedOnIdentityVerification_IdentityVerifiedButGroupsFromPMCInCache": {
+      "rank": 188,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_RefreshTimerWorksIfVerifyingIdentityOriginallyReturned0Groups": {
+      "rank": 189,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_EntraUser_ReturnedIdentityGroupsOverridePMCGroups": {
+      "rank": 190,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_GroupsAreNotRefreshedOnPolicyChangesWhenOidcEndpointAuthGroupRefreshOnPolicyChangeIsOff": {
+      "rank": 191,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_GroupsAreRefreshedOnPolicyChangesToANonIdentityConfig": {
+      "rank": 192,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_IdentityGroupsRefreshEncountersFatalError_SignsOut": {
+      "rank": 193,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_IdentityGroupsRefreshEncountersTransientError_Retries": {
+      "rank": 194,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_JITAdmin_LinkedIdentityEmailIsSentInJITAdminRequest": {
+      "rank": 195,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_JITAdmin_NoIdentityFeature_NoEmailSentInJITAdminRequest": {
+      "rank": 196,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_JITAdmin_NoLinkedIdentity_NoEmailSentInJITAdminRequest": {
+      "rank": 197,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsAreRemovedAfterIdentitySwitchedOff": {
+      "rank": 198,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsAreRemovedAfterRemovingIdentity": {
+      "rank": 199,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsAreRemovedForNon_ActiveUserAfterIdentitySwitchedOff": {
+      "rank": 200,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsAreReturnedFromIdPAfterVerifyingIdentity": {
+      "rank": 201,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsRefreshedSuccessfullyAfterNewEmailOnlyReturned": {
+      "rank": 202,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsRefreshedSuccessfullyAfterNewTokenOnlyReturned": {
+      "rank": 203,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsRefreshedSuccessfullyAfterNoChangesToTokenOnRefresh": {
+      "rank": 204,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsRefreshedSuccessfullyAfterServiceRestart": {
+      "rank": 205,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsRemovedAfterIdentitySwitchedOffForADifferentUser": {
+      "rank": 206,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_GroupsRemovedOnRefreshIfTokenExpiredForADifferentUser": {
+      "rank": 207,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_IdentityGroupsRefreshedSuccessfully_NewGroups": {
+      "rank": 208,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_NewEmailAndTokenReturned_CacheUpdated": {
+      "rank": 209,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_NoIdentityGroupsReturnedThenNoGroupsAvailable": {
+      "rank": 210,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_NoTokenReturnedOnIdentityVerification_IdentityVerifiedWithNoGroupsInCache": {
+      "rank": 211,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_LocalUser_RefreshTimerWorksIfVerifyingIdentityOriginallyReturned0Groups": {
+      "rank": 212,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "Identity_OSAuthPopupClosesWhenIdentityFlowCancelledViaTaskTray": {
+      "rank": 213,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-05-06"
+      ],
+      "latest_date": "2026-05-06",
+      "run_links": []
+    },
+    "Identity_RemoveVerifiedIdentityViaTaskTray": {
+      "rank": 214,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityCore",
+      "dates": [
+        "2026-05-06"
+      ],
+      "latest_date": "2026-05-06",
+      "run_links": []
+    },
+    "Identity_StaleGroupsForUnverifiedUsersAreRemovedFromCacheWhenFiltersAreAddedBackToPolicy": {
+      "rank": 215,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "JSON_Allow_RunAsShell_119": {
+      "rank": 216,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - EventAuditLegacyIntegration",
+      "dates": [
+        "2026-04-21"
+      ],
+      "latest_date": "2026-04-21",
+      "run_links": []
+    },
+    "OnDemand_RunWithPMFW_Launchers_Win10_ShortcutsOnTheDesktop": {
+      "rank": 217,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - OnDemand",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "PMCJSONEvent_ECSFormat_ChildMatching_MatchAnyApplicationGroup": {
+      "rank": 218,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - EventAuditJson",
+      "dates": [
+        "2026-04-23"
+      ],
+      "latest_date": "2026-04-23",
+      "run_links": []
+    },
+    "PowerRules_Audit_Executable_Custom": {
+      "rank": 219,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - PowerRules",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "PowerRules_Cancel_LegacyFields": {
+      "rank": 220,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - EventAuditLegacy",
+      "dates": [
+        "2026-05-07"
+      ],
+      "latest_date": "2026-05-07",
+      "run_links": []
+    },
+    "PowerRules_ChangeAnAllowRuleToABlockRule_Uninstallers_AvectoQATestMSIInstaller": {
+      "rank": 221,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - PowerRules",
+      "dates": [
+        "2026-04-17"
+      ],
+      "latest_date": "2026-04-17",
+      "run_links": []
+    },
+    "PrivilegeManagement_Content_AddAdmin_Word_NotifyOnSave_DomainUser": {
+      "rank": 222,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - ContentPrivMan",
+      "dates": [
+        "2026-04-14"
+      ],
+      "latest_date": "2026-04-14",
+      "run_links": []
+    },
+    "PrivilegeManagement_Content_Passive_Powerpoint_DomainUser": {
+      "rank": 223,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - ContentPrivMan",
+      "dates": [
+        "2026-05-04"
+      ],
+      "latest_date": "2026-05-04",
+      "run_links": []
+    },
+    "ProcessLaunchFromShellRunWithDefendpoint_Allow_DropAdmin_104": {
+      "rank": 224,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - EventAuditLegacy",
+      "dates": [
+        "2026-04-21"
+      ],
+      "latest_date": "2026-04-21",
+      "run_links": []
+    },
+    "RemotePowerShellCommand_AppType": {
+      "rank": 225,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - EventAuditLegacy",
+      "dates": [
+        "2026-05-05"
+      ],
+      "latest_date": "2026-05-05",
+      "run_links": []
+    },
+    "ServiceNow_BadURLOAuth": {
+      "rank": 226,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - PowerRules",
+      "dates": [
+        "2026-04-20"
+      ],
+      "latest_date": "2026-04-20",
+      "run_links": []
+    },
+    "SideloadedCentennialAppsCanMatchNonElevateRulesWhenAllowUntrustedAppElevationIsDisabled": {
+      "rank": 227,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "SideloadedCentennialAppsDoNotMatchWhenAllowUntrustedAppElevationIsDisabled": {
+      "rank": 228,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "Smoke_AppPrivilegeManagement_DropAdmin": {
+      "rank": 229,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Smoke",
+      "dates": [
+        "2026-05-08"
+      ],
+      "latest_date": "2026-05-08",
+      "run_links": []
+    },
+    "StopDefendpointService_ServicesMSC": {
+      "rank": 230,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AntiTamper",
+      "dates": [
+        "2026-05-05"
+      ],
+      "latest_date": "2026-05-05",
+      "run_links": []
+    },
+    "SystemSettings_CR_EXE_ModifyUninstall_Variant1": {
+      "rank": 231,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppMatchingUninstallers",
+      "dates": [
+        "2026-05-04"
+      ],
+      "latest_date": "2026-05-04",
+      "run_links": []
+    },
+    "UWPAppsCanBeBlocked": {
+      "rank": 232,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - AppPrivMan",
+      "dates": [
+        "2026-04-28"
+      ],
+      "latest_date": "2026-04-28",
+      "run_links": []
+    },
+    "Upgrading_StandardDialogRights_OverrideChildRules": {
+      "rank": 233,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - Upgrading",
+      "dates": [
+        "2026-05-05"
+      ],
+      "latest_date": "2026-05-05",
+      "run_links": []
+    },
+    "VerifyIdentityPromptOnMessageHidden_DifferentUser": {
+      "rank": 234,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptOnMessageHidden_IdentityAlreadyVerified": {
+      "rank": 235,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptOnMessageHidden_IdentityFeatureNotConfigured": {
+      "rank": 236,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptOnMessageHidden_IdentityFeatureSwitchedOffInPolicy": {
+      "rank": 237,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptOnMessageHidden_IdentityPromptSwitchedOffViaRegistry": {
+      "rank": 238,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptOnMessageHidden_PromptSwitchedOffForMessage": {
+      "rank": 239,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptOnMessagePresent_IdentityFlowInProgress": {
+      "rank": 240,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptPresentOnMessageByDefault": {
+      "rank": 241,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityPromptPresentOnMessage_CustomStrings": {
+      "rank": 242,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "VerifyIdentityViaVerifyIdentityLinkOnMessage": {
+      "rank": 243,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - IdentityIntegration",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    },
+    "WOW6432COMInstantiation_CacheAfterUpgrade_HookExcludedPathOnly_ElevatedProcess_COMProtectionExclusion": {
+      "rank": 244,
+      "failures": "1 (5%)",
+      "rate": "1/21",
+      "suites": "PMfW Regression - RegistryKeys",
+      "dates": [
+        "2026-04-29"
+      ],
+      "latest_date": "2026-04-29",
+      "run_links": []
+    }
+  }
+}
