@@ -8,3 +8,4 @@ class ViewMode:
     HELP = 7
     BOARD = 8
     SPRINTS = 9
+    LABEL_SEARCH = 10

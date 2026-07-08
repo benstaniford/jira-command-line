@@ -41,6 +41,8 @@ class JiraTableView:
             self.__current_issues = self.__build(jira.get_windows_backlog_issues())
         elif self.mode == ViewMode.SEARCH:
             self.__current_issues = self.__build(jira.search_for_issue(params))
+        elif self.mode == ViewMode.LABEL_SEARCH:
+            self.__current_issues = self.__build(jira.search_by_label(params))
         elif self.mode == ViewMode.TASKVIEW:
             self.__current_issues = self.__build(jira.get_sub_tasks(self.parent_issue))
         elif self.mode == ViewMode.BOARD:

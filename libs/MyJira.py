@@ -622,6 +622,65 @@ class MyJira:
 
         return issues
 
+    def get_labels(self) -> List[str]:
+        """
+        Get the list of labels available in the Jira instance, for use in
+        label-based searching and fuzzy completion. Results are cached for
+        the lifetime of the session.
+        Returns:
+            Sorted list of label strings.
+        """
+        if getattr(self, "_labels_cache", None) is not None:
+            return self._labels_cache
+
+        labels: List[str] = []
+        url = f"{self.url}/rest/api/3/label"
+        auth = (self.username, self.password)
+        headers = {"Accept": "application/json"}
+        start_at = 0
+        max_results = 1000
+
+        try:
+            while True:
+                response = requests.get(
+                    url,
+                    params={"startAt": start_at, "maxResults": max_results},
+                    auth=auth,
+                    headers=headers,
+                )
+                response.raise_for_status()
+                data = response.json()
+                values = data.get("values", [])
+                labels.extend(values)
+                if data.get("isLast", True) or not values:
+                    break
+                start_at += max_results
+        except requests.RequestException:
+            # Fall back to whatever we managed to gather rather than failing the search
+            pass
+
+        self._labels_cache = sorted(set(labels))
+        return self._labels_cache
+
+    def search_by_label(self, label: str) -> Any:
+        """
+        Search for issues in the current project/product carrying the given label.
+        Args:
+            label: The label to search for.
+        Returns:
+            List of matching issues.
+        """
+        issues = []
+
+        if not label:
+            return issues
+
+        issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND labels = "{label}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+
+        self.set_reference_issue(issues)
+
+        return issues
+
     def get_escalation_issues(self) -> Any:
         """
         Get escalation issues for the current product.

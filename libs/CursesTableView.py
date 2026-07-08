@@ -469,10 +469,10 @@ class CursesTableView:
             else:
                 return chr(typed_character)
 
-    def prompt_get_string(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None):
+    def prompt_get_string(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None, ctrl_keys=None):
         """
         Displays a prompt with colored help text and returns the string entered by the user, or the first keypress in keypresses.
-        
+
         Args:
             prompt (str|list): All lines in the prompt. If str, treated as simple text prompt.
                               If list, can contain:
@@ -483,9 +483,12 @@ class CursesTableView:
             filter_key (str, optional): A character that triggers a live filter on the table. Defaults to None.
             sort_keys (list(str), optional): A list of two characters that triggers a sort on the table (back/forwards). Defaults to None.
             search_key (str, optional): A character that triggers a search on the table. Defaults to None.
+            ctrl_keys (str, optional): A string of characters that, when pressed with CTRL, return immediately as
+                                       the sentinel "CTRL-<char>" (e.g. CTRL-l returns "CTRL-l"). Defaults to None.
 
         Returns:
-            str: The string entered by the user or the first matching keypress, or an empty string if escape was pressed
+            str: The string entered by the user or the first matching keypress, the sentinel "CTRL-<char>" if a
+                 CTRL combination in ctrl_keys was pressed, or an empty string if escape was pressed
         """
         # Convert prompt to consistent format and extract last line
         if isinstance(prompt, str):
@@ -510,6 +513,11 @@ class CursesTableView:
                     return answer
                 if typed_char == KeyCode.ESCAPE:
                     return ""
+                # CTRL+<letter> arrives as a control byte in the range 1-26 (e.g. CTRL+L -> 12).
+                # Map it back to its letter and match against ctrl_keys. Reliable on every
+                # terminal (unlike ALT, which Mac terminals treat as a compose key by default).
+                if ctrl_keys and 1 <= typed_char <= 26 and chr(typed_char + 96) in ctrl_keys:
+                    return f"CTRL-{chr(typed_char + 96)}"
                 elif typed_char in (KeyCode.BACKSPACE, KeyCode.BACKSPACE_ALT) and len(answer) > 0:
                     answer = answer[:-1]
                     self.stdscr.move(last_line_pos, prompt_with_padding)
