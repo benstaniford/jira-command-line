@@ -11,5 +11,6 @@ sv-ttk
 beautifulsoup4
 pandas
 matplotlib
+plotly
 numpy
 mcp>=1.0.0

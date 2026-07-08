@@ -1,0 +1,186 @@
+{
+    "executionPath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994",
+    "endpointName":  "B-11-24H2-UAC-1",
+    "rootFiles":  [
+                      {
+                          "fileName":  "B-11-24H2-UAC-1.log",
+                          "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\B-11-24H2-UAC-1.log"
+                      },
+                      {
+                          "fileName":  "MachineData.json",
+                          "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\MachineData.json"
+                      }
+                  ],
+    "crashDumps":  [
+
+                   ],
+    "containers":  [
+                       {
+                           "containerName":  "1_BeyondTrust.Automation.Windows.BeyondInsightIntegration",
+                           "artefacts":  [
+                                             {
+                                                 "fileName":  "CompleteResults.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\CompleteResults.json"
+                                             },
+                                             {
+                                                 "fileName":  "SummaryResults.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\SummaryResults.json"
+                                             },
+                                             {
+                                                 "fileName":  "5c3c4dbc-036d-4676-962e-0bfa6ffc05f5.runsettings",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\5c3c4dbc-036d-4676-962e-0bfa6ffc05f5.runsettings"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18.zip",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18.zip"
+                                             },
+                                             {
+                                                 "fileName":  "DummyUwpAppDeps.zip",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\DummyUwpAppDeps.zip"
+                                             },
+                                             {
+                                                 "fileName":  "ignore-list.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\ignore-list.json"
+                                             },
+                                             {
+                                                 "fileName":  "MockOpenIdConnectServer.zip",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\MockOpenIdConnectServer.zip"
+                                             },
+                                             {
+                                                 "fileName":  "Results.trx",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\Results.trx"
+                                             },
+                                             {
+                                                 "fileName":  "ServiceNowSettings.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\ServiceNowSettings.json"
+                                             },
+                                             {
+                                                 "fileName":  "settings.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\settings.json"
+                                             },
+                                             {
+                                                 "fileName":  "Settings.runsettings",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\Settings.runsettings"
+                                             },
+                                             {
+                                                 "fileName":  "specflow.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\specflow.json"
+                                             },
+                                             {
+                                                 "fileName":  "Variables.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\Variables.json"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18.etl",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\DebugLogs\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18.etl"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\DebugLogs\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18.log"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18global-groovy.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\DebugLogs\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18global-groovy.log"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18soapui-errors.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\DebugLogs\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18soapui-errors.log"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18soapui.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\DebugLogs\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18soapui.log"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18_Application.evtx",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\EventLogs\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18_Application.evtx"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18_System.evtx",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\EventLogs\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18_System.evtx"
+                                             },
+                                             {
+                                                 "fileName":  "Apply_single_user_policy_to_multiple_users_11052026_10.59.18.png",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\Screenshots\\Apply_single_user_policy_to_multiple_users_11052026_10.59.18.png"
+                                             },
+                                             {
+                                                 "fileName":  "debuglog_etl_54k55odrzpz.etl",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\debuglog_etl_54k55odrzpz.etl"
+                                             },
+                                             {
+                                                 "fileName":  "debuglog_qh0makvoubs.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\debuglog_qh0makvoubs.log"
+                                             },
+                                             {
+                                                 "fileName":  "eventlog_Application_eimh51zrsvu.evtx",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\eventlog_Application_eimh51zrsvu.evtx"
+                                             },
+                                             {
+                                                 "fileName":  "eventlog_System_cgeknzcxnfy.evtx",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\eventlog_System_cgeknzcxnfy.evtx"
+                                             },
+                                             {
+                                                 "fileName":  "RecordedMedia.trmx",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\RecordedMedia.trmx"
+                                             },
+                                             {
+                                                 "fileName":  "ScreenCapture.mp4",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\ScreenCapture.mp4"
+                                             },
+                                             {
+                                                 "fileName":  "ScreenCapture.wmv",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\ScreenCapture.wmv"
+                                             },
+                                             {
+                                                 "fileName":  "screenshot_frty2q0ue55.png",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\screenshot_frty2q0ue55.png"
+                                             },
+                                             {
+                                                 "fileName":  "soaplog_jdvrydam0ey.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\soaplog_jdvrydam0ey.log"
+                                             },
+                                             {
+                                                 "fileName":  "soaplog_outss4jma3i.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\soaplog_outss4jma3i.log"
+                                             },
+                                             {
+                                                 "fileName":  "soaplog_ycqq31zs5sa.log",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration\\Artefacts\\B-11-24H2-UAC-1$_B-11-24H2-UAC-1_2026-05-11_10_58_17\\In\\72341b55-c3c3-4eca-a5ac-baf0b5d50cf0\\B-11-24H2-UAC-1\\soaplog_ycqq31zs5sa.log"
+                                             }
+                                         ]
+                       },
+                       {
+                           "containerName":  "2-BuildPackages",
+                           "artefacts":  [
+                                             {
+                                                 "fileName":  "Report.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\2-BuildPackages\\1_Defendpoint Client v5.0.0.0\\Report.json"
+                                             },
+                                             {
+                                                 "fileName":  "Report.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\2-BuildPackages\\2_Build prereq steps\\Report.json"
+                                             },
+                                             {
+                                                 "fileName":  "Report.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\2-BuildPackages\\2_Enable UAC (Non-SecureDesktop) v1.0.0.0\\Report.json"
+                                             },
+                                             {
+                                                 "fileName":  "Report.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\2-BuildPackages\\3_Defendpoint Management Consoles v5.0.0.0\\Report.json"
+                                             },
+                                             {
+                                                 "fileName":  "Report.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\2-BuildPackages\\3_Restart As Local Admin v1.0.0.0\\Report.json"
+                                             }
+                                         ]
+                       },
+                       {
+                           "containerName":  "3-TestsPackages",
+                           "artefacts":  [
+                                             {
+                                                 "fileName":  "Report.json",
+                                                 "filePath":  "\\\\fs01.btrusteng.com\\ExecutionProduction\\PMfW Regression - BeyondInsightIntegration\\83ede71e-c98a-4aa4-b124-6337f3637994\\Endpoints\\B-11-24H2-UAC-1\\3-TestsPackages\\1_BeyondTrust.Automation.Windows.BeyondInsightIntegration-UAC\\Report.json"
+                                             }
+                                         ]
+                       }
+                   ]
+}

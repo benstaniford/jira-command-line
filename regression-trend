@@ -1,275 +1,148 @@
 #!/usr/bin/env python3
 """
-Regression Trend - Graphs nightly RunRegression pass rates over 4 weeks.
+Regression Trend - Graphs nightly Run Regression pass rates over N weeks.
 
-Produces a PNG chart and prints a summary table to stdout with links
-to each run and absolute pass/fail numbers.
+Pulls data from the BeyondTrust DevOps Portal (portal.btrusteng.com) which
+aggregates results from GitHub Actions runs. Produces a PNG chart and prints
+a summary table with links to each run, plus an optional flakey-test report.
 
-Only considers runs against 'main' that started within 30 minutes of midnight.
+Replaces the old Azure DevOps integration. Build IDs are now GitHub Actions
+run IDs and link to https://github.com/<owner>/<repo>/actions/runs/<id>.
 """
 
 import argparse
 import os
 import sys
 import requests
-from requests.auth import HTTPBasicAuth
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 
-# Same regression test suite filters used by whydiditfail
-REGRESSION_SUITES = [
-    'WindowsDriver', 'AntiTamper', 'AgentProtection', 'AppControl',
-    'AppMatching', 'AppMatchingUninstallers', 'AppPrivMan',
-    'BeyondInsightIntegration', 'Compatibility', 'ContentControl',
-    'ContentMatching', 'ContentPrivMan', 'DLLControl', 'EndpointApp',
-    'EventAuditJson', 'EventAuditLegacy', 'EventAuditWindowsEvents',
-    'FileInformationCaching', 'Filters', 'Identity', 'JITAdmin',
-    'JITApplicationAccess', 'Licensing', 'Messaging', 'OnDemand',
-    'PasswordSafe', 'Personas', 'PowerRules', 'RegistryKeys',
-    'TAP', 'UAC', 'Upgrading', 'Utilities'
-]
-
-PIPELINE_NAME = "RunRegression"
+DEFAULT_PORTAL_URL = "https://portal.btrusteng.com"
+DEFAULT_REPO = "epm-windows"
+DEFAULT_WORKFLOW = "Run Regression"
+DEFAULT_BRANCH = "main"
+GITHUB_OWNER = "BeyondTrust"
 
 
-class AzDoConnection:
-    """Handles Azure DevOps API connection and requests."""
+class PortalConnection:
+    """Handles BeyondTrust DevOps Portal API connection and requests."""
 
-    def __init__(self):
-        self.pat_token = os.getenv("AZURE_DEVOPS_EXT_PAT")
-        self.org_url = os.getenv("AZ_ORG")
-        self.project = os.getenv("AZ_PROJECT")
-
-        if not all([self.pat_token, self.org_url, self.project]):
-            raise ValueError(
-                "Missing required environment variables: "
-                "AZURE_DEVOPS_EXT_PAT, AZ_ORG, AZ_PROJECT"
-            )
+    def __init__(self, portal_url: str, repo: str, workflow: str, branch: str):
+        self.portal_url = portal_url.rstrip("/")
+        self.repo = repo
+        self.workflow = workflow
+        self.branch = branch
 
         self.session = requests.Session()
-        self.session.auth = HTTPBasicAuth("", self.pat_token)
-        self.session.headers.update({
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        })
+        self.session.headers.update({"Accept": "application/json"})
+        self.session.verify = False  # Internal portal — self-signed cert tolerated
 
-    def make_request(self, url: str) -> Dict[str, Any]:
-        response = self.session.get(url, timeout=120)
+    def make_request(self, path: str, params: Dict[str, Any] = None) -> Any:
+        url = f"{self.portal_url}{path}"
+        response = self.session.get(url, params=params, timeout=180)
         response.raise_for_status()
         return response.json()
 
-    def find_pipeline_by_name(self, name: str) -> int:
-        url = f"{self.org_url}/{self.project}/_apis/build/definitions?api-version=6.0"
-        data = self.make_request(url)
-        for pipeline in data.get("value", []):
-            if pipeline["name"] == name:
-                return pipeline["id"]
-        raise ValueError(f"Pipeline '{name}' not found")
-
-    def get_pipeline_runs(self, pipeline_id: int, top: int = 200) -> List[Dict[str, Any]]:
-        url = (
-            f"{self.org_url}/{self.project}/_apis/build/builds?"
-            f"definitions={pipeline_id}&$top={top}&api-version=6.0"
+    def get_test_trends(self, days: int) -> List[Dict[str, Any]]:
+        """Get per-build trend points for the configured workflow on the configured branch."""
+        data = self.make_request(
+            "/ReportData/GetTestTrends",
+            params={"workflow": self.workflow, "repo": self.repo, "days": days},
         )
-        data = self.make_request(url)
-        return data.get("value", [])
+        return data.get("points") or []
 
-    def get_test_runs_for_build(self, build_id: int) -> List[Dict[str, Any]]:
-        """Get test runs for a specific build, filtered to regression suites."""
-        build_uri = f"vstfs:///Build/Build/{build_id}"
-        runs_url = (
-            f"{self.org_url}/{self.project}/_apis/test/runs?"
-            f"buildUri={build_uri}&api-version=7.0"
+    def get_build_summary(self, build_id: str) -> Dict[str, Any]:
+        """Get a one-call dashboard aggregate for a build, including all failures."""
+        return self.make_request(
+            "/ReportData/GetBuildSummary",
+            params={"buildId": build_id},
         )
-        runs_data = self.make_request(runs_url)
 
-        if not runs_data.get('value'):
-            return []
-
-        # Filter to completed runs matching regression suites
-        completed_runs = [
-            r for r in runs_data['value']
-            if r.get('state') == 'Completed'
-        ]
-
-        # Group by name, keep highest ID (most recent) per suite
-        latest_runs = {}
-        for run in completed_runs:
-            run_name = run.get('name', 'Unknown')
-            run_id = run['id']
-
-            if not any(f in run_name for f in REGRESSION_SUITES):
-                continue
-
-            if run_name not in latest_runs or run_id > latest_runs[run_name]['id']:
-                latest_runs[run_name] = run
-
-        return list(latest_runs.values())
-
-    def get_failed_tests_for_build(self, build_id: int) -> List[Dict[str, str]]:
-        """Get failed test names for a build."""
-        build_uri = f"vstfs:///Build/Build/{build_id}"
-        runs_url = (
-            f"{self.org_url}/{self.project}/_apis/test/runs?"
-            f"buildUri={build_uri}&api-version=7.0"
-        )
-        runs_data = self.make_request(runs_url)
-
-        if not runs_data.get('value'):
-            return []
-
-        completed_runs = [
-            r for r in runs_data['value']
-            if r.get('state') == 'Completed'
-        ]
-
-        # Group by name, keep highest ID per suite
-        latest_runs = {}
-        for run in completed_runs:
-            run_name = run.get('name', 'Unknown')
-            run_id = run['id']
-            if not any(f in run_name for f in REGRESSION_SUITES):
-                continue
-            if run_name not in latest_runs or run_id > latest_runs[run_name]['id']:
-                latest_runs[run_name] = run
-
-        # Fetch failed results from each run
-        failures = []
-        for run_name in sorted(latest_runs.keys()):
-            run = latest_runs[run_name]
-            run_id = run['id']
-
-            results_url = (
-                f"{self.org_url}/{self.project}/_apis/test/Runs/{run_id}/results?"
-                f"outcomes=Failed&$top=1000&api-version=7.0"
-            )
-
-            try:
-                results_data = self.make_request(results_url)
-            except requests.exceptions.Timeout:
-                continue
-
-            for result in results_data.get('value', []):
-                if result.get('outcome') != 'Failed':
-                    continue
-
-                test_name = result.get(
-                    'testCaseTitle',
-                    result.get('automatedTestName', 'Unknown')
-                )
-
-                failures.append({
-                    'suite': run_name,
-                    'test': test_name,
-                })
-
-        return failures
-
-    def get_build_web_url(self, build_id: int) -> str:
-        return f"{self.org_url}/{self.project}/_build/results?buildId={build_id}"
+    def get_build_web_url(self, build_id: str) -> str:
+        """GitHub Actions run URL for a build."""
+        return f"https://github.com/{GITHUB_OWNER}/{self.repo}/actions/runs/{build_id}"
 
 
 def parse_time(time_str: str) -> datetime:
-    """Parse Azure DevOps timestamp to datetime."""
-    # Handle various formats with/without fractional seconds
-    time_str = time_str.rstrip('Z')
-    if '.' in time_str:
-        # Truncate fractional seconds to 6 digits for strptime
-        base, frac = time_str.split('.')
-        frac = frac[:6]
-        time_str = f"{base}.{frac}"
-        return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S.%f").replace(tzinfo=timezone.utc)
-    return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+    """Parse a portal timestamp (ISO 8601 with offset) to a UTC datetime."""
+    if not time_str:
+        return None
+    # Python 3.11+ fromisoformat handles offsets and fractional seconds.
+    dt = datetime.fromisoformat(time_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
-def is_nightly_run(build: Dict[str, Any]) -> bool:
-    """Check if a build is a nightly run: main branch, started within 30 min of midnight."""
-    branch = build.get('sourceBranch', '')
-    if branch != 'refs/heads/main':
-        return False
+def collect_data(conn: PortalConnection, days: int) -> List[Dict[str, Any]]:
+    """Fetch trend points and shape them into the result dicts used downstream."""
+    print(f"Fetching trend for {conn.workflow!r} on {conn.branch!r} "
+          f"({conn.repo}) over {days} day(s)...", file=sys.stderr)
 
-    start_time = build.get('startTime')
-    if not start_time:
-        return False
+    points = conn.get_test_trends(days)
+    print(f"Portal returned {len(points)} build point(s)", file=sys.stderr)
 
-    dt = parse_time(start_time)
-    # Minutes since midnight
-    minutes = dt.hour * 60 + dt.minute
-    # Within 30 minutes of midnight (00:00) — either side
-    return minutes <= 30 or minutes >= (24 * 60 - 30)
-
-
-def collect_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Collect test result data for the given nightly runs."""
     results = []
-    for i, run in enumerate(nightly_runs):
-        build_id = run['id']
-        build_number = run.get('buildNumber', '')
-        start_time = parse_time(run['startTime'])
-        url = conn.get_build_web_url(build_id)
+    for p in points:
+        build_id = p.get("buildId")
+        if not build_id:
+            continue
+        start_time = parse_time(p.get("startTime"))
+        if start_time is None:
+            continue
 
-        print(f"  [{i+1}/{len(nightly_runs)}] Fetching test data for build {build_id} "
-              f"({start_time.strftime('%Y-%m-%d')})...", file=sys.stderr)
-
-        test_runs = conn.get_test_runs_for_build(build_id)
-
-        total_passed = 0
-        total_failed = 0
-        total_other = 0
-        for tr in test_runs:
-            passed = tr.get('passedTests', 0) or 0
-            failed = tr.get('failedTests', 0) or 0
-            total = tr.get('totalTests', 0) or 0
-            total_passed += passed
-            total_failed += failed
-            total_other += max(0, total - passed - failed)
-
-        total_tests = total_passed + total_failed + total_other
-        pass_pct = (total_passed / total_tests * 100) if total_tests > 0 else 0
+        passed = int(p.get("passed") or 0)
+        failed = int(p.get("failed") or 0)
+        total = int(p.get("testCount") or 0)
+        # Treat notExecuted + otherOutcomes as "other" so the calculation
+        # matches the legacy script: passed / (passed + failed + other).
+        other = max(0, total - passed - failed)
+        pass_pct = (passed / total * 100) if total > 0 else 0
 
         results.append({
-            'build_id': build_id,
-            'build_number': build_number,
-            'date': start_time,
-            'url': url,
-            'passed': total_passed,
-            'failed': total_failed,
-            'other': total_other,
-            'total': total_tests,
-            'pass_pct': pass_pct,
+            "build_id": build_id,
+            "build_number": p.get("buildNumber") or "",
+            "date": start_time,
+            "url": conn.get_build_web_url(build_id),
+            "passed": passed,
+            "failed": failed,
+            "other": other,
+            "total": total,
+            "pass_pct": pass_pct,
+            "state": p.get("state") or "",
         })
 
+    results.sort(key=lambda r: r["date"])
     return results
 
 
 def print_table(results: List[Dict[str, Any]]):
     """Print a summary table to stdout."""
     if not results:
-        print("No nightly regression runs found in the last 4 weeks.")
+        print("No regression runs found in the requested window.")
         return
 
-    # Header
     print(f"{'Date':<12} {'Pass%':>6} {'Passed':>7} {'Failed':>7} {'Other':>7} "
-          f"{'Total':>7}  {'Build':<40}  URL")
+          f"{'Total':>7}  {'Build':<20}  URL")
     print("-" * 140)
 
     for r in results:
-        date_str = r['date'].strftime('%Y-%m-%d')
-        build = r['build_number'][:40]
+        date_str = r["date"].strftime("%Y-%m-%d")
+        build = (r["build_number"] or "")[:20]
         print(f"{date_str:<12} {r['pass_pct']:>5.1f}% {r['passed']:>7} {r['failed']:>7} "
-              f"{r['other']:>7} {r['total']:>7}  {build:<40}  {r['url']}")
+              f"{r['other']:>7} {r['total']:>7}  {build:<20}  {r['url']}")
 
-    # Summary
     print("-" * 140)
-    avg_pct = sum(r['pass_pct'] for r in results) / len(results)
+    avg_pct = sum(r["pass_pct"] for r in results) / len(results)
     print(f"{'Average':<12} {avg_pct:>5.1f}%")
 
 
-def generate_chart(results: List[Dict[str, Any]], output_path: str, weeks: int = 4):
+def generate_chart(results: List[Dict[str, Any]], output_path: str,
+                   duration_label: str):
     """Generate a PNG chart of pass percentage over time."""
     import matplotlib
-    matplotlib.use('Agg')
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
@@ -277,116 +150,164 @@ def generate_chart(results: List[Dict[str, Any]], output_path: str, weeks: int =
         print("No data to chart.", file=sys.stderr)
         return
 
-    dates = [r['date'] for r in results]
-    pass_pcts = [r['pass_pct'] for r in results]
+    dates = [r["date"] for r in results]
+    pass_pcts = [r["pass_pct"] for r in results]
 
     fig, ax1 = plt.subplots(figsize=(14, 6))
 
-    # Pass percentage line
-    color_pass = '#2ecc71'
-    color_fail = '#e74c3c'
+    color_pass = "#2ecc71"
+    color_fail = "#e74c3c"
 
-    ax1.plot(dates, pass_pcts, 'o-', color=color_pass, linewidth=2,
-             markersize=8, label='Pass %', zorder=3)
-
-    # Fill area under the curve
+    ax1.plot(dates, pass_pcts, "o-", color=color_pass, linewidth=2,
+             markersize=8, label="Pass %", zorder=3)
     ax1.fill_between(dates, pass_pcts, alpha=0.15, color=color_pass)
+    ax1.axhline(y=100, color="#95a5a6", linestyle="--", linewidth=1, alpha=0.5)
 
-    # Reference line at 100%
-    ax1.axhline(y=100, color='#95a5a6', linestyle='--', linewidth=1, alpha=0.5)
-
-    # Formatting
-    ax1.set_xlabel('Date', fontsize=12)
-    ax1.set_ylabel('Pass Rate (%)', fontsize=12)
-    ax1.set_title(f'RunRegression Nightly Pass Rate (main branch, last {weeks} week{"s" if weeks != 1 else ""})',
-                  fontsize=14, fontweight='bold')
+    ax1.set_xlabel("Date", fontsize=12)
+    ax1.set_ylabel("Pass Rate (%)", fontsize=12)
+    ax1.set_title(f"Run Regression Nightly Pass Rate (main branch, last "
+                  f"{duration_label})", fontsize=14, fontweight="bold")
 
     ax1.set_ylim(bottom=max(0, min(pass_pcts) - 5), top=101)
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
     ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
     fig.autofmt_xdate()
 
     ax1.grid(True, alpha=0.3)
-    ax1.legend(loc='lower left', fontsize=10)
+    ax1.legend(loc="lower left", fontsize=10)
 
-    # Add a secondary axis for absolute counts as a stacked bar
     ax2 = ax1.twinx()
-    bar_width = 0.5  # in days
-    passed_counts = [r['passed'] for r in results]
-    failed_counts = [r['failed'] for r in results]
+    bar_width = 0.5
+    passed_counts = [r["passed"] for r in results]
+    failed_counts = [r["failed"] for r in results]
 
     ax2.bar(dates, passed_counts, width=bar_width, alpha=0.25, color=color_pass,
-            label='Passed')
+            label="Passed")
     ax2.bar(dates, failed_counts, width=bar_width, bottom=passed_counts,
-            alpha=0.25, color=color_fail, label='Failed')
-    ax2.set_ylabel('Test Count', fontsize=12)
-    ax2.legend(loc='lower right', fontsize=10)
+            alpha=0.25, color=color_fail, label="Failed")
+    ax2.set_ylabel("Test Count", fontsize=12)
+    ax2.legend(loc="lower right", fontsize=10)
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
     print(f"Chart saved to {output_path}", file=sys.stderr)
 
 
-def get_nightly_runs(conn: AzDoConnection, weeks: int = 4) -> List[Dict[str, Any]]:
-    """Get completed nightly main-branch runs from the last N weeks."""
-    pipeline_id = conn.find_pipeline_by_name(PIPELINE_NAME)
-    print(f"Found {PIPELINE_NAME} pipeline (ID: {pipeline_id})", file=sys.stderr)
+import re as _re
 
-    cutoff = datetime.now(timezone.utc) - timedelta(weeks=weeks)
-
-    all_runs = conn.get_pipeline_runs(pipeline_id, top=200)
-    print(f"Fetched {len(all_runs)} total runs", file=sys.stderr)
-
-    nightly_runs = []
-    for run in all_runs:
-        if run.get('status') != 'completed':
-            continue
-        start_time = run.get('startTime')
-        if not start_time:
-            continue
-        dt = parse_time(start_time)
-        if dt < cutoff:
-            continue
-        if is_nightly_run(run):
-            nightly_runs.append(run)
-
-    nightly_runs.sort(key=lambda r: r['startTime'])
-    print(f"Found {len(nightly_runs)} nightly runs in the last {weeks} week(s)", file=sys.stderr)
-    return nightly_runs
+# Matches crash-dump filenames referenced in teardown exception text, e.g.
+# "DefendpointService.exe_260601_064524.dmp".
+_DMP_RE = _re.compile(r"[A-Za-z0-9_.\-]+\.dmp", _re.IGNORECASE)
 
 
-def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]], full_detail: int = 20) -> None:
-    """Collect failed test names across all nightly runs and write flakey.md."""
-    # test_name -> list of (date, suite) tuples
+def _outcome_str(f: Dict[str, Any]) -> str:
+    """Normalise a failure entry's outcome (plain string or enum object)."""
+    outcome = f.get("outcome")
+    if isinstance(outcome, str):
+        return outcome
+    if isinstance(outcome, dict):
+        return outcome.get("value") or ""
+    return ""
+
+
+def fetch_failure_map(conn: PortalConnection,
+                      results: List[Dict[str, Any]]
+                      ) -> "tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Dict[str, int]]]":
+    """Walk builds once and return (failure_map, crash_per_build).
+
+    failure_map:     {test_name: [{date, suite, build_id}, ...]} for Failed tests.
+    crash_per_build: {build_id: {total, machines, failed, passed}} where
+        - total    = build-level crashDumpCount (authoritative dump volume)
+        - machines = crashDumpMachineCount
+        - failed   = distinct .dmp files named in a Failed test's teardown
+                     exception (a crash that took a test down with it)
+        - passed   = total - failed (dumps not attributed to a failed test —
+                     i.e. a crash was detected but its test still passed / the
+                     dump wasn't tied to a specific failure). Clamped to >= 0.
+    """
+    import time as _time
+
     failure_map = defaultdict(list)
+    crash_per_build: Dict[str, Dict[str, int]] = {}
 
-    for i, run in enumerate(nightly_runs):
-        build_id = run['id']
-        start_time = parse_time(run['startTime'])
-        date_str = start_time.strftime('%Y-%m-%d')
+    for i, r in enumerate(results):
+        build_id = r["build_id"]
+        date_str = r["date"].strftime("%Y-%m-%d")
 
-        print(f"  [{i+1}/{len(nightly_runs)}] Fetching failures for build {build_id} "
+        print(f"  [{i+1}/{len(results)}] Fetching failures for build {build_id} "
               f"({date_str})...", file=sys.stderr)
 
-        failures = conn.get_failed_tests_for_build(build_id)
+        # Retry once on transient network failures (portal timeouts are common
+        # on heavier builds). Skip the build if both attempts fail rather than
+        # crashing the whole report.
+        summary = None
+        last_err = None
+        for attempt in range(2):
+            try:
+                summary = conn.get_build_summary(build_id)
+                break
+            except requests.exceptions.RequestException as e:
+                last_err = e
+                if attempt == 0:
+                    print(f"    Retry after error: {type(e).__name__}: {e}",
+                          file=sys.stderr)
+                    _time.sleep(2)
+        if summary is None:
+            print(f"    Skipped after retry: {last_err}", file=sys.stderr)
+            continue
 
-        for f in failures:
-            failure_map[f['test']].append({
-                'date': date_str,
-                'suite': f['suite'],
-                'build_id': build_id,
+        # Dumps that took a test down: collect distinct (endpoint, dump-file)
+        # pairs named in Failed tests' teardown exceptions. Keying on endpoint
+        # too avoids collapsing identically-named dumps from different machines.
+        failed_dump_keys = set()
+        for f in summary.get("failures") or []:
+            outcome_str = _outcome_str(f)
+            if outcome_str != "Failed":
+                continue
+
+            test_name = f.get("testName") or "Unknown"
+            suite = f.get("executionDefinition") or "Unknown"
+            failure_map[test_name].append({
+                "date": date_str,
+                "suite": suite,
+                "build_id": build_id,
             })
 
+            exc = f.get("exception")
+            if exc:
+                endpoint = f.get("endpointName") or ""
+                for dmp in _DMP_RE.findall(str(exc)):
+                    failed_dump_keys.add((endpoint, dmp))
+
+        total_dumps = int(summary.get("crashDumpCount") or 0)
+        machines = int(summary.get("crashDumpMachineCount") or 0)
+        # Can't attribute more dumps to failures than the build actually has.
+        failed_dumps = min(len(failed_dump_keys), total_dumps)
+        crash_per_build[build_id] = {
+            "total": total_dumps,
+            "machines": machines,
+            "failed": failed_dumps,
+            "passed": max(0, total_dumps - failed_dumps),
+        }
+
+    return failure_map, crash_per_build
+
+
+def collect_flakey_data(conn: PortalConnection, results: List[Dict[str, Any]],
+                        full_detail: int) -> None:
+    """Walk each remaining build, pull failures, and write flakey.md."""
+    failure_map, _ = fetch_failure_map(conn, results)
+
     if not failure_map:
-        print("No failed tests found across nightly runs.", file=sys.stderr)
+        print("No failed tests found across the selected runs.", file=sys.stderr)
         return
 
-    # Sort by frequency descending, then alphabetically
+    # Sort by frequency descending, then alphabetically.
     sorted_tests = sorted(failure_map.items(), key=lambda x: (-len(x[1]), x[0]))
 
-    total_runs = len(nightly_runs)
-    date_range_start = parse_time(nightly_runs[0]['startTime']).strftime('%Y-%m-%d')
-    date_range_end = parse_time(nightly_runs[-1]['startTime']).strftime('%Y-%m-%d')
+    total_runs = len(results)
+    date_range_start = results[0]["date"].strftime("%Y-%m-%d")
+    date_range_end = results[-1]["date"].strftime("%Y-%m-%d")
 
     lines = []
     lines.append("# Flakey Regression Tests")
@@ -394,21 +315,20 @@ def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]
     lines.append(f"Period: **{date_range_start}** to **{date_range_end}** "
                  f"({total_runs} nightly runs)")
     lines.append("")
-    lines.append(f"| # | Failures | Rate | Test | Suite(s) | Dates |")
+    lines.append("| # | Failures | Rate | Test | Suite(s) | Dates |")
     lines.append("|---|----------|------|------|----------|-------|")
 
     for rank, (test_name, occurrences) in enumerate(sorted_tests, 1):
         count = len(occurrences)
         rate = f"{count}/{total_runs}"
         pct = count / total_runs * 100
-        suites = sorted(set(o['suite'] for o in occurrences))
+        suites = sorted(set(o["suite"] for o in occurrences))
         suites_str = ", ".join(suites)
-        dates = sorted(set(o['date'] for o in occurrences))
+        dates = sorted(set(o["date"] for o in occurrences))
         dates_str = ", ".join(dates)
         lines.append(f"| {rank} | {count} ({pct:.0f}%) | {rate} | {test_name} | "
                      f"{suites_str} | {dates_str} |")
 
-    # Detailed section: top N tests with links to regression runs
     top_n = min(full_detail, len(sorted_tests))
     lines.append("")
     lines.append("---")
@@ -421,8 +341,8 @@ def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]
         pct = count / total_runs * 100
         lines.append(f"### {rank}. {test_name} ({count} failures, {pct:.0f}%)")
         lines.append("")
-        for o in sorted(occurrences, key=lambda x: x['date']):
-            url = conn.get_build_web_url(o['build_id'])
+        for o in sorted(occurrences, key=lambda x: x["date"]):
+            url = conn.get_build_web_url(o["build_id"])
             lines.append(f"- {o['date']} — [{o['suite']}]({url})")
         lines.append("")
 
@@ -430,19 +350,1472 @@ def collect_flakey_data(conn: AzDoConnection, nightly_runs: List[Dict[str, Any]]
     lines.append("")
 
     output_path = "flakey.md"
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("\n".join(lines))
 
     print(f"\nWrote {len(sorted_tests)} flakey tests to {output_path}", file=sys.stderr)
 
 
+def bucket_key(date: datetime, bucket: str) -> str:
+    """Return a stable label for the time bucket containing this date."""
+    if bucket == "month":
+        return date.strftime("%Y-%m")
+    if bucket == "day":
+        return date.strftime("%Y-%m-%d")
+    # Sunday-start week (Sun → Sat). The label is the ISO date of that Sunday,
+    # so labels sort chronologically as plain strings.
+    # Python weekday(): Mon=0 … Sun=6 → days since Sunday = (weekday + 1) % 7.
+    days_since_sun = (date.weekday() + 1) % 7
+    sunday = date - timedelta(days=days_since_sun)
+    return sunday.strftime("%Y-%m-%d")
+
+
+def bucket_anchor(label: str, bucket: str) -> datetime:
+    """Return a datetime anchor (UTC) for a bucket label, used for plotting."""
+    if bucket == "month":
+        return datetime.strptime(label + "-01", "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    # Week label is the Sunday's date in YYYY-MM-DD form; day label is the date itself.
+    return datetime.strptime(label, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+
+
+def generate_interactive_html(conn: PortalConnection,
+                              results: List[Dict[str, Any]],
+                              failure_map: Dict[str, List[Dict[str, Any]]],
+                              output_path: str,
+                              duration_label: str,
+                              bucket: str,
+                              top_n: int = 30,
+                              min_failures: int = 1,
+                              max_failure_rate: float = 0.95,
+                              min_pass_rate: float = 0.0,
+                              exclude_prefixes: List[str] = None,
+                              exclude_suite_substrings: List[str] = None,
+                              crash_per_build: Dict[str, Dict[str, int]] = None) -> None:
+    """Render an interactive Plotly HTML report (pass rate + flaky-test trend)."""
+    crash_per_build = crash_per_build or {}
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError:
+        print("Plotly is not installed. Run: pip install plotly", file=sys.stderr)
+        sys.exit(1)
+
+    # --- Per-build pass-rate trace ---
+    run_dates = [r["date"] for r in results]
+    pass_pcts = [r["pass_pct"] for r in results]
+    passed_counts = [r["passed"] for r in results]
+    failed_counts = [r["failed"] for r in results]
+    build_urls = [r["url"] for r in results]
+    hover_text = [
+        f"<b>{r['date'].strftime('%Y-%m-%d')}</b><br>"
+        f"Pass: {r['pass_pct']:.1f}% ({r['passed']}/{r['total']})<br>"
+        f"Failed: {r['failed']}<br>"
+        f"<a href='{r['url']}'>open run</a>"
+        for r in results
+    ]
+
+    # --- Apply filters before any further work. ---
+    # Tests below the thresholds are dropped from failure_map so every downstream
+    # computation (top-N ranking, Other rollup, unique-per-bucket, view payload)
+    # only sees qualifying tests.
+    original_test_count = len(failure_map)
+    total_runs = len(results)
+    exclude_prefixes = list(exclude_prefixes or [])
+    exclude_suite_substrings = list(exclude_suite_substrings or [])
+
+    # -1) --exclude-suite: drop individual failure occurrences whose suite name
+    #     contains any given substring (case-insensitive). Applied before any
+    #     per-test math so failure counts, top-N ranking, and the bracket chart
+    #     reflect only the kept occurrences. Tests whose entire failure history
+    #     was on the excluded suite are dropped here too.
+    dropped_suite_occurrences = 0
+    dropped_suite_tests = 0
+    if exclude_suite_substrings:
+        suite_subs_lc = [s.lower() for s in exclude_suite_substrings]
+        new_failure_map: Dict[str, List[Dict[str, Any]]] = {}
+        for test_name, occurrences in failure_map.items():
+            kept = []
+            for occ in occurrences:
+                suite_lc = (occ.get("suite") or "").lower()
+                if any(p in suite_lc for p in suite_subs_lc):
+                    dropped_suite_occurrences += 1
+                else:
+                    kept.append(occ)
+            if kept:
+                new_failure_map[test_name] = kept
+            else:
+                dropped_suite_tests += 1
+        failure_map = new_failure_map
+
+    # 0) --exclude-prefix: drop tests whose name begins with any of the given
+    #    prefixes. Applied first so all downstream counts reflect the exclusion.
+    excluded_by_prefix: List[str] = []
+    if exclude_prefixes:
+        excluded_by_prefix = [
+            n for n in failure_map.keys()
+            if any(n.startswith(p) for p in exclude_prefixes)
+        ]
+        if excluded_by_prefix:
+            failure_map = {
+                n: occ for n, occ in failure_map.items()
+                if n not in set(excluded_by_prefix)
+            }
+
+    # 1) --max-failure-rate: drop consistently-broken tests. We approximate
+    #    pass-rate using (total_runs - failures) since we don't have per-test
+    #    pass counts. Assumes the test ran in every build, which is the case
+    #    for a regression suite but not always exact.
+    dropped_broken_names: List[str] = []
+    if max_failure_rate < 1.0 and total_runs > 0:
+        dropped_broken_names = [
+            n for n, occ in failure_map.items()
+            if (len(occ) / total_runs) >= max_failure_rate
+        ]
+        if dropped_broken_names:
+            failure_map = {
+                n: occ for n, occ in failure_map.items()
+                if n not in set(dropped_broken_names)
+            }
+
+    # 2) --min-failures: drop tests with too few failures to be interesting.
+    if min_failures > 1:
+        failure_map = {
+            n: occ for n, occ in failure_map.items() if len(occ) >= min_failures
+        }
+
+    # --- Bucketed flake data ---
+    # Total failures per test (bucket-independent) — used for ranking and the
+    # top-N / Other split. Both Week and Month views share the same ranking.
+    test_totals = {
+        test_name: len(occurrences) for test_name, occurrences in failure_map.items()
+    }
+    tests_ranked_names = sorted(
+        test_totals.keys(), key=lambda n: (-test_totals[n], n)
+    )
+    if top_n and len(tests_ranked_names) > top_n:
+        top_test_names = tests_ranked_names[:top_n]
+        other_test_names = tests_ranked_names[top_n:]
+    else:
+        top_test_names = tests_ranked_names
+        other_test_names = []
+    top_test_set = set(top_test_names)
+    other_test_set = set(other_test_names)
+
+    def _compute_view(bucket_kind: str) -> Dict[str, Any]:
+        """Bucket-dependent data for a single view (week or month)."""
+        run_bucket = {
+            r["build_id"]: bucket_key(r["date"], bucket_kind) for r in results
+        }
+        labels = sorted(set(run_bucket.values()))
+        anchors = [bucket_anchor(b, bucket_kind) for b in labels]
+
+        per_test: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        for test_name, occurrences in failure_map.items():
+            for o in occurrences:
+                b = run_bucket.get(o["build_id"])
+                if b is not None:
+                    per_test[test_name][b] += 1
+
+        unique_pb = {b: 0 for b in labels}
+        for _, by_bucket in per_test.items():
+            for b in by_bucket:
+                unique_pb[b] += 1
+
+        other_pb = {b: 0 for b in labels}
+        # Count of DISTINCT other-tests with failures in each bucket — used to
+        # adjust the "Unique flaky tests" line when the Other trace is hidden.
+        other_unique_pb = {b: 0 for b in labels}
+        for name in other_test_set:
+            counts = per_test.get(name, {})
+            for b, c in counts.items():
+                other_pb[b] += c
+                if c > 0:
+                    other_unique_pb[b] += 1
+
+        # Crash dumps per bucket: sum the per-build failed/passed/total split
+        # over the builds that fall in each bucket.
+        crash_failed_pb = {b: 0 for b in labels}
+        crash_passed_pb = {b: 0 for b in labels}
+        crash_total_pb = {b: 0 for b in labels}
+        for r in results:
+            cb = crash_per_build.get(r["build_id"])
+            if not cb:
+                continue
+            b = run_bucket.get(r["build_id"])
+            if b is None:
+                continue
+            crash_failed_pb[b] += cb["failed"]
+            crash_passed_pb[b] += cb["passed"]
+            crash_total_pb[b] += cb["total"]
+
+        return {
+            "bucket": bucket_kind,
+            "labels": labels,
+            "anchors": anchors,
+            "anchors_iso": [a.strftime("%Y-%m-%d") for a in anchors],
+            "per_test": {name: dict(per_test[name]) for name in per_test},
+            "unique_per_bucket": unique_pb,
+            "other_per_bucket": other_pb,
+            "other_unique_per_bucket": other_unique_pb,
+            "other_total": sum(other_pb.values()),
+            "crash_failed_per_bucket": crash_failed_pb,
+            "crash_passed_per_bucket": crash_passed_pb,
+            "crash_total_per_bucket": crash_total_pb,
+        }
+
+    views = {
+        "day": _compute_view("day"),
+        "week": _compute_view("week"),
+        "month": _compute_view("month"),
+    }
+    active_view = views[bucket]
+    bucket_labels = active_view["labels"]
+    bucket_anchors = active_view["anchors"]
+    per_test_bucket_count = active_view["per_test"]
+    unique_per_bucket = active_view["unique_per_bucket"]
+
+    # tests_ranked retains the (name, by_bucket_for_active_view) shape used below.
+    tests_ranked = [
+        (name, per_test_bucket_count.get(name, {})) for name in tests_ranked_names
+    ]
+
+    # --- Build figure: 2 rows, shared x-axis, range slider on the bottom ---
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=False,
+        row_heights=[0.4, 0.6],
+        vertical_spacing=0.12,
+        subplot_titles=(
+            "Nightly Pass Rate (main)",
+            f"Flaky Tests per {bucket.title()} — click test names in the legend to filter",
+        ),
+    )
+
+    # Row 1: Pass rate line.
+    fig.add_trace(
+        go.Scatter(
+            x=run_dates, y=pass_pcts,
+            mode="lines+markers",
+            name="Pass %",
+            line=dict(color="#2ecc71", width=2),
+            marker=dict(size=8),
+            hovertext=hover_text,
+            hoverinfo="text",
+            customdata=build_urls,
+            showlegend=False,
+        ),
+        row=1, col=1,
+    )
+    # Row 1 (overlay): light bar of failed counts so the eye picks up bad runs.
+    fig.add_trace(
+        go.Bar(
+            x=run_dates, y=failed_counts,
+            name="Failed tests",
+            marker=dict(color="#e74c3c", opacity=0.25),
+            yaxis="y3",
+            hovertemplate="<b>%{x|%Y-%m-%d}</b><br>Failed: %{y}<extra></extra>",
+            showlegend=False,
+        ),
+        row=1, col=1,
+    )
+
+    # Row 1 (trend): linear regression of pass-rate vs days-since-start. Tells
+    # the reader at a glance whether the suite is drifting up or down.
+    if len(results) >= 2:
+        xs_days = [(r["date"] - results[0]["date"]).days for r in results]
+        n = len(xs_days)
+        mean_x = sum(xs_days) / n
+        mean_y = sum(pass_pcts) / n
+        num = sum((xs_days[i] - mean_x) * (pass_pcts[i] - mean_y) for i in range(n))
+        den = sum((xs_days[i] - mean_x) ** 2 for i in range(n))
+        if den > 0:
+            slope = num / den           # %/day
+            intercept = mean_y - slope * mean_x
+            trend_y = [slope * x + intercept for x in xs_days]
+            slope_label = f"{slope:+.3f}%/day"
+            fig.add_trace(
+                go.Scatter(
+                    x=run_dates, y=trend_y,
+                    mode="lines",
+                    name=f"Pass-rate trend ({slope_label})",
+                    line=dict(color="#888", width=2, dash="dash"),
+                    hovertemplate=(
+                        "<b>Pass-rate trend</b><br>%{x|%Y-%m-%d}<br>%{y:.2f}%"
+                        "<extra></extra>"
+                    ),
+                    showlegend=True,
+                ),
+                row=1, col=1,
+            )
+
+    # Row 2: Stacked bar per test name, plus a thicker "unique total" line on top.
+    palette = [
+        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+        "#393b79", "#637939", "#8c6d31", "#843c39", "#7b4173",
+    ]
+    # Top-N / Other split was computed up-front (bucket-independent). Build the
+    # (name, by_bucket) pairs against the ACTIVE view for the initial figure.
+    top_tests = [(name, per_test_bucket_count.get(name, {})) for name in top_test_names]
+    other_tests = [(name, per_test_bucket_count.get(name, {})) for name in other_test_names]
+
+    # "Other" trace added first → sits at the BOTTOM of the stack and (with
+    # reversed legend traceorder) the BOTTOM of the legend, out of the way.
+    if other_tests:
+        other_by_bucket = active_view["other_per_bucket"]
+        other_total = active_view["other_total"]
+        fig.add_trace(
+            go.Bar(
+                x=bucket_anchors,
+                y=[other_by_bucket.get(b, 0) for b in bucket_labels],
+                name=f"Other ({len(other_tests)} tests, {other_total} failures)",
+                marker=dict(color="#bdc3c7"),
+                hovertemplate=(
+                    f"<b>Other ({len(other_tests)} tests)</b><br>"
+                    "%{x|%Y-%m-%d}<br>"
+                    "Failing runs in bucket: %{y}<extra></extra>"
+                ),
+                legendgroup="tests",
+                meta={"kind": "other"},
+            ),
+            row=2, col=1,
+        )
+
+    # Add per-test traces in reverse rank order so the most-flaky test is added
+    # LAST. With barmode=stack, that puts it at the top of the stack; with the
+    # legend's reversed traceorder (set below), it also lands at the top of the
+    # legend.
+    for rank, (test_name, by_bucket) in reversed(list(enumerate(top_tests))):
+        y = [by_bucket.get(b, 0) for b in bucket_labels]
+        total = sum(by_bucket.values())
+        # Buckets this test actually had failures in — used by the bucket-filter UI.
+        active_buckets = sorted(b for b, c in by_bucket.items() if c > 0)
+        fig.add_trace(
+            go.Bar(
+                x=bucket_anchors, y=y,
+                name=f"{test_name}  ({total})",
+                marker=dict(color=palette[rank % len(palette)]),
+                hovertemplate=(
+                    f"<b>{test_name}</b><br>"
+                    "%{x|%Y-%m-%d}<br>"
+                    "Failing runs in bucket: %{y}<extra></extra>"
+                ),
+                legendgroup="tests",
+                meta={"kind": "test", "name": test_name, "buckets": active_buckets,
+                      "total": total},
+            ),
+            row=2, col=1,
+        )
+
+    # Overlay: unique flaky test count per bucket (always-on summary line).
+    fig.add_trace(
+        go.Scatter(
+            x=bucket_anchors,
+            y=[unique_per_bucket[b] for b in bucket_labels],
+            mode="lines+markers+text",
+            name="Unique flaky tests",
+            line=dict(color="#000000", width=2, dash="dash"),
+            marker=dict(size=8, symbol="diamond", color="#000000"),
+            text=[str(unique_per_bucket[b]) for b in bucket_labels],
+            textposition="top center",
+            yaxis="y4",
+            hovertemplate=(
+                "<b>%{x|%Y-%m-%d}</b><br>Unique flaky tests: %{y}<extra></extra>"
+            ),
+            meta={"kind": "unique_line"},
+        ),
+        row=2, col=1,
+    )
+
+    # Trend line over the "Unique flaky tests" series — least-squares fit of
+    # unique-count vs bucket index. Updated by JS to follow the unique line as
+    # Other is hidden/shown.
+    if len(bucket_labels) >= 2:
+        ys_uniq = [unique_per_bucket[b] for b in bucket_labels]
+        xs_idx = list(range(len(bucket_labels)))
+        n_b = len(xs_idx)
+        mean_x = (n_b - 1) / 2
+        mean_y = sum(ys_uniq) / n_b
+        num_b = sum((xs_idx[i] - mean_x) * (ys_uniq[i] - mean_y) for i in range(n_b))
+        den_b = sum((xs_idx[i] - mean_x) ** 2 for i in range(n_b))
+        trend_y_flaky = (
+            [num_b / den_b * x + (mean_y - num_b / den_b * mean_x) for x in xs_idx]
+            if den_b > 0 else ys_uniq[:]
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=bucket_anchors, y=trend_y_flaky,
+                mode="lines",
+                name="Flaky-test trend",
+                line=dict(color="#888", width=2, dash="dash"),
+                yaxis="y4",
+                hovertemplate=(
+                    "<b>Flaky-test trend</b><br>%{x|%Y-%m-%d}<br>"
+                    "%{y:.1f}<extra></extra>"
+                ),
+                meta={"kind": "flaky_trend_line"},
+            ),
+            row=2, col=1,
+        )
+
+    # Dynamic overlay: count of currently-visible flaky tests per bucket.
+    # Updated by the filter-UI JS in the wrapper HTML. Initial values match the
+    # default state (all top-N tests visible).
+    initial_filtered = {b: 0 for b in bucket_labels}
+    for _, by_bucket in top_tests:
+        for b, c in by_bucket.items():
+            if c > 0:
+                initial_filtered[b] += 1
+    fig.add_trace(
+        go.Scatter(
+            x=bucket_anchors,
+            y=[initial_filtered[b] for b in bucket_labels],
+            mode="lines+markers+text",
+            name="Filtered flaky tests",
+            line=dict(color="#2c7be5", width=2, dash="dot"),
+            marker=dict(size=8, symbol="circle", color="#2c7be5"),
+            text=[str(initial_filtered[b]) for b in bucket_labels],
+            textposition="bottom center",
+            yaxis="y4",
+            hovertemplate=(
+                f"<b>%{{x|%Y-%m-%d}}</b><br>Filtered flaky tests: %{{y}}<extra></extra>"
+            ),
+            meta={"kind": "filtered_line"},
+        ),
+        row=2, col=1,
+    )
+
+    # Layout: stack the per-test bars, give Row 2 a range slider so the user
+    # can scrub through months/sprints; clicking the legend toggles tests.
+    date_range_start = results[0]["date"].strftime("%Y-%m-%d")
+    date_range_end = results[-1]["date"].strftime("%Y-%m-%d")
+    title = (
+        f"Regression Flakiness — {conn.repo} / {conn.branch} "
+        f"({date_range_start} → {date_range_end}, {len(results)} runs, bucket={bucket})"
+    )
+
+    fig.update_layout(
+        title=dict(text=title, x=0.02, xanchor="left"),
+        barmode="stack",
+        hovermode="closest",
+        legend=dict(
+            orientation="v",
+            yanchor="top", y=0.55,
+            xanchor="left", x=1.02,
+            font=dict(size=10),
+            itemclick="toggle",
+            itemdoubleclick="toggleothers",
+            traceorder="reversed",
+            # Without this, traces sharing legendgroup="tests" toggle as ONE
+            # unit on click (Plotly default is groupclick="togglegroup").
+            groupclick="toggleitem",
+        ),
+        height=900,
+        margin=dict(l=60, r=260, t=80, b=60),
+        # Secondary y-axes overlayed on the same row plots.
+        yaxis3=dict(overlaying="y", side="right", showgrid=False,
+                    title="Failed tests"),
+        yaxis4=dict(overlaying="y2", side="right", showgrid=False,
+                    title="Unique flaky tests"),
+    )
+    fig.update_yaxes(title_text="Pass rate (%)", row=1, col=1,
+                     range=[max(0, min(pass_pcts) - 5), 101])
+    fig.update_yaxes(title_text="Failing runs in bucket", row=2, col=1)
+    fig.update_xaxes(title_text="Run date", row=1, col=1)
+    fig.update_xaxes(
+        title_text=f"Bucket ({bucket})",
+        row=2, col=1,
+        rangeslider=dict(visible=True, thickness=0.05),
+        type="date",
+    )
+
+    # --- Second chart: Failures grouped by failure-count bracket ---
+    # Lines: one per bracket (5-9, 10-14, 15-19, ...). For each bucket on the
+    # x-axis, each line shows the total failures contributed by tests whose
+    # TOTAL failure count across the window falls in that bracket. Dynamic —
+    # updates to mirror the main chart's filters via JS.
+    max_total = max(test_totals.values()) if test_totals else 0
+    brackets_defs = []
+    _br_lo, _br_step = 5, 5
+    while _br_lo <= max_total:
+        _br_hi = _br_lo + _br_step - 1
+        if _br_hi >= max_total:
+            label = str(_br_lo) if _br_lo == max_total else f"{_br_lo}-{max_total}"
+            brackets_defs.append({"lo": _br_lo, "hi": max_total, "label": label})
+            break
+        brackets_defs.append({
+            "lo": _br_lo, "hi": _br_hi, "label": f"{_br_lo}-{_br_hi}"
+        })
+        _br_lo += _br_step
+    for _br in brackets_defs:
+        _br["test_count"] = sum(
+            1 for t in test_totals.values() if _br["lo"] <= t <= _br["hi"]
+        )
+
+    def _bracket_y(view: Dict[str, Any], br: Dict[str, Any]) -> List[int]:
+        labels = view["labels"]
+        by_bucket = {b: 0 for b in labels}
+        for name, total in test_totals.items():
+            if not (br["lo"] <= total <= br["hi"]):
+                continue
+            for b, c in view["per_test"].get(name, {}).items():
+                if b in by_bucket:
+                    by_bucket[b] += c
+        return [by_bucket[b] for b in labels]
+
+    # --- Resolved-tests chart: tests with no failures in the last K buckets ---
+    # A test is "resolved" if it had failures earlier in the window but stopped
+    # — quiet for the last K buckets. Each line shows its failure trajectory so
+    # the resolution point (where it hits zero) is visually obvious.
+    K_RESOLVED = 2
+
+    def _is_resolved(counts: Dict[str, int], labels: List[str]) -> bool:
+        if len(labels) < K_RESOLVED + 1:
+            return False
+        recent = labels[-K_RESOLVED:]
+        earlier = labels[:-K_RESOLVED]
+        if any(counts.get(b, 0) > 0 for b in recent):
+            return False
+        return any(counts.get(b, 0) > 0 for b in earlier)
+
+    resolved_per_view: Dict[str, List[str]] = {}
+    for view_name, view in views.items():
+        labels = view["labels"]
+        names = [
+            name for name in test_totals.keys()
+            if _is_resolved(view["per_test"].get(name, {}), labels)
+        ]
+        names.sort(key=lambda n: (-test_totals[n], n))
+        resolved_per_view[view_name] = names
+
+    all_resolved = sorted(
+        set().union(*resolved_per_view.values()),
+        key=lambda n: (-test_totals.get(n, 0), n),
+    )
+
+    resolved_fig = None
+    if all_resolved:
+        resolved_fig = go.Figure()
+        active_resolved_set = set(resolved_per_view.get(bucket, []))
+        # Reuse the main chart palette so the same test gets the same colour.
+        resolved_palette = [
+            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+            "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+            "#393b79", "#637939", "#8c6d31", "#843c39", "#7b4173",
+        ]
+        for i, name in enumerate(all_resolved):
+            counts = active_view["per_test"].get(name, {})
+            y_initial = [counts.get(b, 0) for b in bucket_labels]
+            total = test_totals.get(name, 0)
+            visible_initial = True if name in active_resolved_set else "legendonly"
+            resolved_fig.add_trace(go.Scatter(
+                x=bucket_anchors, y=y_initial,
+                mode="lines+markers",
+                name=f"{name}  ({total})",
+                line=dict(color=resolved_palette[i % len(resolved_palette)], width=2),
+                marker=dict(size=6),
+                visible=visible_initial,
+                hovertemplate=(
+                    f"<b>{name}</b><br>"
+                    "%{x|%Y-%m-%d}<br>"
+                    "Failures in bucket: %{y}<extra></extra>"
+                ),
+                meta={"kind": "resolved", "name": name},
+            ))
+        resolved_fig.update_layout(
+            title=dict(
+                text=(f"Resolved Tests — quiet for the last {K_RESOLVED} bucket"
+                      f"{'s' if K_RESOLVED != 1 else ''} (lines drop to zero "
+                      "when the test stops failing)"),
+                x=0.02, xanchor="left", font=dict(size=14),
+            ),
+            xaxis=dict(title=f"Bucket ({bucket})", type="date"),
+            yaxis=dict(title="Failures in bucket"),
+            height=440,
+            hovermode="closest",
+            margin=dict(l=60, r=260, t=60, b=50),
+            legend=dict(
+                orientation="v", yanchor="top", y=1.0,
+                xanchor="left", x=1.02, font=dict(size=10),
+                itemclick="toggle",
+                itemdoubleclick="toggleothers",
+            ),
+        )
+
+    # --- Crash-dump chart: dumps per bucket, split by whether the dump took a
+    # test down. "Failed + crash" = dumps named in a Failed test's teardown
+    # exception; "Passed + crash" = the remaining dumps in the build (a crash
+    # was detected but its test still passed / wasn't tied to a failure). The
+    # two sum to the build-level crashDumpCount. Both are drawn as lines.
+    crash_failed_pb = active_view["crash_failed_per_bucket"]
+    crash_passed_pb = active_view["crash_passed_per_bucket"]
+    crash_total_pb = active_view["crash_total_per_bucket"]
+    crash_grand_total = sum(crash_total_pb.values())
+
+    crash_fig = None
+    if crash_grand_total > 0:
+        crash_fig = go.Figure()
+        crash_fig.add_trace(go.Scatter(
+            x=bucket_anchors,
+            y=[crash_failed_pb.get(b, 0) for b in bucket_labels],
+            mode="lines+markers+text",
+            name="Failed + crash detected",
+            line=dict(color="#d62728", width=2),
+            marker=dict(size=8),
+            text=[str(crash_failed_pb.get(b, 0)) for b in bucket_labels],
+            textposition="bottom center",
+            hovertemplate=("<b>%{x|%Y-%m-%d}</b><br>"
+                           "Dumps on a failed test: %{y}<extra></extra>"),
+            meta={"kind": "crash_failed"},
+        ))
+        crash_fig.add_trace(go.Scatter(
+            x=bucket_anchors,
+            y=[crash_passed_pb.get(b, 0) for b in bucket_labels],
+            mode="lines+markers+text",
+            name="Passed + crash detected",
+            line=dict(color="#ff7f0e", width=2),
+            marker=dict(size=8),
+            text=[str(crash_passed_pb.get(b, 0)) for b in bucket_labels],
+            textposition="top center",
+            hovertemplate=("<b>%{x|%Y-%m-%d}</b><br>"
+                           "Dumps without a failed test: %{y}<extra></extra>"),
+            meta={"kind": "crash_passed"},
+        ))
+        crash_fig.update_layout(
+            title=dict(
+                text=("Crash Dumps per Bucket — red took a test down, "
+                      "orange were detected while the test still passed"),
+                x=0.02, xanchor="left", font=dict(size=14),
+            ),
+            xaxis=dict(title=f"Bucket ({bucket})", type="date"),
+            yaxis=dict(title="Crash dumps in bucket"),
+            height=420,
+            hovermode="x unified",
+            margin=dict(l=60, r=260, t=60, b=50),
+            legend=dict(
+                orientation="v", yanchor="top", y=1.0,
+                xanchor="left", x=1.02, font=dict(size=10),
+                itemclick="toggle",
+                itemdoubleclick="toggleothers",
+            ),
+        )
+
+    br_fig = None
+    if brackets_defs:
+        br_fig = go.Figure()
+        # Sequential palette: pale → deep red as failure count rises.
+        br_palette = [
+            "#fee08b", "#fdae61", "#f46d43", "#d73027", "#a50026",
+            "#7f0000", "#4d0000", "#2c0000",
+        ]
+        for i, br in enumerate(brackets_defs):
+            br_fig.add_trace(go.Scatter(
+                x=bucket_anchors,
+                y=_bracket_y(active_view, br),
+                mode="lines+markers",
+                name=f"{br['label']} fails  ({br['test_count']} tests)",
+                line=dict(color=br_palette[i % len(br_palette)], width=2),
+                marker=dict(size=7),
+                hovertemplate=(
+                    f"<b>{br['label']} failure bracket</b><br>"
+                    "%{x|%Y-%m-%d}<br>"
+                    "Failures from bracket: %{y}<extra></extra>"
+                ),
+                meta={"kind": "bracket", "idx": i,
+                      "lo": br["lo"], "hi": br["hi"]},
+            ))
+        br_fig.update_layout(
+            title=dict(
+                text="Failures by Test Failure-Count Bracket (mirrors filters above)",
+                x=0.02, xanchor="left", font=dict(size=14),
+            ),
+            xaxis=dict(title=f"Bucket ({bucket})", type="date"),
+            yaxis=dict(title="Total failures from bracket"),
+            height=420,
+            hovermode="x unified",
+            margin=dict(l=60, r=260, t=60, b=50),
+            legend=dict(
+                orientation="v", yanchor="top", y=1.0,
+                xanchor="left", x=1.02, font=dict(size=10),
+                itemclick="toggle",
+                itemdoubleclick="toggleothers",
+            ),
+        )
+
+    # Friendly display labels for the bucket buttons.
+    #   month: "2026-04"   → "Apr 2026"
+    #   week:  "2026-04-26" (the Sunday) → "Sun Apr 26 — Sat May 2"
+    #   day:   "2026-04-26"                → "Sun Apr 26"
+    def _pretty_bucket(label: str, bucket_kind: str) -> str:
+        if bucket_kind == "month":
+            try:
+                return datetime.strptime(label + "-01", "%Y-%m-%d").strftime("%b %Y")
+            except ValueError:
+                return label
+        if bucket_kind == "day":
+            try:
+                return datetime.strptime(label, "%Y-%m-%d").strftime("%a %b %d")
+            except ValueError:
+                return label
+        try:
+            sun = datetime.strptime(label, "%Y-%m-%d")
+            sat = sun + timedelta(days=6)
+            return f"{sun.strftime('%b %d')} – {sat.strftime('%b %d')}"
+        except ValueError:
+            return label
+
+    import json as _json
+
+    def _view_payload(view: Dict[str, Any]) -> Dict[str, Any]:
+        labels = view["labels"]
+        bk = view["bucket"]
+        return {
+            "bucket": bk,
+            "labels": labels,
+            "anchors_iso": view["anchors_iso"],
+            "displays": [_pretty_bucket(b, bk) for b in labels],
+            # Per-bucket counts for EVERY qualifying test (post --min-failures),
+            # keyed by test name. The bracket chart needs the long tail too, not
+            # just the top-N traces shown in the main chart.
+            "perTest": {
+                name: view["per_test"].get(name, {}) for name in test_totals.keys()
+            },
+            "uniquePerBucket": view["unique_per_bucket"],
+            "otherPerBucket": view["other_per_bucket"],
+            "otherUniquePerBucket": view["other_unique_per_bucket"],
+            "resolvedTests": resolved_per_view.get(bk, []),
+            "crashFailedPerBucket": view["crash_failed_per_bucket"],
+            "crashPassedPerBucket": view["crash_passed_per_bucket"],
+            "crashTotalPerBucket": view["crash_total_per_bucket"],
+        }
+
+    views_payload = {k: _view_payload(v) for k, v in views.items()}
+    top_test_names_list = list(top_test_names)
+    test_totals_payload = dict(test_totals)
+    brackets_payload = brackets_defs
+
+    # ---- Metadata header (definition + filters) shown at top of report ----
+    # Each entry is (label, value); rendered as a compact grid. Keep it factual
+    # so the reader can answer "what am I looking at, and what's been excluded?"
+    from html import escape as _html_escape
+
+    def _esc(v: Any) -> str:
+        return _html_escape(str(v))
+
+    _date_start = results[0]["date"].strftime("%Y-%m-%d")
+    _date_end = results[-1]["date"].strftime("%Y-%m-%d")
+    _min_fail_desc = (
+        f"≥ {min_failures} failures across the window"
+        if min_failures > 1 else "any test that failed at least once"
+    )
+    _top_desc = f"top {top_n} shown individually, rest in 'Other'" if top_n else "no cap"
+    _fr_pct = f"{max_failure_rate * 100:.0f}"
+    if max_failure_rate < 1.0:
+        _flaky_def_html = (
+            f"any test failing in <em>some but not all</em> runs — specifically, "
+            f"tests with <code>failures / total_runs &lt; {_fr_pct}%</code>. "
+            f"Tests failing at or above that rate are treated as "
+            "<strong>consistently broken</strong> and excluded."
+        )
+        _broken_desc = (
+            f"&lt; {_fr_pct}% failure rate "
+            f"(dropped {len(dropped_broken_names)} consistently-broken test"
+            f"{'s' if len(dropped_broken_names) != 1 else ''})"
+        )
+    else:
+        _flaky_def_html = (
+            "any test reported with outcome <code>Failed</code> in at least one "
+            "run — <strong>does not</strong> distinguish intermittent flakes from "
+            "consistently-broken tests (max-failure-rate filter is disabled)"
+        )
+        _broken_desc = "disabled (<code>--max-failure-rate 1.0</code>)"
+    if min_pass_rate > 0:
+        _min_pass_desc = (
+            f"only runs with overall pass rate ≥ {min_pass_rate * 100:.1f}% "
+            "(low-pass runs treated as infrastructure failures / partial runs and excluded)"
+        )
+    else:
+        _min_pass_desc = "disabled (<code>--min-pass-rate 0</code>) — all runs included"
+    if exclude_prefixes:
+        _prefixes_html = ", ".join(f"<code>{_esc(p)}</code>" for p in exclude_prefixes)
+        _exclude_desc = (
+            f"{_prefixes_html} "
+            f"(dropped {len(excluded_by_prefix)} test"
+            f"{'s' if len(excluded_by_prefix) != 1 else ''})"
+        )
+    else:
+        _exclude_desc = "none"
+    if exclude_suite_substrings:
+        _suite_html = ", ".join(
+            f"<code>{_esc(s)}</code>" for s in exclude_suite_substrings
+        )
+        _suite_desc = (
+            f"{_suite_html} "
+            f"(dropped {dropped_suite_occurrences} failure occurrence"
+            f"{'s' if dropped_suite_occurrences != 1 else ''}"
+            f"; {dropped_suite_tests} test"
+            f"{'s' if dropped_suite_tests != 1 else ''} entirely)"
+        )
+    else:
+        _suite_desc = "none"
+    meta_rows = [
+        ("Source",
+         f"{_esc(conn.repo)} / {_esc(conn.branch)} / "
+         f"workflow “{_esc(conn.workflow)}”"),
+        ("Date range",
+         f"{_esc(_date_start)} → {_esc(_date_end)} "
+         f"({len(results)} runs over {_esc(duration_label)})"),
+        ("Bucket", _esc(bucket) + " (toggleable in UI)"),
+        ("Run pass-rate filter", _min_pass_desc),
+        ("Suite exclusions", _suite_desc),
+        ("Name-prefix exclusions", _exclude_desc),
+        ("Flaky-test definition", _flaky_def_html),
+        ("Max failure-rate filter", _broken_desc),
+        ("Minimum failures filter",
+         _esc(_min_fail_desc)
+         + (f" (dropped {original_test_count - len(test_totals) - len(dropped_broken_names) - len(excluded_by_prefix)}"
+            f" tests below threshold)" if min_failures > 1 else "")),
+        ("Per-test cap (--top)",
+         _esc(_top_desc)
+         + f"; {len(top_test_names)} individual traces"
+         + (f" + {len(other_test_names)} rolled into Other" if other_test_names else "")),
+        ("Total qualifying tests",
+         f"{len(test_totals)} (of {original_test_count} that ever failed)"),
+    ]
+    meta_html_rows = "".join(
+        f'<dt>{_esc(label)}</dt><dd>{value}</dd>' for label, value in meta_rows
+    )
+    meta_html = (
+        '<details class="meta-panel" open>'
+        '<summary>Report parameters &amp; definitions</summary>'
+        f'<dl class="meta-grid">{meta_html_rows}</dl>'
+        '</details>'
+    )
+
+    # Wrap the chart in custom HTML that adds a search/filter input, bucket-filter
+    # buttons, and bulk show/hide buttons. The legend's per-item click/double-click
+    # still works; this just adds bulk selection across many tests at once.
+    plot_div = fig.to_html(
+        include_plotlyjs="cdn",
+        full_html=False,
+        div_id="chart",
+        config={"displaylogo": False, "responsive": True},
+    )
+    bracket_div = ""
+    if br_fig is not None:
+        bracket_div = br_fig.to_html(
+            include_plotlyjs=False,  # Already loaded by the main chart.
+            full_html=False,
+            div_id="chart-brackets",
+            config={"displaylogo": False, "responsive": True},
+        )
+
+    resolved_div = ""
+    if resolved_fig is not None:
+        resolved_div = resolved_fig.to_html(
+            include_plotlyjs=False,
+            full_html=False,
+            div_id="chart-resolved",
+            config={"displaylogo": False, "responsive": True},
+        )
+
+    crash_div = ""
+    if crash_fig is not None:
+        crash_div = crash_fig.to_html(
+            include_plotlyjs=False,
+            full_html=False,
+            div_id="chart-crashes",
+            config={"displaylogo": False, "responsive": True},
+        )
+
+    html_doc = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Regression Trend</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         margin: 0; padding: 12px 16px; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+              margin-bottom: 8px; }
+  .controls input { flex: 1 1 320px; max-width: 480px; padding: 6px 10px;
+                    font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+  .controls button { padding: 6px 12px; font-size: 14px; cursor: pointer;
+                     border: 1px solid #ccc; background: #f6f6f6; border-radius: 4px; }
+  .controls button:hover { background: #e8e8e8; }
+  .controls .stats { color: #555; font-size: 13px; margin-left: auto; }
+  .bucket-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+                margin-bottom: 8px; }
+  .bucket-row .label { color: #555; font-size: 13px; margin-right: 4px; }
+  .bucket-btn { padding: 4px 10px; font-size: 13px; cursor: pointer;
+                border: 1px solid #ccc; background: #f6f6f6; border-radius: 4px;
+                color: #333; }
+  .bucket-btn:hover { background: #e8e8e8; }
+  .bucket-btn.active { background: #2c7be5; border-color: #2c7be5; color: #fff; }
+  .view-toggle { margin-left: 8px; }
+  .view-toggle .vt-btn { padding: 4px 12px; font-size: 13px; cursor: pointer;
+                         border: 1px solid #ccc; background: #f6f6f6;
+                         border-radius: 0; color: #333; }
+  .view-toggle .vt-btn:first-child { border-radius: 4px 0 0 4px; }
+  .view-toggle .vt-btn:not(:first-child) { border-left: none; }
+  .view-toggle .vt-btn:last-child { border-radius: 0 4px 4px 0; }
+  .view-toggle .vt-btn.active { background: #2c7be5; border-color: #2c7be5; color: #fff; }
+  .hint { color: #777; font-size: 12px; margin: 0 0 8px 2px; }
+  .meta-panel { border: 1px solid #d6d6d6; border-radius: 6px; padding: 8px 14px;
+                margin: 0 0 12px 0; background: #fafbfc; font-size: 13px; }
+  .meta-panel summary { font-weight: 600; color: #333; cursor: pointer;
+                        padding: 2px 0; }
+  .meta-panel summary:hover { color: #2c7be5; }
+  .meta-grid { display: grid;
+               grid-template-columns: max-content 1fr;
+               column-gap: 14px; row-gap: 4px;
+               margin: 8px 0 4px; }
+  .meta-grid dt { color: #555; font-weight: 600; }
+  .meta-grid dd { margin: 0; color: #222; }
+  .meta-grid code { background: #ececec; padding: 1px 5px; border-radius: 3px;
+                    font-size: 12px; }
+</style>
+</head>
+<body>
+__META_PANEL__
+<div class="controls">
+  <input type="text" id="test-search"
+         placeholder="Filter tests by substring (e.g. 'Policy', 'Audit', 'Install')..."
+         oninput="applyFilter()">
+  <button onclick="showOnlyMatching()">Show only matching</button>
+  <button onclick="showAll()">Show all</button>
+  <button onclick="hideAll()">Hide all</button>
+  <button onclick="hideOther()">Hide Other</button>
+  <button onclick="showOther()">Show Other</button>
+  <button onclick="hideSingletons()">Hide singletons</button>
+  <span class="stats" id="stats"></span>
+</div>
+<div class="bucket-row" id="bucket-row">
+  <span class="label">Failed in:</span>
+  <!-- bucket buttons rendered by JS -->
+  <button class="bucket-btn" onclick="clearBuckets()" id="bucket-clear">All buckets</button>
+  <span class="view-toggle">
+    <button class="vt-btn" id="vt-day" onclick="switchView('day')">Day</button>
+    <button class="vt-btn" id="vt-week" onclick="switchView('week')">Week</button>
+    <button class="vt-btn" id="vt-month" onclick="switchView('month')">Month</button>
+  </span>
+</div>
+<p class="hint">Tip: click a single test in the legend to toggle it, double-click to isolate it. Bucket buttons filter to tests with failures in ANY selected bucket (combined with the text filter using AND). The "Other" rollup and the unique-count line are unaffected.</p>
+__PLOT_DIV__
+__CRASH_DIV__
+__BRACKET_DIV__
+__RESOLVED_DIV__
+<script>
+  const VIEWS = __VIEWS_PAYLOAD__;
+  const BRACKETS = __BRACKETS_PAYLOAD__;
+  const TEST_TOTALS = __TEST_TOTALS__;
+  const TOP_TEST_NAMES = new Set(__TOP_TEST_NAMES__);
+  let topNameTraceIdx = null;
+  let currentView = __INITIAL_VIEW__;
+  let BUCKETS = VIEWS[currentView].labels.map((label, i) => ({
+    label, display: VIEWS[currentView].displays[i]
+  }));
+  const activeBuckets = new Set();
+
+  function renderBucketButtons() {
+    const row = document.getElementById('bucket-row');
+    const clearBtn = document.getElementById('bucket-clear');
+    // Remove existing bucket buttons (except the clear button and view toggle).
+    row.querySelectorAll('button.bucket-btn').forEach(b => {
+      if (b.id !== 'bucket-clear') b.remove();
+    });
+    BUCKETS.forEach(b => {
+      const btn = document.createElement('button');
+      btn.className = 'bucket-btn';
+      btn.textContent = b.display;
+      btn.dataset.bucket = b.label;
+      btn.onclick = () => toggleBucket(b.label, btn);
+      row.insertBefore(btn, clearBtn);
+    });
+  }
+
+  function switchView(viewName) {
+    if (viewName === currentView || !VIEWS[viewName]) return;
+    currentView = viewName;
+    const v = VIEWS[viewName];
+    BUCKETS = v.labels.map((label, i) => ({ label, display: v.displays[i] }));
+    activeBuckets.clear();
+
+    const gd = document.getElementById('chart');
+    const xVals = v.anchors_iso;
+
+    // Batch all per-test updates into one Plotly.restyle call. With many
+    // traces, per-trace restyles trigger N redraws — batched is N-times faster.
+    const testIdxs = [];
+    const testY = [];
+    const testMeta = [];
+    let otherIdx = -1, uniqueIdx = -1, filteredIdx = -1, flakyTrendIdx = -1;
+    for (let i = 0; i < gd.data.length; i++) {
+      const m = gd.data[i].meta;
+      if (!m || !m.kind) continue;
+      if (m.kind === 'test') {
+        const counts = v.perTest[m.name] || {};
+        const y = v.labels.map(l => counts[l] || 0);
+        const buckets = v.labels.filter(l => (counts[l] || 0) > 0);
+        testIdxs.push(i);
+        testY.push(y);
+        testMeta.push({ kind: 'test', name: m.name, buckets, total: m.total });
+      } else if (m.kind === 'other') {
+        otherIdx = i;
+      } else if (m.kind === 'unique_line') {
+        uniqueIdx = i;
+      } else if (m.kind === 'filtered_line') {
+        filteredIdx = i;
+      } else if (m.kind === 'flaky_trend_line') {
+        flakyTrendIdx = i;
+      }
+    }
+    if (testIdxs.length) {
+      // x is the same for every test trace; Plotly broadcasts a single x array
+      // across all trace indices when only one entry is supplied.
+      Plotly.restyle(gd, { x: [xVals], y: testY, meta: testMeta }, testIdxs);
+    }
+    if (otherIdx >= 0) {
+      const y = v.labels.map(l => v.otherPerBucket[l] || 0);
+      Plotly.restyle(gd, { x: [xVals], y: [y] }, [otherIdx]);
+    }
+    if (uniqueIdx >= 0) {
+      const y = v.labels.map(l => v.uniquePerBucket[l] || 0);
+      Plotly.restyle(gd, { x: [xVals], y: [y], text: [y.map(String)] }, [uniqueIdx]);
+    }
+    if (filteredIdx >= 0) {
+      // y is recomputed below by updateFilteredLine via onFilterChanged.
+      Plotly.restyle(gd, { x: [xVals] }, [filteredIdx]);
+    }
+    if (flakyTrendIdx >= 0) {
+      // y is recomputed by updateFlakyTrendLine (chained off updateUniqueLine).
+      Plotly.restyle(gd, { x: [xVals] }, [flakyTrendIdx]);
+    }
+
+    // Update subplot title and row-2 x-axis title.
+    const titlePrefix = 'Flaky Tests per ';
+    const viewLabel = viewName === 'day' ? 'Day'
+                    : viewName === 'week' ? 'Week'
+                    : 'Month';
+    const newSubTitle = titlePrefix + viewLabel
+      + ' — click test names in the legend to filter';
+    const annotations = (gd.layout.annotations || []).map(a => {
+      if (a && typeof a.text === 'string' && a.text.startsWith(titlePrefix)) {
+        return Object.assign({}, a, { text: newSubTitle });
+      }
+      return a;
+    });
+    Plotly.relayout(gd, {
+      annotations,
+      'xaxis2.title.text': 'Bucket (' + viewName + ')',
+    });
+
+    // Bracket chart shares the bucket x-axis; switch its x values + axis title.
+    const gdBr = document.getElementById('chart-brackets');
+    if (gdBr && gdBr.data && BRACKETS && BRACKETS.length) {
+      const idxs = BRACKETS.map((_, i) => i);
+      Plotly.restyle(gdBr, { x: idxs.map(() => xVals) }, idxs);
+      Plotly.relayout(gdBr, { 'xaxis.title.text': 'Bucket (' + viewName + ')' });
+    }
+
+    // Resolved chart: rebuild y values + visibility from the new view's data.
+    const gdRes = document.getElementById('chart-resolved');
+    if (gdRes && gdRes.data && gdRes.data.length) {
+      const resolvedSet = new Set(v.resolvedTests || []);
+      const resIdxs = [];
+      const resX = [];
+      const resY = [];
+      const resVis = [];
+      for (let i = 0; i < gdRes.data.length; i++) {
+        const m = gdRes.data[i].meta;
+        if (!m || m.kind !== 'resolved') continue;
+        const counts = v.perTest[m.name] || {};
+        resIdxs.push(i);
+        resX.push(xVals);
+        resY.push(v.labels.map(l => counts[l] || 0));
+        resVis.push(resolvedSet.has(m.name) ? true : 'legendonly');
+      }
+      if (resIdxs.length) {
+        Plotly.restyle(gdRes, { x: resX, y: resY, visible: resVis }, resIdxs);
+        Plotly.relayout(gdRes, { 'xaxis.title.text': 'Bucket (' + viewName + ')' });
+      }
+    }
+
+    // Crash chart: rebuild the failed/passed/total series for the new view.
+    const gdCr = document.getElementById('chart-crashes');
+    if (gdCr && gdCr.data && gdCr.data.length) {
+      const crIdxs = [];
+      const crX = [];
+      const crY = [];
+      const crText = [];
+      for (let i = 0; i < gdCr.data.length; i++) {
+        const m = gdCr.data[i].meta;
+        if (!m || !m.kind) continue;
+        let src = null;
+        if (m.kind === 'crash_failed') src = v.crashFailedPerBucket;
+        else if (m.kind === 'crash_passed') src = v.crashPassedPerBucket;
+        if (!src) continue;
+        const y = v.labels.map(l => src[l] || 0);
+        crIdxs.push(i);
+        crX.push(xVals);
+        crY.push(y);
+        crText.push(y.map(String));
+      }
+      if (crIdxs.length) {
+        Plotly.restyle(gdCr, { x: crX, y: crY, text: crText }, crIdxs);
+        Plotly.relayout(gdCr, { 'xaxis.title.text': 'Bucket (' + viewName + ')' });
+      }
+    }
+
+    renderBucketButtons();
+    updateViewToggleButtons();
+    onFilterChanged();
+  }
+
+  function updateViewToggleButtons() {
+    document.getElementById('vt-day').classList.toggle('active', currentView === 'day');
+    document.getElementById('vt-week').classList.toggle('active', currentView === 'week');
+    document.getElementById('vt-month').classList.toggle('active', currentView === 'month');
+  }
+
+  function toggleBucket(label, btn) {
+    if (activeBuckets.has(label)) {
+      activeBuckets.delete(label);
+      btn.classList.remove('active');
+    } else {
+      activeBuckets.add(label);
+      btn.classList.add('active');
+    }
+    applyFilter();
+  }
+
+  function clearBuckets() {
+    activeBuckets.clear();
+    document.querySelectorAll('.bucket-btn.active').forEach(b => b.classList.remove('active'));
+    applyFilter();
+  }
+
+  function testIndices() {
+    const gd = document.getElementById('chart');
+    const idx = [];
+    for (let i = 0; i < gd.data.length; i++) {
+      const m = gd.data[i].meta;
+      if (m && m.kind === 'test') idx.push(i);
+    }
+    return idx;
+  }
+
+  function setVisibility(visArray) {
+    const gd = document.getElementById('chart');
+    const idx = testIndices();
+    Plotly.restyle(gd, { visible: visArray }, idx);
+    onFilterChanged();
+  }
+
+  function applyFilter() {
+    const q = document.getElementById('test-search').value.trim().toLowerCase();
+    const gd = document.getElementById('chart');
+    const idx = testIndices();
+    const useBuckets = activeBuckets.size > 0;
+    const vis = idx.map(i => {
+      const trace = gd.data[i];
+      // Text filter (AND).
+      if (q !== '') {
+        const name = (trace.name || '').toLowerCase();
+        if (!name.includes(q)) return 'legendonly';
+      }
+      // Bucket filter (AND across the test-set; OR within active buckets).
+      if (useBuckets) {
+        const tBuckets = (trace.meta && trace.meta.buckets) || [];
+        const hit = tBuckets.some(b => activeBuckets.has(b));
+        if (!hit) return 'legendonly';
+      }
+      return true;
+    });
+    Plotly.restyle(gd, { visible: vis }, idx);
+    onFilterChanged();
+  }
+
+  function showOnlyMatching() { applyFilter(); }
+
+  function showAll() {
+    document.getElementById('test-search').value = '';
+    clearBuckets();
+    const gd = document.getElementById('chart');
+    const idx = testIndices();
+    Plotly.restyle(gd, { visible: idx.map(() => true) }, idx);
+    // Also un-hide Other so this is a true "show everything" reset.
+    setOtherVisibility(true);
+    // Defer for the same reason as hideOther/showOther.
+    setTimeout(onFilterChanged, 0);
+  }
+
+  function hideAll() {
+    const idx = testIndices();
+    setVisibility(idx.map(() => 'legendonly'));
+  }
+
+  function hideSingletons() {
+    // Hide tests that failed exactly once across the full date range.
+    // Touches singletons only; leaves the visibility of other traces alone.
+    const gd = document.getElementById('chart');
+    const singletonIdx = testIndices().filter(i => {
+      const m = gd.data[i].meta;
+      return m && m.total === 1;
+    });
+    if (singletonIdx.length === 0) return;
+    Plotly.restyle(gd, { visible: singletonIdx.map(() => 'legendonly') }, singletonIdx);
+    setTimeout(onFilterChanged, 0);
+  }
+
+  function setOtherVisibility(visible) {
+    const gd = document.getElementById('chart');
+    for (let i = 0; i < gd.data.length; i++) {
+      const m = gd.data[i].meta;
+      if (m && m.kind === 'other') {
+        Plotly.restyle(gd, { visible: visible ? true : 'legendonly' }, [i]);
+        return;
+      }
+    }
+  }
+
+  function hideOther() {
+    setOtherVisibility(false);
+    // Defer so Plotly.restyle has finished propagating before we read
+    // gd.data[i].visible in isOtherVisible() inside onFilterChanged.
+    setTimeout(onFilterChanged, 0);
+  }
+
+  function showOther() {
+    setOtherVisibility(true);
+    setTimeout(onFilterChanged, 0);
+  }
+
+  function findTraceByKind(kind) {
+    const gd = document.getElementById('chart');
+    for (let i = 0; i < gd.data.length; i++) {
+      const m = gd.data[i].meta;
+      if (m && m.kind === kind) return i;
+    }
+    return -1;
+  }
+
+  function isOtherVisible() {
+    const gd = document.getElementById('chart');
+    for (let i = 0; i < gd.data.length; i++) {
+      const m = gd.data[i].meta;
+      if (m && m.kind === 'other') {
+        const v = gd.data[i].visible;
+        return v === true || v === undefined;
+      }
+    }
+    return false;  // No Other trace exists.
+  }
+
+  function updateUniqueLine() {
+    const gd = document.getElementById('chart');
+    const idx = findTraceByKind('unique_line');
+    if (idx < 0) return;
+    const v = VIEWS[currentView];
+    const otherVisible = isOtherVisible();
+    const yValues = v.labels.map(label => {
+      const base = v.uniquePerBucket[label] || 0;
+      const otherUnique = (v.otherUniquePerBucket || {})[label] || 0;
+      return otherVisible ? base : Math.max(0, base - otherUnique);
+    });
+    Plotly.restyle(gd, { y: [yValues], text: [yValues.map(String)] }, [idx]);
+    // Follow the unique line with the flaky-test trend.
+    updateFlakyTrendLine(yValues);
+  }
+
+  function computeTrendY(yValues) {
+    const n = yValues.length;
+    if (n < 2) return yValues.slice();
+    const meanX = (n - 1) / 2;
+    const meanY = yValues.reduce((a, b) => a + b, 0) / n;
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = i - meanX;
+      num += dx * (yValues[i] - meanY);
+      den += dx * dx;
+    }
+    if (den === 0) return yValues.slice();
+    const slope = num / den;
+    const intercept = meanY - slope * meanX;
+    return Array.from({ length: n }, (_, i) => slope * i + intercept);
+  }
+
+  function updateFlakyTrendLine(yValues) {
+    const gd = document.getElementById('chart');
+    const idx = findTraceByKind('flaky_trend_line');
+    if (idx < 0) return;
+    Plotly.restyle(gd, { y: [computeTrendY(yValues)] }, [idx]);
+  }
+
+  function updateFilteredLine() {
+    const gd = document.getElementById('chart');
+    const filteredIdx = findTraceByKind('filtered_line');
+    if (filteredIdx < 0) return;
+    // Per-bucket count of currently-visible per-test traces that had failures there.
+    const counts = {};
+    for (const b of BUCKETS) counts[b.label] = 0;
+    const idx = testIndices();
+    for (const i of idx) {
+      const v = gd.data[i].visible;
+      const isVisible = (v === true || v === undefined);
+      if (!isVisible) continue;
+      const tBuckets = (gd.data[i].meta && gd.data[i].meta.buckets) || [];
+      for (const b of tBuckets) {
+        if (counts[b] !== undefined) counts[b]++;
+      }
+    }
+    const yValues = BUCKETS.map(b => counts[b.label] || 0);
+    const labels = yValues.map(v => String(v));
+    Plotly.restyle(gd, { y: [yValues], text: [labels] }, [filteredIdx]);
+  }
+
+  function updateStats() {
+    const gd = document.getElementById('chart');
+    const idx = testIndices();
+    let visible = 0;
+    for (const i of idx) {
+      const v = gd.data[i].visible;
+      if (v === true || v === undefined) visible++;
+    }
+    document.getElementById('stats').textContent =
+      'Showing ' + visible + ' / ' + idx.length + ' tests';
+  }
+
+  function buildTopNameMap() {
+    const gd = document.getElementById('chart');
+    topNameTraceIdx = {};
+    for (let i = 0; i < gd.data.length; i++) {
+      const m = gd.data[i].meta;
+      if (m && m.kind === 'test') topNameTraceIdx[m.name] = i;
+    }
+  }
+
+  function isTestVisible(name) {
+    if (topNameTraceIdx === null) buildTopNameMap();
+    const idx = topNameTraceIdx[name];
+    if (idx !== undefined) {
+      const v = document.getElementById('chart').data[idx].visible;
+      return v === true || v === undefined;
+    }
+    // Tail test (not in top-N) — inherits Other rollup visibility.
+    return isOtherVisible();
+  }
+
+  function updateBracketChart() {
+    if (!BRACKETS || BRACKETS.length === 0) return;
+    const gdBr = document.getElementById('chart-brackets');
+    if (!gdBr || !gdBr.data) return;
+    const v = VIEWS[currentView];
+    const yArrays = BRACKETS.map(() => v.labels.map(() => 0));
+    for (const name in v.perTest) {
+      if (!isTestVisible(name)) continue;
+      const total = TEST_TOTALS[name];
+      if (total === undefined) continue;
+      let bi = -1;
+      for (let i = 0; i < BRACKETS.length; i++) {
+        if (BRACKETS[i].lo <= total && total <= BRACKETS[i].hi) {
+          bi = i;
+          break;
+        }
+      }
+      if (bi < 0) continue;
+      const counts = v.perTest[name];
+      for (let i = 0; i < v.labels.length; i++) {
+        yArrays[bi][i] += counts[v.labels[i]] || 0;
+      }
+    }
+    const idxs = BRACKETS.map((_, i) => i);
+    Plotly.restyle(gdBr, { y: yArrays }, idxs);
+  }
+
+  function onFilterChanged() {
+    updateStats();
+    updateFilteredLine();
+    updateUniqueLine();
+    updateBracketChart();
+  }
+
+  renderBucketButtons();
+  updateViewToggleButtons();
+  // Initial render + listen for Plotly legend clicks so the filtered line and
+  // counter stay in sync when the user toggles tests via the legend. Do NOT
+  // listen to plotly_restyle — our own updateFilteredLine() calls Plotly.restyle
+  // and would recurse infinitely.
+  setTimeout(() => {
+    const gd = document.getElementById('chart');
+    onFilterChanged();
+    if (gd && gd.on) {
+      // setTimeout(...,0) defers until after Plotly applies the toggle so the
+      // visibility state we read is fresh.
+      gd.on('plotly_legendclick', () => { setTimeout(onFilterChanged, 0); });
+      gd.on('plotly_legenddoubleclick', () => { setTimeout(onFilterChanged, 0); });
+    }
+  }, 50);
+</script>
+</body>
+</html>
+"""
+    html_doc = html_doc.replace("__META_PANEL__", meta_html)
+    html_doc = html_doc.replace("__PLOT_DIV__", plot_div)
+    html_doc = html_doc.replace("__BRACKET_DIV__", bracket_div)
+    html_doc = html_doc.replace("__RESOLVED_DIV__", resolved_div)
+    html_doc = html_doc.replace("__CRASH_DIV__", crash_div)
+    html_doc = html_doc.replace("__VIEWS_PAYLOAD__", _json.dumps(views_payload))
+    html_doc = html_doc.replace("__INITIAL_VIEW__", _json.dumps(bucket))
+    html_doc = html_doc.replace("__BRACKETS_PAYLOAD__", _json.dumps(brackets_payload))
+    html_doc = html_doc.replace("__TEST_TOTALS__", _json.dumps(test_totals_payload))
+    html_doc = html_doc.replace("__TOP_TEST_NAMES__", _json.dumps(top_test_names_list))
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(html_doc)
+    print(f"Interactive report saved to {output_path}", file=sys.stderr)
+    print(f"  Buckets:           {len(bucket_labels)} ({bucket})", file=sys.stderr)
+    filter_notes = []
+    if exclude_suite_substrings and (dropped_suite_occurrences or dropped_suite_tests):
+        suite_list = ", ".join(exclude_suite_substrings)
+        filter_notes.append(
+            f"dropped {dropped_suite_occurrences} failure(s) "
+            f"({dropped_suite_tests} tests) matching --exclude-suite [{suite_list}]"
+        )
+    if exclude_prefixes and excluded_by_prefix:
+        prefix_list = ", ".join(exclude_prefixes)
+        filter_notes.append(
+            f"dropped {len(excluded_by_prefix)} matching --exclude-prefix [{prefix_list}]"
+        )
+    if max_failure_rate < 1.0 and dropped_broken_names:
+        filter_notes.append(
+            f"dropped {len(dropped_broken_names)} consistently-broken "
+            f"(>= {max_failure_rate*100:.0f}% failure rate)"
+        )
+    if min_failures > 1:
+        dropped_min = (
+            original_test_count - len(tests_ranked)
+            - len(dropped_broken_names) - len(excluded_by_prefix)
+        )
+        filter_notes.append(f"dropped {dropped_min} below {min_failures}-failure threshold")
+    if filter_notes:
+        print(f"  Unique flaky tests: {len(tests_ranked)} "
+              f"({'; '.join(filter_notes)})", file=sys.stderr)
+    else:
+        print(f"  Unique flaky tests: {len(tests_ranked)}", file=sys.stderr)
+    if other_tests:
+        print(f"  Shown individually: {len(top_tests)} (top {top_n}); "
+              f"{len(other_tests)} rolled into 'Other'", file=sys.stderr)
+
+
 def display_results(results: List[Dict[str, Any]]) -> None:
     """Print numbered list of runs with pass/fail data for user review."""
-    print(f"\nFound {len(results)} nightly run(s):\n", file=sys.stderr)
-    print(f"  {'#':<4} {'Date':<12} {'Pass%':>6} {'Passed':>7} {'Failed':>7} {'Total':>7}", file=sys.stderr)
-    print(f"  {'---':<4} {'----------':<12} {'-----':>6} {'------':>7} {'------':>7} {'-----':>7}", file=sys.stderr)
+    print(f"\nFound {len(results)} run(s):\n", file=sys.stderr)
+    print(f"  {'#':<4} {'Date':<12} {'Pass%':>6} {'Passed':>7} {'Failed':>7} {'Total':>7}",
+          file=sys.stderr)
+    print(f"  {'---':<4} {'----------':<12} {'-----':>6} {'------':>7} {'------':>7} {'-----':>7}",
+          file=sys.stderr)
     for i, r in enumerate(results, 1):
-        date_str = r['date'].strftime('%Y-%m-%d')
+        date_str = r["date"].strftime("%Y-%m-%d")
         print(f"  {i:<4} {date_str:<12} {r['pass_pct']:>5.1f}% {r['passed']:>7} "
               f"{r['failed']:>7} {r['total']:>7}", file=sys.stderr)
     print(file=sys.stderr)
@@ -450,12 +1823,17 @@ def display_results(results: List[Dict[str, Any]]) -> None:
 
 def prompt_omit(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Prompt user to omit runs by number. Returns filtered list."""
-    response = input("Runs to omit (e.g. 2,5 or blank for none): ").strip()
+    try:
+        response = input("Runs to omit (e.g. 2,5 or blank for none): ").strip()
+    except EOFError:
+        # Non-interactive shell — treat as "no omissions".
+        print("(no stdin — keeping all runs)", file=sys.stderr)
+        return results
     if not response:
         return results
 
     omit_indices = set()
-    for part in response.split(','):
+    for part in response.split(","):
         part = part.strip()
         if part.isdigit():
             idx = int(part)
@@ -467,33 +1845,116 @@ def prompt_omit(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     filtered = [r for i, r in enumerate(results, 1) if i not in omit_indices]
     omitted_count = len(results) - len(filtered)
     if omitted_count:
-        print(f"  Omitted {omitted_count} run(s), {len(filtered)} remaining.\n", file=sys.stderr)
+        print(f"  Omitted {omitted_count} run(s), {len(filtered)} remaining.\n",
+              file=sys.stderr)
     return filtered
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Graph nightly RunRegression pass rates"
+        description="Graph nightly Run Regression pass rates from portal.btrusteng.com"
     )
-    parser.add_argument('output', nargs='?', default='regression-trend.png',
-                        help='Output PNG path (default: regression-trend.png)')
-    parser.add_argument('--flakey', action='store_true',
-                        help='Identify flakey tests by failure frequency and write flakey.md')
-    parser.add_argument('--weeks', type=int, default=4,
-                        help='Number of weeks to look back (default: 4)')
-    parser.add_argument('--fulldetail', type=int, default=20,
-                        help='Number of top failures to show with full links (default: 20)')
+    parser.add_argument("output", nargs="?", default=None,
+                        help="Output path. Default: regression-trend.png (or .html with --interactive)")
+    parser.add_argument("--flakey", action="store_true",
+                        help="Identify flakey tests by failure frequency and write flakey.md")
+    parser.add_argument("--interactive", action="store_true",
+                        help="Produce an interactive Plotly HTML report with flake "
+                             "counts bucketed over time (toggle tests, range slider).")
+    parser.add_argument("--bucket", choices=["day", "week", "month"], default=None,
+                        help="Time bucket for the interactive flake chart "
+                             "(day / week / month). Default: week.")
+    parser.add_argument("--weeks", type=int, default=4,
+                        help="Number of weeks to look back (default: 4)")
+    parser.add_argument("--days", type=int, default=None,
+                        help="Number of days to look back. Overrides --weeks if "
+                             "given. Useful for non-week-multiple windows (e.g. "
+                             "--days 10).")
+    parser.add_argument("--fulldetail", type=int, default=20,
+                        help="Number of top failures to show with full links (default: 20)")
+    parser.add_argument("--top", type=int, default=30,
+                        help="Interactive chart: show only the top N flakiest tests "
+                             "individually; aggregate the rest as 'Other' (default: 30). "
+                             "Use 0 for no cap.")
+    parser.add_argument("--min-failures", type=int, default=1,
+                        help="Interactive chart: only include tests that failed at "
+                             "least N times across the window (default: 1 = include "
+                             "all). Use 2 to drop singleton failures entirely.")
+    parser.add_argument("--max-failure-rate", type=float, default=0.95,
+                        help="Interactive chart: exclude tests whose failure_rate "
+                             "(failures / total_runs) is >= this threshold (default: "
+                             "0.95). Used to filter out consistently-broken tests. "
+                             "Use 1.0 to disable.")
+    parser.add_argument("--min-pass-rate", type=float, default=0.0,
+                        help="Drop runs whose overall pass rate is below this "
+                             "fraction (default: 0.0 = no filter). Use e.g. 0.95 "
+                             "to exclude obviously broken runs (infrastructure "
+                             "failures, partial runs) before flakiness is computed.")
+    parser.add_argument("--exclude-prefix", action="append", default=[],
+                        metavar="PREFIX",
+                        help="Drop tests whose name starts with PREFIX. Repeatable "
+                             "for multiple prefixes (e.g. --exclude-prefix REFS_ "
+                             "--exclude-prefix MANUAL_).")
+    parser.add_argument("--exclude-suite", action="append", default=[],
+                        metavar="SUBSTR",
+                        help="Drop individual failures whose suite "
+                             "(executionDefinition) contains SUBSTR "
+                             "(case-insensitive). Repeatable. Example: "
+                             "--exclude-suite ARM64 to drop ARM64-only failures.")
+    parser.add_argument("--portal-url", default=os.getenv("PORTAL_URL", DEFAULT_PORTAL_URL),
+                        help=f"DevOps Portal base URL (default: {DEFAULT_PORTAL_URL})")
+    parser.add_argument("--repo", default=os.getenv("PORTAL_REPO", DEFAULT_REPO),
+                        help=f"Repo name in the portal (default: {DEFAULT_REPO})")
+    parser.add_argument("--workflow", default=os.getenv("PORTAL_WORKFLOW", DEFAULT_WORKFLOW),
+                        help=f"Workflow name (default: {DEFAULT_WORKFLOW!r})")
+    parser.add_argument("--branch", default=os.getenv("PORTAL_BRANCH", DEFAULT_BRANCH),
+                        help=f"Branch filter (default: {DEFAULT_BRANCH})")
     args = parser.parse_args()
 
-    conn = AzDoConnection()
+    # Suppress urllib3 self-signed-cert warnings since we set verify=False.
+    try:
+        from urllib3.exceptions import InsecureRequestWarning
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    except Exception:
+        pass
 
-    nightly_runs = get_nightly_runs(conn, weeks=args.weeks)
-    if not nightly_runs:
-        print("No nightly regression runs found.", file=sys.stderr)
+    conn = PortalConnection(
+        portal_url=args.portal_url,
+        repo=args.repo,
+        workflow=args.workflow,
+        branch=args.branch,
+    )
+
+    # --days overrides --weeks when set; both end up as a day-count for the API
+    # and a human-readable duration label for the report.
+    if args.days is not None:
+        if args.days <= 0:
+            parser.error("--days must be a positive integer")
+        lookback_days = args.days
+        duration_label = f"{lookback_days} day{'s' if lookback_days != 1 else ''}"
+    else:
+        lookback_days = args.weeks * 7
+        duration_label = f"{args.weeks} week{'s' if args.weeks != 1 else ''}"
+
+    results = collect_data(conn, days=lookback_days)
+    if not results:
+        print("No regression runs found.", file=sys.stderr)
         return
 
-    # Fetch test data upfront so user can see pass/fail before deciding what to omit
-    results = collect_data(conn, nightly_runs)
+    # Drop runs with a low overall pass rate (infrastructure failures / partials)
+    # before display so the user sees what they're working with.
+    if args.min_pass_rate > 0:
+        threshold_pct = args.min_pass_rate * 100
+        before_count = len(results)
+        results = [r for r in results if r["pass_pct"] >= threshold_pct]
+        dropped = before_count - len(results)
+        if dropped:
+            print(f"Dropped {dropped} run(s) below {threshold_pct:.1f}% pass rate "
+                  f"(--min-pass-rate).", file=sys.stderr)
+        if not results:
+            print("All runs filtered out by --min-pass-rate.", file=sys.stderr)
+            return
+
     display_results(results)
     results = prompt_omit(results)
 
@@ -501,14 +1962,33 @@ def main():
         print("All runs omitted, nothing to do.", file=sys.stderr)
         return
 
-    if args.flakey:
-        # Rebuild nightly_runs list from the filtered results
-        remaining_build_ids = {r['build_id'] for r in results}
-        filtered_runs = [r for r in nightly_runs if r['id'] in remaining_build_ids]
-        collect_flakey_data(conn, filtered_runs, full_detail=args.fulldetail)
+    if args.interactive:
+        bucket = args.bucket or "week"
+        output = args.output or "regression-trend.html"
+        if args.top and args.top > 100:
+            print(f"  Warning: --top {args.top} produces {args.top} stacked bar "
+                  "traces; Plotly rendering may freeze the browser. "
+                  "50–75 is the practical limit; 100 is the sane ceiling.",
+                  file=sys.stderr)
+        failure_map, crash_per_build = fetch_failure_map(conn, results)
+        if not failure_map:
+            print("No failed tests found across the selected runs.", file=sys.stderr)
+        generate_interactive_html(
+            conn, results, failure_map,
+            output_path=output, duration_label=duration_label, bucket=bucket,
+            top_n=args.top, min_failures=args.min_failures,
+            max_failure_rate=args.max_failure_rate,
+            min_pass_rate=args.min_pass_rate,
+            exclude_prefixes=args.exclude_prefix,
+            exclude_suite_substrings=args.exclude_suite,
+            crash_per_build=crash_per_build,
+        )
+    elif args.flakey:
+        collect_flakey_data(conn, results, full_detail=args.fulldetail)
     else:
         print_table(results)
-        generate_chart(results, args.output, weeks=args.weeks)
+        generate_chart(results, args.output or "regression-trend.png",
+                       duration_label=duration_label)
 
 
 if __name__ == "__main__":
