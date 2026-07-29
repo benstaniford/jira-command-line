@@ -23,6 +23,7 @@ def mock_config():
                     "team_id": 42,
                     "project_name": "TEST",
                     "product_name": "Test Product",
+                    "github_repos": ["test-repo"],
                     "short_names_to_ids": {
                         "Alice": "alice@example.com",
                         "Bob": "bob@example.com",
@@ -31,12 +32,22 @@ def mock_config():
                     "kanban_board_id": 100,
                     "backlog_board_id": 101,
                     "escalation_board_id": 102
+                },
+                "NoBoards": {
+                    "project_name": "AIDR",
+                    "github_repos": ["pathfinder-agent"],
+                    "short_names_to_ids": {
+                        "Unassigned": ""
+                    }
                 }
             }
         },
         "github": {
+            "username": "tuser",
+            "login": "testuser",
             "token": "test-github-token",
-            "org": "test-org"
+            "repo_owner": "test-org",
+            "repo_name": "test-repo"
         },
         "git": {
             "initials": "tu"

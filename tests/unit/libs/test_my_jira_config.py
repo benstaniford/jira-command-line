@@ -113,3 +113,77 @@ class TestMyJiraConfig:
         config = MyJiraConfig()
         with pytest.raises(json.JSONDecodeError):
             config.load()
+
+    @patch('builtins.open', mock_open())
+    @patch('os.makedirs')
+    @patch('json.dump')
+    def test_generate_template_contains_boardless_team_example(self, mock_json_dump, mock_makedirs):
+        """Test that the template documents the minimal team shape (no team/boards/product)"""
+        config = MyJiraConfig()
+        config.generate_template()
+
+        config_data = mock_json_dump.call_args[0][0]
+        teams = config_data['jira']['teams']
+
+        assert teams['Sparklemuffin']['github_repos'] == ["epm-windows"]
+        pathfinder = teams['Pathfinder']
+        assert pathfinder['project_name'] == "AIDR"
+        assert pathfinder['github_repos'] == ["pathfinder-agent"]
+        for optional_key in ('team_id', 'product_name', 'kanban_board_id', 'backlog_board_id', 'escalation_board_id'):
+            assert optional_key not in pathfinder
+
+
+class TestUpgradeV11:
+    def _v10_config(self):
+        return {
+            "version": 1.0,
+            "jira": {
+                "url": "https://test.atlassian.net",
+                "password": "token",
+                "username": "test@example.com",
+                "fullname": "Test User",
+                "default_team": "TestTeam",
+                "teams": {
+                    "TestTeam": {"team_id": 42, "project_name": "TEST"},
+                    "OtherTeam": {"team_id": 43, "project_name": "TEST"}
+                }
+            },
+            "github": {"token": "t", "repo_owner": "test-org", "repo_name": "test-repo"},
+            "xray": {"client_id": "", "client_secret": ""}
+        }
+
+    def _upgrade(self, mock_jira_config, config_data):
+        os.makedirs(mock_jira_config.config_dir, exist_ok=True)
+        with open(mock_jira_config.config_file_path, "w") as config_file:
+            json.dump(config_data, config_file)
+        return mock_jira_config.upgrade(config_data)
+
+    def test_upgrade_adds_github_repos_and_maps_flat_repo_to_default_team(self, mock_jira_config):
+        upgraded = self._upgrade(mock_jira_config, self._v10_config())
+
+        assert upgraded['version'] == 1.1
+        assert upgraded['jira']['teams']['TestTeam']['github_repos'] == ["test-repo"]
+        assert upgraded['jira']['teams']['OtherTeam']['github_repos'] == []
+
+    def test_upgrade_leaves_claimed_repo_alone(self, mock_jira_config):
+        config_data = self._v10_config()
+        config_data['jira']['teams']['OtherTeam']['github_repos'] = ["test-repo"]
+
+        upgraded = self._upgrade(mock_jira_config, config_data)
+
+        assert upgraded['jira']['teams']['TestTeam']['github_repos'] == []
+        assert upgraded['jira']['teams']['OtherTeam']['github_repos'] == ["test-repo"]
+
+    def test_upgrade_is_idempotent(self, mock_jira_config):
+        upgraded = self._upgrade(mock_jira_config, self._v10_config())
+        upgraded_again = mock_jira_config.upgrade(json.loads(json.dumps(upgraded)))
+
+        assert upgraded_again == upgraded
+
+    def test_upgrade_preserves_other_config(self, mock_jira_config):
+        original = self._v10_config()
+        upgraded = self._upgrade(mock_jira_config, json.loads(json.dumps(original)))
+
+        assert upgraded['github'] == original['github']
+        assert upgraded['jira']['url'] == original['jira']['url']
+        assert upgraded['jira']['teams']['TestTeam']['team_id'] == 42

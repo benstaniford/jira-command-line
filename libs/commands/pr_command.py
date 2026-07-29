@@ -1,6 +1,18 @@
 from .base_command import BaseCommand
 import time
 
+# Default checklist for EPM teams; other projects get no checklist unless the
+# team config sets "pr_checklist" (an empty string suppresses it entirely)
+DEFAULT_EPM_CHECKLIST = """> [!IMPORTANT]
+> __All PRs should follow our [Core Guidelines](https://beyondtrust.atlassian.net/wiki/spaces/PMFW/pages/780271678/EPM+Windows+Development+Strategy#Core-Guidelines). Please review and tick off each of the following before merging__
+
+- [ ] The description explains both the "why" and "what" of the change.
+- [ ] This PR is limited to a single logical change. All refactoring, formatting, or unrelated changes are excluded and handled in separate PRs.
+- Select one of:
+  - [ ] A remote review (e.g. Teams call) has been completed for this PR. <!-- TaskRadio one -->
+  - [ ] A remote review (e.g. Teams call) was determined to be unnecessary due to its simplicity. <!-- TaskRadio one -->
+- [ ] Impact areas have been identified, and relevant automation ran and linked."""
+
 class PrCommand(BaseCommand):
     @property
     def shortcut(self):
@@ -33,6 +45,9 @@ class PrCommand(BaseCommand):
                     solution = solution if solution != "" else (issue.fields.description or "")
                     
                     # Build the new PR body format
+                    checklist = getattr(jira, 'pr_checklist', None)
+                    if checklist is None and jira.project_name == "EPM":
+                        checklist = DEFAULT_EPM_CHECKLIST
                     body = f"""<!-- markdownlint-disable-next-line MD041 -->
 ## Problem
 
@@ -40,19 +55,10 @@ class PrCommand(BaseCommand):
 
 ## Solution
 
-{solution}
-
-## Checklist
-
-> [!IMPORTANT]
-> __All PRs should follow our [Core Guidelines](https://beyondtrust.atlassian.net/wiki/spaces/PMFW/pages/780271678/EPM+Windows+Development+Strategy#Core-Guidelines). Please review and tick off each of the following before merging__
-
-- [ ] The description explains both the "why" and "what" of the change.
-- [ ] This PR is limited to a single logical change. All refactoring, formatting, or unrelated changes are excluded and handled in separate PRs.
-- Select one of:
-  - [ ] A remote review (e.g. Teams call) has been completed for this PR. <!-- TaskRadio one -->
-  - [ ] A remote review (e.g. Teams call) was determined to be unnecessary due to its simplicity. <!-- TaskRadio one -->
-- [ ] Impact areas have been identified, and relevant automation ran and linked.
+{solution}"""
+                    if checklist:
+                        body += f"\n\n## Checklist\n\n{checklist}"
+                    body += f"""
 
 ## Related Links (e.g. builds, automation runs)
 
@@ -60,7 +66,7 @@ class PrCommand(BaseCommand):
 
 Jira Ticket: {issue.key}"""
                     head = mygit.current_branch()
-                    base = "main"
+                    base = "main"  # all BeyondTrust repos use 'main' as the default branch
                     yesno = ui.prompt_get_character(f"Create the PR {title} from:\n{head} -> {base}? (y/n)")
                     if yesno == "y":
                         ui.prompt(f"Creating PR for {issue.key}...")

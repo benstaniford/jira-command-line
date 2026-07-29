@@ -6,16 +6,33 @@ import os
 import re
 
 class MyGit:
+    # Matches git@github.com:owner/repo.git, ssh://git@github.com/owner/repo
+    # and https://github.com/owner/repo(.git)
+    GITHUB_REMOTE_RE = re.compile(
+        r'^(?:git@github\.com:|ssh://git@github\.com/|https://github\.com/)'
+        r'(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?/?$')
+
     def __init__(self, config):
         self.support_dir = os.path.join(os.path.expanduser("~"), "Support")
         self.initials = config.get("initials")
 
+    def get_origin_repo(self):
+        """Return (owner, repo) from the current directory's origin remote, or
+        None if not inside a git repo, no origin remote, or not a github.com remote."""
+        try:
+            repo = Repo('.', search_parent_directories=True)
+            url = repo.remotes.origin.url
+        except Exception:
+            return None
+        match = self.GITHUB_REMOTE_RE.match(url.strip())
+        return (match.group('owner'), match.group('repo')) if match else None
+
     def current_branch(self):
-        repo = Repo('.')
+        repo = Repo('.', search_parent_directories=True)
         return repo.active_branch.name
 
     def create_branch_for_issue(self, issue_number, summary):
-        repo = Repo('.')
+        repo = Repo('.', search_parent_directories=True)
         if repo.is_dirty():
             raise Exception("Repo is dirty")
 
@@ -29,7 +46,7 @@ class MyGit:
         issue_number = issue_number.lower()
         branch_name = f"{self.initials}/{issue_number}/{summary}"
 
-        # Create the branch
+        # Create the branch (all BeyondTrust repos use 'main' as the default branch)
         repo.git.checkout('main')
         repo.git.checkout('-b', branch_name)
 

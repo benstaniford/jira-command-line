@@ -7,7 +7,13 @@ import datetime
 from github import Github
 
 class MyGithub:
-    def __init__(self, config):
+    def __init__(self, config, repo=None):
+        """
+        Args:
+            config: The github section of the config file.
+            repo: Optional (owner, name) tuple, e.g. from the current directory's
+                  origin remote; overrides the config repo_owner/repo_name.
+        """
         self.username = config.get("username")
         self.login = config.get("login")
         self.token = config.get("token")
@@ -19,8 +25,11 @@ class MyGithub:
         self.github = Github(self.login, self.token)
 
         # Endpoints
-        self.repo_owner = config.get("repo_owner")
-        self.repo_name = config.get("repo_name")
+        if repo:
+            self.repo_owner, self.repo_name = repo
+        else:
+            self.repo_owner = config.get("repo_owner")
+            self.repo_name = config.get("repo_name")
         self.pull_endpoint = f"{self.api_endpoint}/repos/{self.repo_owner}/{self.repo_name}/pulls"
         self.pull_query = f"{self.api_endpoint}/search/issues?q=repo:{self.repo_owner}/{self.repo_name}"
 

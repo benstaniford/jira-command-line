@@ -9,7 +9,7 @@ class MyJiraConfig:
     
     def generate_template(self):
         config_data = {
-            "version": 1.0,
+            "version": 1.1,
             "jira": {
                 "url": "https://mycorp.atlassian.net",
                 "password": "",
@@ -21,6 +21,7 @@ class MyJiraConfig:
                         "team_id": 34,
                         "project_name": "EPM",
                         "product_name": "PM Windows",
+                        "github_repos": ["epm-windows"],
                         "short_names_to_ids": {
                             "Ben": "bstaniford@mycorp.com",
                             "Caleb": "ckershaw@mycorp.com",
@@ -67,6 +68,13 @@ class MyJiraConfig:
                         "kanban_board_id": 509,
                         "backlog_board_id": 77,
                         "escalation_board_id": 406
+                    },
+                    "Pathfinder": {
+                        "project_name": "AIDR",
+                        "github_repos": ["pathfinder-agent"],
+                        "short_names_to_ids": {
+                            "Unassigned": ""
+                        }
                     }
                 }
             },
@@ -147,6 +155,23 @@ class MyJiraConfig:
                 config = generated_config
             if 'version' not in config:
                 config['version'] = 1.0
+
+            # 1.1: teams gained an optional github_repos list used to auto-select
+            # the team from the current directory's origin remote
+            if config['version'] < 1.1:
+                teams = config['jira']['teams']
+                for team in teams.values():
+                    team.setdefault('github_repos', [])
+                # Preserve today's behaviour: the single configured github repo
+                # maps to the default team unless some team already claims it
+                flat_repo = config.get('github', {}).get('repo_name')
+                default_team = config['jira'].get('default_team')
+                if flat_repo and default_team in teams:
+                    claimed = any(flat_repo in team['github_repos'] for team in teams.values())
+                    if not claimed:
+                        teams[default_team]['github_repos'].append(flat_repo)
+                config['version'] = 1.1
+
             with open(self.config_file_path, "w") as config_file:
                 json.dump(config, config_file, indent=4)
             return config  

@@ -32,7 +32,10 @@ class MyJira:
 
         options = {"server": self.url, "rest_api_version": "3"}
         self.jira = JIRA(options=options, basic_auth=(self.username, self.password))
-        self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug")' 
+        # Issue type names are validated instance-wide by Jira; types absent
+        # from a given project simply never match, so this list is safe to
+        # share across projects
+        self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug")'
         self.ignored_issue_types = {"Sub-task", "Sub-task Bug", "Test", "Test Set", "Test Plan", "Test Execution", "Precondition", "Sub Test Execution"}
 
         # We use the reference issue as a template for creating new issues/tasks
@@ -61,20 +64,68 @@ class MyJira:
         if (current_team == None):
             raise Exception(f"Team {self.team_name} not found in config")
 
-        self.team_id = current_team["team_id"]
+        # Only project_name is required; teams for projects without a Jira team,
+        # product dropdown or scrum/kanban boards simply omit those keys
+        self.team_id = current_team.get("team_id")
         self.project_name = current_team["project_name"]
-        self.product_name = current_team["product_name"]
-        self.short_names_to_ids = current_team["short_names_to_ids"]
-        self.kanban_board_id = current_team["kanban_board_id"]
-        self.backlog_board_id = current_team["backlog_board_id"]
-        self.escalation_board_id = current_team["escalation_board_id"]
-        
+        self.product_name = current_team.get("product_name")
+        self.short_names_to_ids = current_team.get("short_names_to_ids", {})
+        self.kanban_board_id = current_team.get("kanban_board_id")
+        self.backlog_board_id = current_team.get("backlog_board_id")
+        self.escalation_board_id = current_team.get("escalation_board_id")
+        self.github_repos = current_team.get("github_repos", [])
+        self.pr_checklist = current_team.get("pr_checklist")
+
+        # The reference issue belongs to the previous team's project; keep it and
+        # new issues would be created in the wrong project
+        self.reference_issue = None
+        # MyJiraIssue._field_mapping_cache is deliberately left alone: custom
+        # field ids are instance-wide, not per-project
+
         # Clear active sprint cache when switching teams
         self._active_sprint_cache = None
         self._active_sprint_cache_timestamp = None
-        # Clear closed sprints cache when switching teams  
+        # Clear closed sprints cache when switching teams
         self._closed_sprints_cache = None
         self._closed_sprints_cache_timestamp = None
+
+    def _team_clause(self) -> str:
+        """
+        JQL fragment scoping a query to the current team, or empty when the
+        team has no Jira team id configured.
+        """
+        return f' AND "Team[Team]"={self.team_id}' if self.team_id not in (None, "") else ''
+
+    def _search_scope(self) -> str:
+        """
+        JQL fragment scoping searches to the current project/product. Without a
+        product, "OR project = HELP" would span every product's escalations, so
+        scope to the project alone.
+        """
+        if self.product_name:
+            return f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}")'
+        return f'project = {self.project_name}'
+
+    def find_team_for_github_repo(self, repo_name: str) -> Optional[str]:
+        """
+        Map a github repo name (or owner/name) to a configured team name via the
+        teams' github_repos lists. Prefers default_team when several teams share
+        the repo. Returns None when no team claims it.
+        Args:
+            repo_name: Repo name or owner/name, e.g. "epm-windows" or "BeyondTrust/epm-windows".
+        Returns:
+            The matching team name, or None.
+        """
+        if not repo_name:
+            return None
+        target = repo_name.split('/')[-1].lower()
+        matches = [name for name, team in self.config['teams'].items()
+                   if any(entry.split('/')[-1].lower() == target
+                          for entry in (team.get('github_repos') or []))]
+        if not matches:
+            return None
+        default = self.config.get('default_team')
+        return default if default in matches else matches[0]
 
     def clear_caches(self) -> None:
         """
@@ -299,7 +350,7 @@ class MyJira:
         Returns:
             List of backlog issues.
         """
-        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
     def get_sprints_issues(self) -> Any:
         """
@@ -309,7 +360,7 @@ class MyJira:
             List of issues ordered by sprint assignment.
         """
         # Get issues without sprint-based ordering since we'll sort them ourselves
-        issues = self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        issues = self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         
         # Sort issues by latest sprint ID, with "No sprint" items at the end
         def get_sort_key(issue):
@@ -342,7 +393,7 @@ class MyJira:
         Returns:
             List of sprint issues.
         """
-        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
+        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
     def get_sprint_by_name(self, name: str, changelog: bool = False) -> Any:
         """
@@ -353,7 +404,7 @@ class MyJira:
         Returns:
             List of sprint issues.
         """
-        return self.search_issues(f'project = {self.project_name} AND "Team[Team]"={self.team_id} AND issuetype in {self.issue_filter} AND sprint="{name}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
+        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND sprint="{name}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
     def list_closed_sprints(self) -> Any:
         """
@@ -369,6 +420,9 @@ class MyJira:
             current_time - self._closed_sprints_cache_timestamp < self._closed_sprints_cache_duration):
             return self._closed_sprints_cache
         else:
+            # Without a board there is no sprint API to query
+            if not self.backlog_board_id:
+                return []
             # Fetch closed sprints from API
             closed_sprints = self.jira.sprints(self.backlog_board_id, extended=True, startAt=0, maxResults=100, state='closed')
             # Cache the result
@@ -613,10 +667,10 @@ class MyJira:
                 issues = self.search_issues(f'key = "{search_text}" ORDER BY Rank ASC')
         elif (search_text.isdigit()):
             # For pure numbers, default to current project prefix (existing behavior)
-            issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.search_issues(f'{self._search_scope()} AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         else:
             # For text searches, search in summary (existing behavior)
-            issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            issues = self.search_issues(f'{self._search_scope()} AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
         self.set_reference_issue(issues)
 
@@ -675,7 +729,7 @@ class MyJira:
         if not label:
             return issues
 
-        issues = self.search_issues(f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}") AND labels = "{label}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        issues = self.search_issues(f'{self._search_scope()} AND labels = "{label}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
         self.set_reference_issue(issues)
 
@@ -687,6 +741,8 @@ class MyJira:
         Returns:
             List of escalation issues.
         """
+        if not self.product_name:
+            raise Exception(f"Team '{self.team_name}' has no product_name configured; escalations view unavailable")
         issues = self.search_issues(f'project = HELP AND "Product[Dropdown]" in ("{self.product_name}") AND statuscategory not in (Done) ORDER BY Rank ASC')
         self.set_reference_issue(issues)
         return issues
@@ -718,7 +774,8 @@ class MyJira:
         Returns:
             List of linked issues.
         """
-        linked_issues = self.search_issues(f'project = {self.project_name} AND "Product[Dropdown]" in ("{self.product_name}") AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
+        product_clause = f' AND "Product[Dropdown]" in ("{self.product_name}")' if self.product_name else ''
+        linked_issues = self.search_issues(f'project = {self.project_name}{product_clause} AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
         return linked_issues
 
     def set_story_points(self, issue: Any, points: Union[int, float]) -> None:
@@ -777,26 +834,46 @@ class MyJira:
         Raises:
             Exception: If no active sprint is found.
         """
-        # Get the current sprint for my team (with caching)
+        self.jira.add_issues_to_sprint(self._get_active_sprint_id(), [issue.key])
+
+    def _get_active_sprint_id(self) -> int:
+        """
+        Get the id of the team's active sprint (cached for 5 minutes). Uses the
+        board API when a board is configured, otherwise infers the sprint from
+        an issue already in an open sprint.
+        Raises:
+            Exception: If no active sprint can be found.
+        """
         current_time = datetime.datetime.now().timestamp()
-        
+
         # Check if we have a cached active sprint and it's still valid
-        if (self._active_sprint_cache is not None and 
+        if (self._active_sprint_cache is not None and
             self._active_sprint_cache_timestamp is not None and
             current_time - self._active_sprint_cache_timestamp < self._active_sprint_cache_duration):
-            sprint_id = self._active_sprint_cache
-        else:
+            return self._active_sprint_cache
+
+        sprint_id = None
+        if self.backlog_board_id:
             # Fetch active sprint from API
             sprints = self.jira.sprints(self.backlog_board_id, extended=True, startAt=0, maxResults=1, state='active')
             if len(sprints) > 0:
                 sprint_id = sprints[0].id
-                # Cache the result
-                self._active_sprint_cache = sprint_id
-                self._active_sprint_cache_timestamp = current_time
-            else:
-                raise Exception("No active sprint found")
-        
-        self.jira.add_issues_to_sprint(sprint_id, [issue.key])
+        else:
+            # Board-less fallback: infer the sprint from an issue already in it
+            for issue in self.get_sprint_issues():
+                sprints = MyJiraIssue(issue, self.jira).sprint or []
+                active = [sprint for sprint in sprints if getattr(sprint, 'state', None) == 'active']
+                if active:
+                    sprint_id = int(max(active, key=lambda sprint: int(sprint.id)).id)
+                    break
+
+        if sprint_id is None:
+            raise Exception("No active sprint found")
+
+        # Cache the result
+        self._active_sprint_cache = sprint_id
+        self._active_sprint_cache_timestamp = current_time
+        return sprint_id
 
     def get_body(self, issue: Any, include_comments: bool = False, format_as_html: bool = False) -> str:
         """
@@ -1032,12 +1109,16 @@ class MyJira:
         """
         Open the sprint board in a web browser.
         """
+        if not self.backlog_board_id:
+            raise Exception(f"No backlog board configured for team '{self.team_name}'")
         self._open_url(f"{self.url}/secure/RapidBoard.jspa?rapidView={self.backlog_board_id}")
 
     def browse_backlog_board(self) -> None:
         """
         Open the backlog board in a web browser.
         """
+        if not self.backlog_board_id:
+            raise Exception(f"No backlog board configured for team '{self.team_name}'")
         url = f"{self.url}/secure/RapidBoard.jspa?rapidView={self.backlog_board_id}&view=planning.nodetail"
         self._open_url(url)
 
@@ -1045,6 +1126,8 @@ class MyJira:
         """
         Open the kanban board in a web browser.
         """
+        if not self.kanban_board_id:
+            raise Exception(f"No kanban board configured for team '{self.team_name}'")
         url = f"{self.url}/secure/RapidBoard.jspa?rapidView={self.kanban_board_id}"
         self._open_url(url)
 
@@ -1140,13 +1223,16 @@ class MyJira:
             'project': {'id': self.reference_issue.fields.project.id},
             'summary': title,
             'description': self._convert_to_adf(description),
-            ref_issue.product_fieldname: {'id': ref_issue.product.id}, # Product
             'issuetype': {'name': issue_type},
             }
 
+        # Projects without the Product dropdown or a Jira team leave these unset
+        if getattr(ref_issue, 'product', None):
+            issue_dict[ref_issue.product_fieldname] = {'id': ref_issue.product.id}
+
         if (parent_issue != None):
             issue_dict["parent"] = {"id": parent_issue.id}
-        else:
+        elif getattr(ref_issue, 'team', None):
             issue_dict[ref_issue.team_fieldname] = ref_issue.team.id
 
         # Add Found In build number if provided

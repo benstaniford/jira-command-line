@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/Users/bstaniford/jira-command-line/.venv/bin/python3
 
 #scriptdoc: title="Curses based Jira team backlog/sprint", tags="bt,work,jira"
 import curses
@@ -26,6 +26,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("-B", "--board", help="Start in board mode, takes an index of the board to show", type=int)
     parser.add_argument("-z", "--escalations", help="Start in escalations mode", action="store_true")
     parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
+    parser.add_argument("-t", "--team", help="Start with the given team, overriding auto-detection from the git remote", type=str)
     return parser
 
 def load_config() -> MyJiraConfig:
@@ -48,8 +49,20 @@ def load_config() -> MyJiraConfig:
 config: Dict[str, Any] = load_config().load()
 jira: MyJira = MyJira(config.get('jira'))
 mygit: MyGit = MyGit(config.get('git'))
-mygithub: Optional[MyGithub] = MyGithub(config.get('github')) if config.get('github')['token'] != "" else None
+
+# When launched inside a github checkout, target that repo for PRs and select
+# the team that claims it in its github_repos config; otherwise fall back to
+# default_team and the configured github repo
+origin: Optional[tuple] = mygit.get_origin_repo()
+if origin:
+    detected_team = jira.find_team_for_github_repo(origin[1])
+    if detected_team and detected_team != jira.team_name:
+        jira.set_team(detected_team)
+mygithub: Optional[MyGithub] = MyGithub(config.get('github'), repo=origin) if config.get('github')['token'] != "" else None
+
 args = build_arg_parser().parse_args()
+if args.team:
+    jira.set_team(args.team)
 
 def main(stdscr: Any) -> Optional[None]:
     """

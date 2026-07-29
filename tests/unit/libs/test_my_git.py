@@ -32,9 +32,9 @@ class TestMyGit:
         git = MyGit(config)
         
         result = git.current_branch()
-        
+
         assert result == "feature/test-branch"
-        mock_repo_class.assert_called_once_with('.')
+        mock_repo_class.assert_called_once_with('.', search_parent_directories=True)
     
     @patch('libs.MyGit.Repo')
     def test_create_branch_for_issue_with_clean_repo(self, mock_repo_class):
@@ -152,13 +152,64 @@ class TestMyGit:
         mock_repo = Mock()
         mock_repo.is_dirty.return_value = False
         mock_repo_class.return_value = mock_repo
-        
+
         config = {"initials": "js"}
         git = MyGit(config)
-        
+
         git.create_branch_for_issue("TEST-123", "test summary")
-        
+
         # Check both checkout calls
         assert mock_repo.git.checkout.call_count == 2
         mock_repo.git.checkout.assert_any_call('main')
         mock_repo.git.checkout.assert_any_call('-b', 'js/test-123/test-summary')
+
+
+class TestGetOriginRepo:
+    def _git_with_origin_url(self, url):
+        git = MyGit({"initials": "js"})
+        mock_repo = Mock()
+        mock_repo.remotes.origin.url = url
+        return git, mock_repo
+
+    @pytest.mark.parametrize("url", [
+        "git@github.com:BeyondTrust/pathfinder-agent.git",
+        "git@github.com:BeyondTrust/pathfinder-agent",
+        "ssh://git@github.com/BeyondTrust/pathfinder-agent.git",
+        "https://github.com/BeyondTrust/pathfinder-agent.git",
+        "https://github.com/BeyondTrust/pathfinder-agent",
+        "https://github.com/BeyondTrust/pathfinder-agent/",
+    ])
+    @patch('libs.MyGit.Repo')
+    def test_parses_github_remote_forms(self, mock_repo_class, url):
+        """Test that all common github remote URL forms parse to (owner, repo)"""
+        git, mock_repo = self._git_with_origin_url(url)
+        mock_repo_class.return_value = mock_repo
+
+        assert git.get_origin_repo() == ("BeyondTrust", "pathfinder-agent")
+        mock_repo_class.assert_called_once_with('.', search_parent_directories=True)
+
+    @patch('libs.MyGit.Repo')
+    def test_non_github_remote_returns_none(self, mock_repo_class):
+        """Test that a non-github remote returns None"""
+        git, mock_repo = self._git_with_origin_url("git@gitlab.com:someone/project.git")
+        mock_repo_class.return_value = mock_repo
+
+        assert git.get_origin_repo() is None
+
+    @patch('libs.MyGit.Repo')
+    def test_not_a_git_repo_returns_none(self, mock_repo_class):
+        """Test that not being inside a git repo returns None"""
+        mock_repo_class.side_effect = Exception("not a git repo")
+        git = MyGit({"initials": "js"})
+
+        assert git.get_origin_repo() is None
+
+    @patch('libs.MyGit.Repo')
+    def test_no_origin_remote_returns_none(self, mock_repo_class):
+        """Test that a repo without an origin remote returns None"""
+        git = MyGit({"initials": "js"})
+        mock_repo = Mock()
+        mock_repo.remotes = Mock(spec=[])  # no 'origin' attribute
+        mock_repo_class.return_value = mock_repo
+
+        assert git.get_origin_repo() is None

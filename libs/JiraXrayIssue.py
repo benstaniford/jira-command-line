@@ -1,6 +1,7 @@
 from .MyJiraConfig import MyJiraConfig
 from .MyJira import MyJiraIssue
 from .XrayApi import XrayApi
+import re
 
 class MyTestDefinitions:
     _definitions = []
@@ -30,7 +31,9 @@ class MyTestDefinitions:
         return self._test_plan
 
     def is_existing_test_plan(self):
-        return self._test_plan is not None and self._test_plan.startswith('EPM-')
+        # An issue key (e.g. EPM-123, AIDR-9) means an existing plan; anything
+        # else is the name for a plan yet to be created
+        return self._test_plan is not None and re.match(r'^[A-Z][A-Z0-9]*-\d+$', self._test_plan) is not None
 
     def get_fix_versions(self):
         return self._fix_versions
