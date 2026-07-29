@@ -267,6 +267,36 @@ class TestPromptGetIssue:
         assert issue is None
 
 
+class TestLiveFilterEditing:
+    """Backspace must work whichever code the terminal sends: 8, 127 (macOS) or 263 (linux)"""
+
+    def type_filter(self, view, keys):
+        view.stdscr.getch.side_effect = keys
+        getattr(view, "_CursesTableView__perform_live_filter")()
+
+    @pytest.mark.parametrize("backspace", [8, 127, 263])
+    def test_backspace_removes_last_character(self, curses_mock, backspace):
+        view = build_view(curses_mock)
+        # "TEST-12", backspace, then enter -> "TEST-1"
+        self.type_filter(view, [ord(c) for c in "TEST-12"] + [backspace, 10])
+
+        assert view.current_filter == "TEST-1"
+
+    @pytest.mark.parametrize("backspace", [8, 127, 263])
+    def test_backspace_on_empty_term_cancels_filter(self, curses_mock, backspace):
+        view = build_view(curses_mock)
+        view.current_filter = "old"
+        self.type_filter(view, [backspace])
+
+        assert view.current_filter is None
+
+    def test_escape_cancels_filter(self, curses_mock):
+        view = build_view(curses_mock)
+        self.type_filter(view, [ord(c) for c in "TEST"] + [27])
+
+        assert view.current_filter is None
+
+
 class TestCursorRendering:
     def test_cursor_row_drawn_reversed(self, curses_mock):
         view = build_view(curses_mock, num_rows=3)

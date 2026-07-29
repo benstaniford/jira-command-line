@@ -10,6 +10,8 @@ class KeyCode:
     ENTER = 10
     BACKSPACE = 8
     BACKSPACE_ALT = 263  # Backspace on linux
+    BACKSPACE_DEL = 127  # Delete/backspace on macOS terminals
+    BACKSPACES = (BACKSPACE, BACKSPACE_ALT, BACKSPACE_DEL)
     PRINTABLE_START = 32
     PRINTABLE_END = 126
 
@@ -595,7 +597,7 @@ class CursesTableView:
                 # terminal (unlike ALT, which Mac terminals treat as a compose key by default).
                 if ctrl_keys and 1 <= typed_char <= 26 and chr(typed_char + 96) in ctrl_keys:
                     return f"CTRL-{chr(typed_char + 96)}"
-                elif typed_char in (KeyCode.BACKSPACE, KeyCode.BACKSPACE_ALT) and len(answer) > 0:
+                elif typed_char in KeyCode.BACKSPACES and len(answer) > 0:
                     answer = answer[:-1]
                     self.stdscr.move(last_line_pos, prompt_with_padding)
                     self.stdscr.clrtoeol()
@@ -787,7 +789,7 @@ class CursesTableView:
                 self.current_filter = search_term if (len(search_term.strip()) > 0) else None
                 self.draw()
                 return
-            elif typed_character in (KeyCode.BACKSPACE, KeyCode.BACKSPACE_ALT):
+            elif typed_character in KeyCode.BACKSPACES:
                 if len(search_term) == 0:
                     self.current_filter = None
                     self.draw()
@@ -817,7 +819,7 @@ class CursesTableView:
                 self.current_search = search_term if (len(search_term.strip()) > 0) else None
                 self.draw()
                 return
-            elif typed_character in (KeyCode.BACKSPACE, KeyCode.BACKSPACE_ALT):
+            elif typed_character in KeyCode.BACKSPACES:
                 if len(search_term) == 0:
                     self.current_search = None
                     self.draw()
