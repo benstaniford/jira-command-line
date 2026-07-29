@@ -1,7 +1,6 @@
 import tempfile
 import json
 import os
-from pathlib import Path
 
 def show_viewer(string, file_type="md"):
     """
@@ -35,17 +34,3 @@ def view_description(issue, jira, as_html=False):
     content = jira.get_body(issue, include_comments=True, format_as_html=as_html)
     file_type = "html" if as_html else "md"
     show_viewer(content, file_type=file_type)
-
-def write_issue_for_chat(issue, jira, as_html=False):
-    """Write issue description to a file with optional HTML formatting"""
-    chat_folder = Path.home() / ".jiratmp"
-    chat_folder.mkdir(parents=True, exist_ok=True)
-    
-    # Use appropriate extension based on format
-    extension = "html" if as_html else "md"
-    filename = chat_folder / f"{issue.key}.{extension}"
-    
-    with open(filename, 'w', encoding='utf-8', errors='replace') as f:
-        string = jira.get_body(issue, include_comments=True, format_as_html=as_html)
-        f.write(string)
-    return str(filename)

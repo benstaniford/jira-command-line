@@ -25,7 +25,6 @@ class HelpCommand(BaseCommand):
         ui.add_row(["", "b", "Browse issue in browser"])
         ui.add_row(["", "B", "Show other boards"])
         ui.add_row(["", "c", "Create issue in current view"])
-        ui.add_row(["", "C", "Chat about issue(s)"])
         ui.add_row(["", "d", "Delete issue in current view"])
         ui.add_row(["", "e", "Edit issue in editor"])
         ui.add_row(["", "E", "Switches between teams (if multiple teams configured)"])
