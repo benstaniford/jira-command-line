@@ -46,8 +46,9 @@ def load_config() -> MyJiraConfig:
     return config_file
 
 # Global variables
-config: Dict[str, Any] = load_config().load()
-jira: MyJira = MyJira(config.get('jira'))
+config_manager: MyJiraConfig = load_config()
+config: Dict[str, Any] = config_manager.load()
+jira: MyJira = MyJira(config.get('jira'), cache_dir=config_manager.config_dir)
 mygit: MyGit = MyGit(config.get('git'))
 
 # When launched inside a github checkout, target that repo for PRs and select
@@ -63,6 +64,10 @@ mygithub: Optional[MyGithub] = MyGithub(config.get('github'), repo=origin) if co
 args = build_arg_parser().parse_args()
 if args.team:
     jira.set_team(args.team)
+
+# Warm the assignable-users cache now the team is final; never blocks, at most
+# spawns a background refresh that races the initial view load
+jira.warm_assignable_users_cache()
 
 def main(stdscr: Any) -> Optional[None]:
     """

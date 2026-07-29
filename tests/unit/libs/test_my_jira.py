@@ -269,3 +269,186 @@ class TestAssignToAccountId:
 
         with pytest.raises(requests.HTTPError):
             jira.assign_to_account_id(issue, "acc-123")
+
+
+@pytest.fixture
+def jira_with_cache(mock_config, tmp_path):
+    """MyJira with disk caching enabled in an isolated tmp dir"""
+    with patch('libs.MyJira.JIRA'):
+        return MyJira(mock_config['jira'], cache_dir=str(tmp_path))
+
+
+class DeferredThread:
+    """Stand-in for threading.Thread: records the worker instead of running it,
+    so tests control exactly when the 'background' refresh executes"""
+    instances = []
+
+    def __init__(self, target=None, args=(), kwargs=None, daemon=None):
+        self.target = target
+        self.args = args
+        self.kwargs = kwargs or {}
+        DeferredThread.instances.append(self)
+
+    def start(self):
+        pass
+
+    def run_now(self):
+        self.target(*self.args, **self.kwargs)
+
+
+@pytest.fixture
+def deferred_threads():
+    """Patch background threads to capture-then-run under test control"""
+    DeferredThread.instances = []
+    with patch('libs.MyJira.threading.Thread', DeferredThread):
+        yield DeferredThread.instances
+
+
+def _cache_file(tmp_path):
+    import libs.MyJira as myjira_module
+    return tmp_path / myjira_module.ASSIGNABLE_USERS_CACHE_FILENAME
+
+
+def _write_cache_file(tmp_path, entries):
+    """Write cache entries of the form {project: (age_seconds, users)}"""
+    import json
+    import time
+    data = {
+        project: {"timestamp": time.time() - age_seconds, "users": users}
+        for project, (age_seconds, users) in entries.items()
+    }
+    _cache_file(tmp_path).write_text(json.dumps(data))
+
+
+def _read_cache_file(tmp_path):
+    import json
+    return json.loads(_cache_file(tmp_path).read_text())
+
+
+class TestAssignableUsersDiskCache:
+    @patch('libs.MyJira.requests.get')
+    def test_cold_fetch_persists_to_disk(self, mock_get, jira_with_cache, tmp_path):
+        import time
+        mock_get.return_value = _response([_user("Alice", "acc-alice")])
+
+        users = jira_with_cache.get_assignable_users()
+
+        entry = _read_cache_file(tmp_path)["TEST"]
+        assert entry["users"] == users == [{"displayName": "Alice", "accountId": "acc-alice"}]
+        assert time.time() - entry["timestamp"] < 60
+
+    @patch('libs.MyJira.requests.get')
+    def test_fresh_disk_cache_skips_http_and_refresh(self, mock_get, jira_with_cache, tmp_path, deferred_threads):
+        cached_users = [{"displayName": "Alice", "accountId": "acc-alice"}]
+        _write_cache_file(tmp_path, {"TEST": (60, cached_users)})
+
+        assert jira_with_cache.get_assignable_users() == cached_users
+        mock_get.assert_not_called()
+        assert deferred_threads == []
+
+    @patch('libs.MyJira.requests.get')
+    def test_stale_disk_cache_returns_immediately_then_refreshes(self, mock_get, jira_with_cache, tmp_path, deferred_threads):
+        from libs.MyJira import ASSIGNABLE_USERS_TTL_SECONDS
+        old_users = [{"displayName": "Old User", "accountId": "acc-old"}]
+        new_users = [{"displayName": "New User", "accountId": "acc-new"}]
+        _write_cache_file(tmp_path, {"TEST": (ASSIGNABLE_USERS_TTL_SECONDS + 1, old_users)})
+        mock_get.return_value = _response([_user("New User", "acc-new")])
+
+        # Stale data comes back immediately, before the refresh has run
+        assert jira_with_cache.get_assignable_users() == old_users
+        mock_get.assert_not_called()
+        assert len(deferred_threads) == 1
+        assert deferred_threads[0].args == ("TEST",)
+
+        deferred_threads[0].run_now()
+        assert jira_with_cache._assignable_users_cache == new_users
+        assert _read_cache_file(tmp_path)["TEST"]["users"] == new_users
+
+    def test_only_one_refresh_in_flight(self, jira_with_cache, tmp_path, deferred_threads):
+        from libs.MyJira import ASSIGNABLE_USERS_TTL_SECONDS
+        users = [{"displayName": "Old User", "accountId": "acc-old"}]
+        _write_cache_file(tmp_path, {"TEST": (ASSIGNABLE_USERS_TTL_SECONDS + 1, users)})
+
+        jira_with_cache.get_assignable_users()
+        jira_with_cache._assignable_users_cache = None  # simulate a second stale hit
+        jira_with_cache.get_assignable_users()
+
+        assert len(deferred_threads) == 1
+
+    @patch('libs.MyJira.requests.get')
+    def test_team_switch_mid_refresh_keeps_caches_correct(self, mock_get, jira_with_cache, tmp_path, deferred_threads):
+        from libs.MyJira import ASSIGNABLE_USERS_TTL_SECONDS
+        old_users = [{"displayName": "Old User", "accountId": "acc-old"}]
+        _write_cache_file(tmp_path, {"TEST": (ASSIGNABLE_USERS_TTL_SECONDS + 1, old_users)})
+        mock_get.return_value = _response([_user("New User", "acc-new")])
+
+        jira_with_cache.get_assignable_users()
+        jira_with_cache.set_team("NoBoards")
+        deferred_threads[0].run_now()
+
+        # AIDR's memory cache must not be polluted with TEST's users...
+        assert jira_with_cache._assignable_users_cache is None
+        # ...but the fetched data still lands under TEST on disk
+        assert _read_cache_file(tmp_path)["TEST"]["users"] == [{"displayName": "New User", "accountId": "acc-new"}]
+
+    @patch('libs.MyJira.requests.get')
+    def test_per_project_disk_entries(self, mock_get, jira_with_cache, tmp_path):
+        test_users = [{"displayName": "Test User", "accountId": "acc-test"}]
+        aidr_users = [{"displayName": "Aidr User", "accountId": "acc-aidr"}]
+        _write_cache_file(tmp_path, {"TEST": (60, test_users), "AIDR": (60, aidr_users)})
+
+        jira_with_cache.set_team("NoBoards")
+
+        assert jira_with_cache.get_assignable_users() == aidr_users
+        mock_get.assert_not_called()
+
+    @patch('libs.MyJira.requests.get')
+    def test_corrupt_cache_file_recovers(self, mock_get, jira_with_cache, tmp_path):
+        _cache_file(tmp_path).write_text("{not valid json")
+        mock_get.return_value = _response([_user("Alice", "acc-alice")])
+
+        users = jira_with_cache.get_assignable_users()
+
+        assert users == [{"displayName": "Alice", "accountId": "acc-alice"}]
+        assert _read_cache_file(tmp_path)["TEST"]["users"] == users
+
+    @patch('libs.MyJira.requests.get')
+    def test_clear_caches_drops_disk_entry_and_refetches(self, mock_get, jira_with_cache, tmp_path):
+        mock_get.return_value = _response([_user("Alice", "acc-alice")])
+        jira_with_cache.get_assignable_users()
+
+        jira_with_cache.clear_caches()
+
+        assert "TEST" not in _read_cache_file(tmp_path)
+        jira_with_cache.get_assignable_users()
+        assert mock_get.call_count == 2
+
+    def test_warm_up_fresh_populates_memory_without_thread(self, jira_with_cache, tmp_path, deferred_threads):
+        users = [{"displayName": "Alice", "accountId": "acc-alice"}]
+        _write_cache_file(tmp_path, {"TEST": (60, users)})
+
+        jira_with_cache.warm_assignable_users_cache()
+
+        assert jira_with_cache._assignable_users_cache == users
+        assert deferred_threads == []
+
+    def test_warm_up_stale_spawns_thread(self, jira_with_cache, tmp_path, deferred_threads):
+        from libs.MyJira import ASSIGNABLE_USERS_TTL_SECONDS
+        users = [{"displayName": "Old User", "accountId": "acc-old"}]
+        _write_cache_file(tmp_path, {"TEST": (ASSIGNABLE_USERS_TTL_SECONDS + 1, users)})
+
+        jira_with_cache.warm_assignable_users_cache()
+
+        # Stale data is still served while the refresh runs
+        assert jira_with_cache._assignable_users_cache == users
+        assert len(deferred_threads) == 1
+
+    def test_warm_up_missing_spawns_thread(self, jira_with_cache, deferred_threads):
+        jira_with_cache.warm_assignable_users_cache()
+
+        assert jira_with_cache._assignable_users_cache is None
+        assert len(deferred_threads) == 1
+        assert deferred_threads[0].args == ("TEST",)
+
+    def test_cache_dir_none_disables_disk(self, jira):
+        assert jira._assignable_users_cache_path() is None

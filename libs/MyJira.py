@@ -6,18 +6,26 @@ from .MyJiraIssue import MyJiraIssue
 from .JiraIssueMarkdownFormatter import JiraIssueMarkdownFormatter
 import os
 import datetime
+import json
+import threading
+import time
 import webbrowser
 import requests
 import subprocess
 import platform
 from typing import Any, Dict, List, Optional, Union
 
+ASSIGNABLE_USERS_TTL_SECONDS = 5 * 24 * 3600  # Treat the disk cache as fresh for 5 days
+ASSIGNABLE_USERS_CACHE_FILENAME = "assignable_users_cache.json"
+
 class MyJira:
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], cache_dir: Optional[str] = None):
         """
         Initialize the MyJira instance with configuration.
         Args:
             config: Dictionary containing Jira and team configuration.
+            cache_dir: Directory for persistent caches (e.g. ~/.jira-config);
+                None disables disk caching.
         """
         self.config = config
         self.url = config["url"]
@@ -26,6 +34,14 @@ class MyJira:
         # Stuff specific to me
         self.username = config["username"]
         self.fullname = config["fullname"]
+
+        # Cache of assignable users: in memory per project for the session,
+        # optionally persisted to cache_dir. Must be set up before set_team()
+        # below, which clears the memory cache.
+        self.cache_dir = cache_dir
+        self._assignable_users_cache = None
+        self._assignable_users_refresh_lock = threading.Lock()
+        self._assignable_users_refreshing = False
 
         # Stuff specific to the team
         self.set_team(config["default_team"])
@@ -50,9 +66,6 @@ class MyJira:
         self._closed_sprints_cache = None
         self._closed_sprints_cache_timestamp = None
         self._closed_sprints_cache_duration = 3600  # Cache for 1 hour
-
-        # Cache of assignable users, project-scoped, session lifetime
-        self._assignable_users_cache = None
 
     def set_team(self, team_name: str) -> None:
         """
@@ -141,6 +154,8 @@ class MyJira:
         self._closed_sprints_cache = None
         self._closed_sprints_cache_timestamp = None
         self._assignable_users_cache = None
+        # Drop the disk entry too so the next lookup refetches synchronously
+        self._remove_assignable_users_from_disk(self.project_name)
         # Also clear the MyJiraIssue class-level caches
         MyJiraIssue._field_mapping_cache = None
         MyJiraIssue._jira_fields_cache = None
@@ -1085,14 +1100,54 @@ class MyJira:
 
     def get_assignable_users(self) -> List[Dict[str, str]]:
         """
-        Get the users assignable to issues in the current project, discovered
-        from Jira. Cached per project for the lifetime of the session.
+        Get the users assignable to issues in the current project. Served from
+        memory, then from a 5-day on-disk cache (stale entries are returned
+        immediately while a background thread refreshes), then fetched from Jira.
         Returns:
             List of {"displayName": ..., "accountId": ...} dicts sorted by display name.
         """
         if self._assignable_users_cache is not None:
             return self._assignable_users_cache
 
+        entry = self._load_assignable_users_from_disk()
+        if entry:
+            # Stale-while-revalidate: never make the user wait for data we already have
+            self._assignable_users_cache = entry["users"]
+            if time.time() - entry.get("timestamp", 0) > ASSIGNABLE_USERS_TTL_SECONDS:
+                self._start_assignable_users_refresh()
+            return self._assignable_users_cache
+
+        # Cold project: the only remaining blocking path
+        users = self._fetch_assignable_users(self.project_name)
+        if users:
+            # Only cache success so a transient failure retries on the next keypress
+            self._assignable_users_cache = users
+            self._save_assignable_users_to_disk(self.project_name, users)
+        return users
+
+    def warm_assignable_users_cache(self) -> None:
+        """
+        Pre-load the current project's assignable users from disk and kick a
+        background refresh if the entry is stale or missing. Never blocks;
+        intended to be called once at startup.
+        """
+        if self._assignable_users_cache is not None:
+            return
+        entry = self._load_assignable_users_from_disk()
+        if entry:
+            self._assignable_users_cache = entry["users"]
+            if time.time() - entry.get("timestamp", 0) <= ASSIGNABLE_USERS_TTL_SECONDS:
+                return
+        self._start_assignable_users_refresh()
+
+    def _fetch_assignable_users(self, project_name: str) -> List[Dict[str, str]]:
+        """
+        Fetch the users assignable to issues in a project from Jira.
+        Args:
+            project_name: Jira project key to query.
+        Returns:
+            List of {"displayName": ..., "accountId": ...} dicts sorted by display name.
+        """
         users: List[Dict[str, str]] = []
         url = f"{self.url}/rest/api/3/user/assignable/search"
         auth = (self.username, self.password)
@@ -1104,7 +1159,7 @@ class MyJira:
             while True:
                 response = requests.get(
                     url,
-                    params={"project": self.project_name, "startAt": start_at, "maxResults": max_results},
+                    params={"project": project_name, "startAt": start_at, "maxResults": max_results},
                     auth=auth,
                     headers=headers,
                 )
@@ -1125,10 +1180,116 @@ class MyJira:
             pass
 
         users.sort(key=lambda user: user["displayName"])
-        if users:
-            # Only cache success so a transient failure retries on the next keypress
-            self._assignable_users_cache = users
         return users
+
+    def _start_assignable_users_refresh(self) -> None:
+        """
+        Spawn at most one daemon thread refreshing the current project's
+        assignable users.
+        """
+        with self._assignable_users_refresh_lock:
+            if self._assignable_users_refreshing:
+                return
+            self._assignable_users_refreshing = True
+        # Capture now so a mid-fetch team switch cannot mislabel the result
+        project_name = self.project_name
+        threading.Thread(target=self._refresh_assignable_users, args=(project_name,), daemon=True).start()
+
+    def _refresh_assignable_users(self, project_name: str) -> None:
+        """
+        Background worker: fetch, persist under the captured project key, and
+        update the memory cache only if that project is still current. Touches
+        only requests, file writes and one atomic attribute rebind, never the UI.
+        Args:
+            project_name: Jira project key captured when the refresh was started.
+        """
+        try:
+            users = self._fetch_assignable_users(project_name)
+            if users:
+                self._save_assignable_users_to_disk(project_name, users)
+                if project_name == self.project_name:
+                    self._assignable_users_cache = users
+        finally:
+            with self._assignable_users_refresh_lock:
+                self._assignable_users_refreshing = False
+
+    def _assignable_users_cache_path(self) -> Optional[str]:
+        """
+        Path of the on-disk assignable-users cache, or None when disk caching
+        is disabled.
+        """
+        if not self.cache_dir:
+            return None
+        return os.path.join(self.cache_dir, ASSIGNABLE_USERS_CACHE_FILENAME)
+
+    def _read_assignable_users_cache_file(self) -> Dict[str, Any]:
+        """
+        Parse the on-disk cache file, keyed by project name. Returns {} on a
+        missing or corrupt file so the next save simply overwrites it.
+        """
+        path = self._assignable_users_cache_path()
+        if path is None:
+            return {}
+        try:
+            with open(path, "r") as file:
+                data = json.load(file)
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _write_assignable_users_cache_file(self, data: Dict[str, Any]) -> None:
+        """
+        Atomically rewrite the on-disk cache file, so concurrent readers (e.g.
+        the MCP server) never see a torn file. Silently ignores I/O errors.
+        """
+        path = self._assignable_users_cache_path()
+        if path is None:
+            return
+        try:
+            temp_path = f"{path}.{os.getpid()}.tmp"
+            with open(temp_path, "w") as file:
+                json.dump(data, file, indent=2)
+            os.replace(temp_path, path)
+        except OSError:
+            pass
+
+    def _load_assignable_users_from_disk(self) -> Optional[Dict[str, Any]]:
+        """
+        Load the current project's cached users from disk.
+        Returns:
+            {"timestamp": epoch_seconds, "users": [...]} or None when disk
+            caching is disabled or there is no usable entry.
+        """
+        entry = self._read_assignable_users_cache_file().get(self.project_name)
+        if isinstance(entry, dict) and isinstance(entry.get("users"), list) and entry["users"]:
+            return entry
+        return None
+
+    def _save_assignable_users_to_disk(self, project_name: str, users: List[Dict[str, str]]) -> None:
+        """
+        Persist a project's user list to the on-disk cache with the current
+        timestamp. No-op when disk caching is disabled or the list is empty.
+        Args:
+            project_name: Jira project key the users belong to.
+            users: List of {"displayName": ..., "accountId": ...} dicts.
+        """
+        if self._assignable_users_cache_path() is None or not users:
+            return
+        data = self._read_assignable_users_cache_file()
+        data[project_name] = {"timestamp": time.time(), "users": users}
+        self._write_assignable_users_cache_file(data)
+
+    def _remove_assignable_users_from_disk(self, project_name: str) -> None:
+        """
+        Drop a project's entry from the on-disk cache, forcing the next lookup
+        to refetch. Tolerant of a missing file or entry.
+        Args:
+            project_name: Jira project key to remove.
+        """
+        data = self._read_assignable_users_cache_file()
+        if project_name in data:
+            del data[project_name]
+            self._write_assignable_users_cache_file(data)
 
     # Returns a dictionary of keypresses to shortnames
     def get_user_shortnames(self) -> Any:

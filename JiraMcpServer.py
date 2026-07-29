@@ -256,7 +256,7 @@ class JiraMCPServer:
             
             self.config = config_manager.load()
             jira_config = self.config["jira"]
-            self.jira = MyJira(jira_config)
+            self.jira = MyJira(jira_config, cache_dir=config_manager.config_dir)
             logger.info(f"Initialized Jira connection for {jira_config['url']}")
 
     async def _get_issue(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
