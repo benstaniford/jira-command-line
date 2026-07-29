@@ -9,7 +9,7 @@ class MyJiraConfig:
     
     def generate_template(self):
         config_data = {
-            "version": 1.1,
+            "version": 1.2,
             "jira": {
                 "url": "https://mycorp.atlassian.net",
                 "password": "",
@@ -86,7 +86,9 @@ class MyJiraConfig:
                 "repo_name": "epm-windows"
             },
             "git": {
-                "initials": "mi"
+                "initials": "mi",
+                "branch_name_model": "haiku",
+                "max_branch_summary_length": 40
             },
             "xray": {
                 "client_id": "",
@@ -171,6 +173,14 @@ class MyJiraConfig:
                     if not claimed:
                         teams[default_team]['github_repos'].append(flat_repo)
                 config['version'] = 1.1
+
+            # 1.2: branch/worktree names are shortened by Claude when the Jira
+            # title is too long; blank the model to switch that back off
+            if config['version'] < 1.2:
+                git_config = config.setdefault('git', {})
+                git_config.setdefault('branch_name_model', 'haiku')
+                git_config.setdefault('max_branch_summary_length', 40)
+                config['version'] = 1.2
 
             with open(self.config_file_path, "w") as config_file:
                 json.dump(config, config_file, indent=4)

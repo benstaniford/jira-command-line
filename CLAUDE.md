@@ -87,6 +87,15 @@ The config supports multiple teams with individual settings for:
 - User name mappings for quick assignment
 - Jira and GitHub authentication tokens
 
+### Branch and Worktree Naming
+Branch names are `<initials>/<issue-key>/<summary>`. Jira titles are often far too
+long for that, so `libs/BranchNamer.py` shells out to the Claude CLI
+(`claude -p --model haiku`) to reduce a title over `git.max_branch_summary_length`
+characters (default 40) to a few distinctive words. Anything that goes wrong -
+Claude not installed, a non-zero exit, a timeout, or a reply that doesn't look
+like a branch fragment - falls back to the full title, i.e. the old behaviour.
+Set `git.branch_name_model` to `""` to switch shortening off entirely.
+
 ### Testing Framework
 The project now includes a comprehensive test suite using pytest:
 

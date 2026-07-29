@@ -164,6 +164,32 @@ class TestMyGit:
         mock_repo.git.checkout.assert_any_call('-b', 'js/test-123/test-summary')
 
 
+class TestBranchNameShortening:
+    @patch('libs.MyGit.Repo')
+    def test_long_summary_is_shortened_before_sanitising(self, mock_repo_class):
+        """Test that a long title is passed through the branch namer"""
+        git = MyGit({"initials": "js"})
+        git.branch_namer = Mock()
+        git.branch_namer.shorten.return_value = "Crash On Large Policy"
+
+        long_summary = "DefendpointService crashes when a very large policy is applied"
+        result = git.branch_name_for_issue("TEST-123", long_summary)
+
+        git.branch_namer.shorten.assert_called_once_with(long_summary)
+        assert result == "js/test-123/crash-on-large-policy"
+
+    @patch('libs.MyGit.Repo')
+    def test_unshortened_summary_still_produces_a_branch_name(self, mock_repo_class):
+        """Test that the namer returning the original title keeps today's behaviour"""
+        git = MyGit({"initials": "js"})
+        git.branch_namer = Mock()
+        git.branch_namer.shorten.side_effect = lambda summary: summary
+
+        result = git.branch_name_for_issue("TEST-123", "Fix the bug")
+
+        assert result == "js/test-123/fix-the-bug"
+
+
 class TestGetOriginRepo:
     def _git_with_origin_url(self, url):
         git = MyGit({"initials": "js"})

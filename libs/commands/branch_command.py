@@ -16,7 +16,7 @@ class BranchCommand(BaseCommand):
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 summary = ui.prompt_get_string("Enter a branch summary (default is issue summary)")
-                ui.prompt(f"Creating branch for {issue.key}...")
+                ui.prompt(f"Creating branch for {issue.key} (long titles are shortened by Claude)...")
                 branch = mygit.create_branch_for_issue(issue.key, summary if summary != "" else issue.fields.summary)
                 ui.prompt(f"Created {branch}...")
                 time.sleep(2)

@@ -5,6 +5,8 @@ from git import Repo
 import os
 import re
 
+from .BranchNamer import BranchNamer
+
 class MyGit:
     # Matches git@github.com:owner/repo.git, ssh://git@github.com/owner/repo
     # and https://github.com/owner/repo(.git)
@@ -15,6 +17,7 @@ class MyGit:
     def __init__(self, config):
         self.support_dir = os.path.join(os.path.expanduser("~"), "Support")
         self.initials = config.get("initials")
+        self.branch_namer = BranchNamer(config)
 
     def get_origin_repo(self):
         """Return (owner, repo) from the current directory's origin remote, or
@@ -32,6 +35,10 @@ class MyGit:
         return repo.active_branch.name
 
     def branch_name_for_issue(self, issue_number, summary):
+        # Long Jira titles make unwieldy branch and worktree names, so ask
+        # Claude for a shorter version (falls back to the full title)
+        summary = self.branch_namer.shorten(summary)
+
         # Make a valid branch name
         summary = "".join(c for c in summary if c.isalnum() or c == " ")
         summary = summary.strip()

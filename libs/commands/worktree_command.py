@@ -16,7 +16,7 @@ class WorktreeCommand(BaseCommand):
             if selection.isdigit():
                 [row, issue] = ui.get_row(int(selection)-1)
                 summary = ui.prompt_get_string("Enter a branch summary (default is issue summary)")
-                ui.prompt(f"Creating worktree for {issue.key}...")
+                ui.prompt(f"Creating worktree for {issue.key} (long titles are shortened by Claude)...")
                 branch, worktree_path = mygit.create_worktree_for_issue(issue.key, summary if summary != "" else issue.fields.summary)
 
                 # Hand the terminal over to claude running in the new worktree
