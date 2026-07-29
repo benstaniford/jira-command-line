@@ -81,6 +81,23 @@ since the cursor is the issue being moved. The cursor is a screen position rathe
 than a pinned issue - it is clamped when a filter shrinks the table and cleared by
 `ui.clear()`, so any view refresh drops it.
 
+### Drilling Into Issues
+Enter on a row opens TASKVIEW, which lists the row's children via
+`MyJira.get_child_issues()`. That query is just `parent = <key>`, which covers both
+of Jira's parent relationships: a story's children are its sub-tasks, an epic's are
+its stories and bugs. Epics are therefore drillable, and `backlog_issue_filter`
+(`libs/MyJira.py`) lists them in the backlog and sprints views - the current sprint
+view keeps the epic-free `issue_filter`.
+
+Drill-downs nest. `JiraTableView` keeps a stack of `(mode, issues, parent_issue)`
+frames, one per level, so epic -> story -> sub-tasks works and each Escape (or Enter
+with no cursor) unwinds one level via `view.previous()`; `view.has_previous()` is
+what the main loop in `jira` tests. An argument-less `refresh()` re-queries the
+current level without pushing, and switching to any other view clears the stack.
+
+Inside an epic, `c` (create) prompts for an issue type and parents the new issue to
+the epic instead of creating a sub-task, since epics cannot have sub-tasks.
+
 ### View Modes
 The application supports multiple view modes:
 - **BACKLOG**: Team backlog issues

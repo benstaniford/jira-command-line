@@ -52,6 +52,9 @@ class MyJira:
         # from a given project simply never match, so this list is safe to
         # share across projects
         self.issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug")'
+        # Epics are only listed in the planning views, where they are worth
+        # drilling into; the current sprint stays free of them
+        self.backlog_issue_filter = '(Story, Bug, Spike, Automation, Vulnerability, Support, Task, "Technical Improvement", "Sub-task Bug", Epic)'
         self.ignored_issue_types = {"Sub-task", "Sub-task Bug", "Test", "Test Set", "Test Plan", "Test Execution", "Precondition", "Sub Test Execution"}
 
         # We use the reference issue as a template for creating new issues/tasks
@@ -371,7 +374,7 @@ class MyJira:
         Returns:
             List of backlog issues.
         """
-        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.backlog_issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
     def get_sprints_issues(self) -> Any:
         """
@@ -381,7 +384,7 @@ class MyJira:
             List of issues ordered by sprint assignment.
         """
         # Get issues without sprint-based ordering since we'll sort them ourselves
-        issues = self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        issues = self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.backlog_issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         
         # Sort issues by latest sprint ID, with "No sprint" items at the end
         def get_sort_key(issue):
@@ -657,6 +660,10 @@ class MyJira:
         """
         if (len(issues) > 0):
             for issue in issues:
+                # Epics now show up in the backlog, but they make a poor template
+                # for new issues
+                if self.is_epic(issue):
+                    continue
                 potential_ref_issue = MyJiraIssue(issue, self.jira)
                 if potential_ref_issue.sprint == None or len(potential_ref_issue.sprint) == 1:
                     self.reference_issue = issue
@@ -810,16 +817,30 @@ class MyJira:
         wrappedIssue.story_points = points
         issue.update(fields={wrappedIssue.story_points_fieldname: points})
 
-    def get_sub_tasks(self, issue: Any) -> Any:
+    def get_child_issues(self, issue: Any) -> Any:
         """
-        Get sub-tasks for an issue.
+        Get the children of an issue. The parent field covers both relationships
+        Jira models: a story's children are its sub-tasks, an epic's children are
+        its stories and bugs.
         Args:
             issue: Jira issue object.
         Returns:
-            List of sub-task issues.
+            List of child issues.
         """
-        sub_tasks = self.search_issues(f'project = {self.project_name} AND parent={issue.key} AND (issuetype = Sub-task OR issuetype = "Sub-task Bug") ORDER BY Rank ASC')
-        return sub_tasks
+        children = self.search_issues(f'project = {self.project_name} AND parent={issue.key} ORDER BY Rank ASC')
+        return children
+
+    @staticmethod
+    def is_epic(issue: Any) -> bool:
+        """
+        Whether an issue is an epic, i.e. one whose children are whole issues
+        rather than sub-tasks.
+        Args:
+            issue: Jira issue object.
+        Returns:
+            True if the issue is an epic.
+        """
+        return str(getattr(getattr(issue, "fields", None), "issuetype", "")) == "Epic"
 
     def set_rank_above(self, issue: Any, above_issue: Any) -> None:
         """
@@ -958,7 +979,8 @@ class MyJira:
 
     def create_sub_task(self, parent_issue: Any, title: str, description: str, issue_type: str = "Sub-task") -> Any:
         """
-        Create a new sub-task for a parent issue.
+        Create a new child of a parent issue. With the default type this is a
+        sub-task; pass a standard type to create an issue inside an epic.
         Args:
             parent_issue: Parent Jira issue object.
             title: Sub-task summary.
@@ -997,8 +1019,9 @@ class MyJira:
             issues = fetch()
             if self.reference_issue is not None:
                 return
-            if issues:
-                self.reference_issue = issues[0]
+            non_epics = [issue for issue in issues if not self.is_epic(issue)]
+            if non_epics:
+                self.reference_issue = non_epics[0]
                 return
         raise Exception("No reference issue available; load a sprint or backlog view first")
 

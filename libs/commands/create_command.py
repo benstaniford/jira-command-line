@@ -28,12 +28,8 @@ class CreateCommand(BaseCommand):
             elif description.strip() == "":
                 return False
             
-            # Initialize optional fields
-            found_in_build = None
-            component_id = None
-            
             issue = None
-            if view.mode == ViewMode.TASKVIEW:
+            if view.mode == ViewMode.TASKVIEW and not jira.is_epic(view.parent_issue):
                 issue = jira.create_sub_task(view.parent_issue, summary, description)
                 yesno = ui.prompt_get_character(f"Assign {view.parent_issue.key} to me? (y/n)")
                 if yesno == "y":
@@ -42,40 +38,65 @@ class CreateCommand(BaseCommand):
                 self._wait_for_issue_and_refresh(ui, view, jira, issue)
             else:
                 # Get issue type first
-                [index, type] = ui.prompt_with_choice_list("Enter issue type", jira.get_possible_types(), non_numeric_keypresses=True)
+                type = self._prompt_for_type(ui, jira)
                 if type == "":
                     return False
-                
-                # Only ask for Found In and Component if it's a Bug
-                if str(type).lower() == "bug":
-                    # Get Found In build number
-                    found_in_build = ui.prompt_get_string("Enter Found In build number (optional)")
-                    if found_in_build and found_in_build.strip() == "":
-                        found_in_build = None
-                    
-                    # Get Component selection using fuzzy find
-                    try:
-                        # Get available components for the project
-                        if jira.reference_issue:
-                            project_components = jira.jira.project_components(jira.reference_issue.fields.project.id)
-                            if project_components:
-                                component_names = ["(Skip - No Component)"] + [comp.name for comp in project_components]
-                                component_name = ui.prompt_fuzzy_find("Select component (ESC to skip)", component_names)
-                                if component_name and component_name.strip() and component_name != "(Skip - No Component)":
-                                    # Find the component ID
-                                    for comp in project_components:
-                                        if comp.name == component_name:
-                                            component_id = comp.id
-                                            break
-                    except Exception as e:
-                        ui.error("Component selection", e)
-                
-                issue = jira.create_sprint_issue(summary, description, type, found_in_build, component_id) if view.mode == ViewMode.SPRINT else jira.create_backlog_issue(summary, description, type, found_in_build, component_id)
+                found_in_build, component_id = self._prompt_for_bug_fields(ui, jira, type)
+
+                if view.mode == ViewMode.TASKVIEW:
+                    # An epic's children are whole issues, parented to the epic
+                    issue = jira.create_sub_task(view.parent_issue, summary, description, type)
+                elif view.mode == ViewMode.SPRINT:
+                    issue = jira.create_sprint_issue(summary, description, type, found_in_build, component_id)
+                else:
+                    issue = jira.create_backlog_issue(summary, description, type, found_in_build, component_id)
                 ui.prompt(f"Created {issue.key}...")
                 self._wait_for_issue_and_refresh(ui, view, jira, issue)
         except Exception as e:
             ui.error("Create issue", e)
         return False
+
+    def _prompt_for_type(self, ui, jira):
+        """
+        Ask which type of issue to create, returning "" if the user cancelled.
+        """
+        [index, type] = ui.prompt_with_choice_list("Enter issue type", jira.get_possible_types(), non_numeric_keypresses=True)
+        return type
+
+    def _prompt_for_bug_fields(self, ui, jira, type):
+        """
+        Ask for the Found In build and component, which only apply to bugs.
+        Returns:
+            Tuple of (found_in_build, component_id), both None when not a bug.
+        """
+        found_in_build = None
+        component_id = None
+        if str(type).lower() != "bug":
+            return found_in_build, component_id
+
+        # Get Found In build number
+        found_in_build = ui.prompt_get_string("Enter Found In build number (optional)")
+        if found_in_build and found_in_build.strip() == "":
+            found_in_build = None
+
+        # Get Component selection using fuzzy find
+        try:
+            # Get available components for the project
+            if jira.reference_issue:
+                project_components = jira.jira.project_components(jira.reference_issue.fields.project.id)
+                if project_components:
+                    component_names = ["(Skip - No Component)"] + [comp.name for comp in project_components]
+                    component_name = ui.prompt_fuzzy_find("Select component (ESC to skip)", component_names)
+                    if component_name and component_name.strip() and component_name != "(Skip - No Component)":
+                        # Find the component ID
+                        for comp in project_components:
+                            if comp.name == component_name:
+                                component_id = comp.id
+                                break
+        except Exception as e:
+            ui.error("Component selection", e)
+
+        return found_in_build, component_id
 
     def _wait_for_issue_and_refresh(self, ui, view, jira, issue):
         """
@@ -100,7 +121,7 @@ class CreateCommand(BaseCommand):
             elif view.mode == ViewMode.WINDOWS_SHARED:
                 return jira.get_windows_backlog_issues()
             elif view.mode == ViewMode.TASKVIEW:
-                return jira.get_sub_tasks(view.parent_issue)
+                return jira.get_child_issues(view.parent_issue)
             elif view.mode == ViewMode.SPRINTS:
                 return jira.get_sprints_issues()
             else:

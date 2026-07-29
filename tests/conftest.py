@@ -103,6 +103,8 @@ def mock_jira_api():
         Mock(name='Bug', id='2'),
         Mock(name='Task', id='3')
     ]
+    # Without this the auto-created Mock is truthy, so every issue looks like an epic
+    mock_jira.is_epic.return_value = False
     return mock_jira
 
 @pytest.fixture

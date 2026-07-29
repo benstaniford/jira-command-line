@@ -6,8 +6,9 @@ class JiraTableView:
         self.jira = jira
         self.parent_issue = ()
         self.mode = ViewMode.BACKLOG
-        self.__previous_issues = () 
-        self.__previous_mode = self.mode
+        # One (mode, issues, parent_issue) frame per level drilled into, so
+        # epic -> story -> sub-tasks can be unwound a level at a time
+        self.__stack = []
         self.__current_issues = ()
         self.extra_columns = {}
 
@@ -16,17 +17,29 @@ class JiraTableView:
         self.extra_columns = extra_columns
         self.__build(self.__current_issues)
 
-    # Rebuilds the view based on the previous mode, i.e. When going from task view back to the parent view
+    # True when we have drilled into at least one issue, i.e. there is a view to go back to
+    def has_previous(self):
+        return len(self.__stack) > 0
+
+    # Steps back out of one level of drill-down, rebuilding from the cached issues
     def previous(self):
-        self.mode = self.__previous_mode
-        self.__current_issues = self.__previous_issues
+        if not self.__stack:
+            return
+        self.mode, self.__current_issues, self.parent_issue = self.__stack.pop()
         self.rebuild()
 
     # Refresh the view with new Jira data, optionally with a new mode, a parent issue must be specified if mode is TASKVIEW
     # params may be specified for SEARCH mode
     def refresh(self, new_mode=None, params=None, parent_issue=None):
+        if new_mode == ViewMode.TASKVIEW and parent_issue != None:
+            # A drill-down, as opposed to the argument-less refresh that re-queries
+            # the current parent
+            self.__stack.append((self.mode, self.__current_issues, self.parent_issue))
+        elif new_mode != None and new_mode != ViewMode.TASKVIEW:
+            # Any other view change abandons the trail we drilled down
+            self.__stack.clear()
+
         self.parent_issue = parent_issue if parent_issue != None or self.mode != ViewMode.TASKVIEW else self.parent_issue
-        self.__previous_mode = self.mode
         self.mode = new_mode if new_mode != None else self.mode
 
         self.ui.prompt("Fetching issues...", "")
@@ -44,13 +57,11 @@ class JiraTableView:
         elif self.mode == ViewMode.LABEL_SEARCH:
             self.__current_issues = self.__build(jira.search_by_label(params))
         elif self.mode == ViewMode.TASKVIEW:
-            self.__current_issues = self.__build(jira.get_sub_tasks(self.parent_issue))
+            self.__current_issues = self.__build(jira.get_child_issues(self.parent_issue))
         elif self.mode == ViewMode.BOARD:
             self.__current_issues = self.__build(jira.get_board_issues(params))
         elif self.mode == ViewMode.SPRINTS:
             self.__current_issues = self.__build(jira.get_sprints_issues())
-
-        self.__previous_issues = self.__current_issues if self.mode != ViewMode.TASKVIEW else self.__previous_issues
 
     # Clear the UI and rebuild the view based on the specified issues list, can optionally enable extra columns
     def __build(self, issues):
@@ -63,6 +74,9 @@ class JiraTableView:
             extra_columns['Points'] = optional_fields['Points']
         if self.mode == ViewMode.TASKVIEW and extra_columns.get('Assignee') == None:
             extra_columns['Assignee'] = optional_fields['Assignee']
+        # The children of an epic are estimated work rather than sub-tasks
+        if self.mode == ViewMode.TASKVIEW and self.jira.is_epic(self.parent_issue) and extra_columns.get('Points') == None:
+            extra_columns['Points'] = optional_fields['Points']
         if self.mode == ViewMode.SPRINTS and extra_columns.get('Sprint') == None:
             extra_columns['Sprint'] = optional_fields['Sprint']
         if len(extra_columns) > 0:

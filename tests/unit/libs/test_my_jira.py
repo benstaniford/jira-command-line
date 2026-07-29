@@ -98,6 +98,17 @@ class TestJqlFallbacks:
         assert 'HELP' not in jql
         assert 'labels = "mylabel"' in jql
 
+    def test_child_issues_are_not_restricted_by_type(self, jira):
+        # An epic's children are stories and bugs, not sub-tasks
+        jql = self._captured_jql(jira, 'get_child_issues', Mock(key="TEST-1"))
+        assert 'parent=TEST-1' in jql
+        assert 'issuetype' not in jql
+
+    def test_backlog_lists_epics_but_sprint_does_not(self, jira):
+        assert 'Epic' in self._captured_jql(jira, 'get_backlog_issues')
+        assert 'Epic' in self._captured_jql(jira, 'get_sprints_issues')
+        assert 'Epic' not in self._captured_jql(jira, 'get_sprint_issues')
+
     def test_escalations_raise_without_product(self, jira):
         jira.set_team("NoBoards")
         with pytest.raises(Exception, match="no product_name"):

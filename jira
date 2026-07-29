@@ -133,7 +133,7 @@ def run_ui_loop(
         None
     """
     while True:
-        selection: Optional[str] = display_prompt(ui, command_registry, fkey_string, key_shortcuts)
+        selection: Optional[str] = display_prompt(ui, view, command_registry, fkey_string, key_shortcuts)
 
         if selection is None:
             # Escape clears the row cursor if one is showing, otherwise it returns
@@ -141,7 +141,7 @@ def run_ui_loop(
             if ui.has_selection():
                 ui.clear_selection()
                 ui.draw()
-            elif view.mode == ViewMode.TASKVIEW:
+            elif view.has_previous():
                 view.previous()
         elif selection in ("KEY_F2", "KEY_F3", "KEY_F4", "KEY_F5", "KEY_F6", "KEY_F7", "KEY_F8", "KEY_F9", "KEY_F10", "KEY_F11", "KEY_F12"):
             handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection)
@@ -154,11 +154,12 @@ def run_ui_loop(
             selected = ui.get_selected_row()
             if selected is not None:
                 view.refresh(ViewMode.TASKVIEW, parent_issue=selected[1])
-            elif view.mode == ViewMode.TASKVIEW:
+            elif view.has_previous():
                 view.previous()
 
 def display_prompt(
     ui: CursesTableView,
+    view: JiraTableView,
     command_registry: CommandRegistry,
     fkey_string: str,
     key_shortcuts: List[str]
@@ -167,6 +168,7 @@ def display_prompt(
     Display the main prompt and get user input.
     Args:
         ui: The UI object.
+        view: The JiraTableView object.
         command_registry: The CommandRegistry object.
         fkey_string: String describing F-key mappings.
         key_shortcuts: List of available key shortcuts.
@@ -178,6 +180,8 @@ def display_prompt(
     selected = ui.get_selected_row()
     if selected is not None:
         last_line = f"[{getattr(selected[1], 'key', 'selected')}]  Enter:details  Esc:deselect"
+    elif view.has_previous():
+        last_line = "Type a number to see task details, Esc:back"
     else:
         last_line = "Type a number to see task details"
 
