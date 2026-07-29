@@ -12,9 +12,8 @@ class TestpilotCommand(BaseCommand):
 
     def execute(self, ui, view, jira, **kwargs):
         # Get the currently selected issue
-        selection = ui.prompt_get_string("Enter issue number")
-        if selection.isdigit():
-            [row, issue] = ui.get_row(int(selection)-1)
+        [selection, row, issue] = ui.prompt_get_issue()
+        if issue:
             ticket_id = getattr(issue, 'key', None)
             if not ticket_id:
                 ui.error("Selected issue has no key.")

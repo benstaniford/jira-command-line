@@ -3,6 +3,7 @@
 # pip install windows-curses
 # docs: https://docs.python.org/3/howto/curses.html
 import curses
+from typing import Any
 
 class KeyCode:
     ESCAPE = 27
@@ -48,7 +49,7 @@ class CursesTableView:
         self.prompt_max = 5
         self.row_numbers = False
         self.rows = []
-        self.row_offset = 0
+        self.cursor_index = None
         self.stdscr = stdscr
         self.subrows_enabled = False
 
@@ -207,6 +208,41 @@ class CursesTableView:
         """
         return self.__get_active_rows()
 
+    def has_selection(self):
+        """
+        Returns True if the user has summoned the row cursor with the arrow keys.
+
+        Parameters: None
+
+        Returns: bool
+        """
+        self.__clamp_cursor()
+        return self.cursor_index is not None
+
+    def clear_selection(self):
+        """
+        Hides the row cursor, so commands go back to prompting for a row number.
+
+        Parameters: None
+
+        Returns: None
+        """
+        self.cursor_index = None
+
+    def get_selected_row(self):
+        """
+        Return the row and its data for the cursor row, if one is active.
+
+        Parameters: None
+
+        Returns:
+        - [row, data] for the cursor row, or None if no cursor is shown
+        """
+        self.__clamp_cursor()
+        if self.cursor_index is None:
+            return None
+        return self.get_row(self.cursor_index)
+
     def clear(self):
         """
         Clears the data in the table including the headers.
@@ -222,6 +258,7 @@ class CursesTableView:
         self.current_page = 1
         self.current_filter = None
         self.current_search = None
+        self.cursor_index = None
         if (self.row_numbers):
             self.enable_row_numbers()
 
@@ -469,7 +506,44 @@ class CursesTableView:
             else:
                 return chr(typed_character)
 
-    def prompt_get_string(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None, ctrl_keys=None):
+    def prompt_get_issue(self, prompt_text="Enter issue number", keypresses=None):
+        """
+        Resolve the row a command should act on, preferring the row cursor over asking.
+
+        If the user has summoned the cursor with the arrow keys, that row is returned
+        straight away and no prompt is shown at all.  When keypresses are supplied the
+        prompt is still shown, so those extra options stay reachable, and pressing enter
+        on an empty line falls back to the cursor row.
+
+        Parameters:
+        - prompt_text (str, optional): The text to display as the prompt.
+        - keypresses (str|tuple, optional): Characters that return immediately as the selection.
+
+        Returns:
+        - [selection, row, data]: selection is the raw string the user typed (empty if the
+          cursor answered for them), row and data are None if nothing was resolved.
+        """
+        selected = self.get_selected_row()
+        if selected is not None and not keypresses:
+            return ["", selected[0], selected[1]]
+
+        selection = self.prompt_get_string(prompt_text, keypresses, escape_returns=None)
+        if selection is None:
+            return ["", None, None]
+        if selection == "" and selected is not None:
+            return ["", selected[0], selected[1]]
+        if selection.isdigit():
+            row_index = int(selection) - 1
+            try:
+                if row_index < 0:
+                    raise IndexError(selection)
+                [row, data] = self.get_row(row_index)
+                return [selection, row, data]
+            except IndexError:
+                return [selection, None, None]
+        return [selection, None, None]
+
+    def prompt_get_string(self, prompt, keypresses=None, filter_key=None, sort_keys=None, search_key=None, ctrl_keys=None, escape_returns: Any = ""):
         """
         Displays a prompt with colored help text and returns the string entered by the user, or the first keypress in keypresses.
 
@@ -485,10 +559,13 @@ class CursesTableView:
             search_key (str, optional): A character that triggers a search on the table. Defaults to None.
             ctrl_keys (str, optional): A string of characters that, when pressed with CTRL, return immediately as
                                        the sentinel "CTRL-<char>" (e.g. CTRL-l returns "CTRL-l"). Defaults to None.
+            escape_returns (Any, optional): What to return when escape is pressed. Defaults to "", which is
+                                       indistinguishable from pressing enter on an empty line; pass None to
+                                       tell the two apart.
 
         Returns:
             str: The string entered by the user or the first matching keypress, the sentinel "CTRL-<char>" if a
-                 CTRL combination in ctrl_keys was pressed, or an empty string if escape was pressed
+                 CTRL combination in ctrl_keys was pressed, or escape_returns if escape was pressed
         """
         # Convert prompt to consistent format and extract last line
         if isinstance(prompt, str):
@@ -512,7 +589,7 @@ class CursesTableView:
                 if typed_char == KeyCode.ENTER:
                     return answer
                 if typed_char == KeyCode.ESCAPE:
-                    return ""
+                    return escape_returns
                 # CTRL+<letter> arrives as a control byte in the range 1-26 (e.g. CTRL+L -> 12).
                 # Map it back to its letter and match against ctrl_keys. Reliable on every
                 # terminal (unlike ALT, which Mac terminals treat as a compose key by default).
@@ -549,12 +626,10 @@ class CursesTableView:
                     self.__move_page(-1)
                     break
                 elif typed_char == curses.KEY_DOWN:
-                    self.row_offset += 1 if self.row_offset < len(self.__get_active_rows()) - 1 else 0
-                    self.draw()
+                    self.__move_cursor(1)
                     break
                 elif typed_char == curses.KEY_UP:
-                    self.row_offset -= 1 if self.row_offset > 0 else 0
-                    self.draw()
+                    self.__move_cursor(-1)
                     break
                 elif chr(typed_char).isprintable():
                     answer += chr(typed_char)
@@ -610,6 +685,7 @@ class CursesTableView:
         curses.update_lines_cols()  # Ensure terminal dimensions are current
         if (self.row_numbers):
             self.__renumber_active_rows()
+        self.__clamp_cursor()
         self.stdscr.clear()
         rows_per_page = self.__calc_rows_per_page()
         self.__initialize_color_pairs()
@@ -635,6 +711,7 @@ class CursesTableView:
             highlight_search = True if self.current_search and self.current_search.lower() in combined_row_text.lower() else False
 
             __is_subrow = row_container.is_subrow()
+            is_cursor_row = row_index == self.cursor_index
             if row_index < (self.current_page - 1) * rows_per_page:
                 continue
             if row_index >= self.current_page * rows_per_page:
@@ -644,13 +721,20 @@ class CursesTableView:
                 str_justified = f"{txt}".ljust(column_lengths[col_index] + self.padding)
 
                 if __is_subrow:
-                    self.stdscr.addstr(str_justified, curses.color_pair(curses.COLOR_WHITE + 1))
-                elif highlight_search:
-                    self.stdscr.addstr(str_justified, curses.color_pair(self.highlight_index + 1))
+                    attr = curses.color_pair(curses.COLOR_WHITE + 1)
+                # The cursor takes precedence over the search highlight, which is
+                # already a reversed pair - adding A_REVERSE to it would cancel out
+                # and leave the cursor row looking unselected
+                elif highlight_search and not is_cursor_row:
+                    attr = curses.color_pair(self.highlight_index + 1)
                 elif col_index + 1 <= len(self.column_colors):
-                    self.stdscr.addstr(str_justified, curses.color_pair(self.column_colors[col_index] + 1))
+                    attr = curses.color_pair(self.column_colors[col_index] + 1)
                 else:
-                    self.stdscr.addstr(str_justified)
+                    attr = curses.A_NORMAL
+
+                if is_cursor_row:
+                    attr |= curses.A_REVERSE
+                self.stdscr.addstr(str_justified, attr)
             self.stdscr.addstr("\n")
 
     def __initialize_color_pairs(self):
@@ -791,10 +875,47 @@ class CursesTableView:
         if (self.current_page > 1 and increment < 0):
             self.current_page += increment
         elif (self.current_page < total_pages and increment > 0):
-            self.current_page += increment 
+            self.current_page += increment
+
+        # Take the cursor along, otherwise it sits off-screen on a page the user
+        # is no longer looking at
+        if self.cursor_index is not None:
+            self.cursor_index = (self.current_page - 1) * rows_per_page
 
         # Always redraw to ensure table is visible
         self.draw()
+
+    def __move_cursor(self, increment):
+        """Moves the row cursor, summoning it at the top of the page on the first press"""
+        active_rows = self.__get_active_rows()
+        if not active_rows:
+            self.cursor_index = None
+            return
+        if self.cursor_index is None:
+            self.cursor_index = (self.current_page - 1) * self.__calc_rows_per_page()
+        else:
+            self.cursor_index += increment
+        self.cursor_index = max(0, min(len(active_rows) - 1, self.cursor_index))
+        self.__page_to_cursor()
+        self.draw()
+
+    def __page_to_cursor(self):
+        """Flips to the page holding the cursor, so moving off the end of a page pages the table"""
+        if self.cursor_index is None:
+            return
+        rows_per_page = self.__calc_rows_per_page()
+        if rows_per_page > 0:
+            self.current_page = (self.cursor_index // rows_per_page) + 1
+
+    def __clamp_cursor(self):
+        """Keeps the cursor in range after a filter, sort or subrow toggle changed the rows"""
+        if self.cursor_index is None:
+            return
+        num_active_rows = len(self.__get_active_rows())
+        if num_active_rows == 0:
+            self.cursor_index = None
+        else:
+            self.cursor_index = max(0, min(num_active_rows - 1, self.cursor_index))
 
     def __get_keypresses_from_names(self, list_names):
         key_presses_to_names = {}

@@ -17,9 +17,8 @@ class XrayCommand(BaseCommand):
                 ui.error("Xray client_id or client_secret not set in config, cannot create x-ray tests")
                 return False
 
-            selection = ui.prompt_get_string("Enter issue number")
-            if selection.isdigit():
-                [row, issue] = ui.get_row(int(selection)-1)
+            [selection, row, issue] = ui.prompt_get_issue()
+            if issue:
                 ui.prompt("Parsing test definitions...", "")
                 xray_issue = JiraXrayIssue(issue, jira)
                 if (not xray_issue.sprint_item_has_valid_tests()):

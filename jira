@@ -133,25 +133,36 @@ def run_ui_loop(
         None
     """
     while True:
-        selection: str = display_prompt(ui, command_registry, fkey_string, key_shortcuts)
+        selection: Optional[str] = display_prompt(ui, command_registry, fkey_string, key_shortcuts)
 
-        if selection in ("KEY_F2", "KEY_F3", "KEY_F4", "KEY_F5", "KEY_F6", "KEY_F7", "KEY_F8", "KEY_F9", "KEY_F10", "KEY_F11", "KEY_F12"):
+        if selection is None:
+            # Escape clears the row cursor if one is showing, otherwise it returns
+            # to the previous, cached view
+            if ui.has_selection():
+                ui.clear_selection()
+                ui.draw()
+            elif view.mode == ViewMode.TASKVIEW:
+                view.previous()
+        elif selection in ("KEY_F2", "KEY_F3", "KEY_F4", "KEY_F5", "KEY_F6", "KEY_F7", "KEY_F8", "KEY_F9", "KEY_F10", "KEY_F11", "KEY_F12"):
             handle_fkey_columns(ui, view, possible_columns, fkey_to_column, selection)
         elif selection in command_registry.commands and handle_regular_commands(stdscr, ui, view, command_registry, selection):
             return None
         elif selection.isdigit():
             handle_task_view(ui, view, selection)
         elif selection == "":
-            # Escape or enter will return to previous, cached view
-            if view.mode == ViewMode.TASKVIEW:
-                view.previous(jira=jira)
+            # Enter drills into the selected row, or returns to the previous, cached view
+            selected = ui.get_selected_row()
+            if selected is not None:
+                view.refresh(ViewMode.TASKVIEW, parent_issue=selected[1])
+            elif view.mode == ViewMode.TASKVIEW:
+                view.previous()
 
 def display_prompt(
     ui: CursesTableView,
     command_registry: CommandRegistry,
     fkey_string: str,
     key_shortcuts: List[str]
-) -> str:
+) -> Optional[str]:
     """
     Display the main prompt and get user input.
     Args:
@@ -160,15 +171,20 @@ def display_prompt(
         fkey_string: String describing F-key mappings.
         key_shortcuts: List of available key shortcuts.
     Returns:
-        str: The user's selection/input.
+        Optional[str]: The user's selection/input, or None if escape was pressed.
     """
     # Get all colored help lines including first line
     all_colored_lines = command_registry.get_full_help_with_colors(["KEY_F1"], fkey_string)
-    last_line = "Type a number to see task details"
+    selected = ui.get_selected_row()
+    if selected is not None:
+        last_line = f"[{getattr(selected[1], 'key', 'selected')}]  Enter:details  Esc:deselect"
+    else:
+        last_line = "Type a number to see task details"
 
-    selection: str = ""
+    # None on error, so a failed prompt cancels rather than acting on the selected row
+    selection: Optional[str] = None
     try:
-        selection = ui.prompt_get_string(all_colored_lines + [last_line], keypresses=key_shortcuts, filter_key='|', sort_keys=('o', 'O'), search_key='/')
+        selection = ui.prompt_get_string(all_colored_lines + [last_line], keypresses=key_shortcuts, filter_key='|', sort_keys=('o', 'O'), search_key='/', escape_returns=None)
     except Exception as e:
         ui.error("Command execution", e)
     return selection

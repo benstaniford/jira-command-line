@@ -20,7 +20,6 @@ class TestMoveCommand:
         mock_view.mode = ViewMode.SPRINT
         
         # Mock user inputs
-        mock_ui.prompt_get_string.return_value = "1"  # Select issue 1
         mock_ui.prompt_with_choice_dictionary.return_value = "To top"
         
         # Mock issues
@@ -29,10 +28,8 @@ class TestMoveCommand:
         mock_top_issue = Mock()
         mock_top_issue.key = "TEST-TOP"
         
-        mock_ui.get_row.side_effect = [
-            [0, mock_issue],    # First call for selected issue
-            [0, mock_top_issue] # Second call for top issue
-        ]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
+        mock_ui.get_row.return_value = [0, mock_top_issue]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -48,7 +45,6 @@ class TestMoveCommand:
         mock_view.mode = ViewMode.BACKLOG
         
         # Mock user inputs
-        mock_ui.prompt_get_string.return_value = "2"  # Select issue 2
         mock_ui.prompt_with_choice_dictionary.return_value = "To bottom"
         
         # Mock issues
@@ -57,10 +53,8 @@ class TestMoveCommand:
         mock_bottom_issue = Mock()
         mock_bottom_issue.key = "TEST-BOTTOM"
         
-        mock_ui.get_row.side_effect = [
-            [1, mock_issue],       # First call for selected issue
-            [-1, mock_bottom_issue] # Second call for bottom issue
-        ]
+        mock_ui.prompt_get_issue.return_value = ["2", 1, mock_issue]
+        mock_ui.get_row.return_value = [-1, mock_bottom_issue]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -74,8 +68,8 @@ class TestMoveCommand:
         """Test moving an issue below another specific issue"""
         mock_view.mode = ViewMode.SPRINT
         
-        # Mock user inputs - first selects issue to move, then selects "Below issue", then target issue
-        mock_ui.prompt_get_string.side_effect = ["1", "3"]  # Move issue 1 below issue 3
+        # The issue to move comes from the cursor/prompt helper, the target is still typed
+        mock_ui.prompt_get_string.return_value = "3"  # Below issue 3
         mock_ui.prompt_with_choice_dictionary.return_value = "Below issue"
         
         # Mock issues
@@ -84,10 +78,8 @@ class TestMoveCommand:
         mock_target_issue = Mock()
         mock_target_issue.key = "TEST-TARGET"
         
-        mock_ui.get_row.side_effect = [
-            [0, mock_issue],      # First call for issue to move
-            [2, mock_target_issue] # Second call for target issue
-        ]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
+        mock_ui.get_row.return_value = [2, mock_target_issue]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -102,13 +94,12 @@ class TestMoveCommand:
         mock_view.mode = ViewMode.SPRINT
         
         # Mock user inputs
-        mock_ui.prompt_get_string.return_value = "1"
         mock_ui.prompt_with_choice_dictionary.return_value = "To backlog"
         
         # Mock issue
         mock_issue = Mock()
         mock_issue.key = "TEST-789"
-        mock_ui.get_row.return_value = [0, mock_issue]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -123,13 +114,12 @@ class TestMoveCommand:
         mock_view.mode = ViewMode.BACKLOG
         
         # Mock user inputs
-        mock_ui.prompt_get_string.return_value = "2"
         mock_ui.prompt_with_choice_dictionary.return_value = "To sprint"
         
         # Mock issue
         mock_issue = Mock()
         mock_issue.key = "TEST-999"
-        mock_ui.get_row.return_value = [1, mock_issue]
+        mock_ui.prompt_get_issue.return_value = ["2", 1, mock_issue]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -142,12 +132,11 @@ class TestMoveCommand:
     def test_execute_choice_dictionary_options_in_sprint_mode(self, mock_ui, mock_view, mock_jira_api):
         """Test that sprint mode shows backlog option"""
         mock_view.mode = ViewMode.SPRINT
-        mock_ui.prompt_get_string.return_value = "1"
         mock_ui.prompt_with_choice_dictionary.return_value = "To backlog"
         
         mock_issue = Mock()
         mock_issue.key = "TEST-SPRINT"
-        mock_ui.get_row.return_value = [0, mock_issue]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
         
         command = MoveCommand()
         command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -165,12 +154,11 @@ class TestMoveCommand:
     def test_execute_choice_dictionary_options_in_backlog_mode(self, mock_ui, mock_view, mock_jira_api):
         """Test that backlog mode shows sprint option"""
         mock_view.mode = ViewMode.BACKLOG
-        mock_ui.prompt_get_string.return_value = "1"
         mock_ui.prompt_with_choice_dictionary.return_value = "To sprint"
         
         mock_issue = Mock()
         mock_issue.key = "TEST-BACKLOG"
-        mock_ui.get_row.return_value = [0, mock_issue]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
         
         command = MoveCommand()
         command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -186,7 +174,7 @@ class TestMoveCommand:
     
     def test_execute_non_numeric_selection_ignored(self, mock_ui, mock_view, mock_jira_api):
         """Test that non-numeric selections are ignored"""
-        mock_ui.prompt_get_string.return_value = "abc"  # Non-numeric input
+        mock_ui.prompt_get_issue.return_value = ["abc", None, None]  # Non-numeric input
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -200,18 +188,17 @@ class TestMoveCommand:
     
     def test_execute_handles_exceptions(self, mock_ui, mock_view, mock_jira_api):
         """Test that exceptions are handled properly"""
-        mock_ui.prompt_get_string.side_effect = Exception("Test error")
+        mock_ui.prompt_get_issue.side_effect = Exception("Test error")
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
         
-        mock_ui.error.assert_called_once_with("Move issue", mock_ui.prompt_get_string.side_effect)
+        mock_ui.error.assert_called_once_with("Move issue", mock_ui.prompt_get_issue.side_effect)
         assert result is None
     
     def test_execute_handles_jira_api_exceptions(self, mock_ui, mock_view, mock_jira_api):
         """Test handling of Jira API exceptions"""
         mock_view.mode = ViewMode.SPRINT
-        mock_ui.prompt_get_string.return_value = "1"
         mock_ui.prompt_with_choice_dictionary.return_value = "To top"
         
         mock_issue = Mock()
@@ -219,10 +206,8 @@ class TestMoveCommand:
         mock_top_issue = Mock()
         mock_top_issue.key = "TEST-TOP"
         
-        mock_ui.get_row.side_effect = [
-            [0, mock_issue],
-            [0, mock_top_issue]
-        ]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
+        mock_ui.get_row.return_value = [0, mock_top_issue]
         
         # Mock Jira API to throw exception
         mock_jira_api.set_rank_above.side_effect = Exception("Jira API error")
@@ -237,12 +222,12 @@ class TestMoveCommand:
         """Test that non-numeric target for 'below issue' is ignored"""
         mock_view.mode = ViewMode.SPRINT
         
-        mock_ui.prompt_get_string.side_effect = ["1", "xyz"]  # Valid issue, invalid target
+        mock_ui.prompt_get_string.return_value = "xyz"  # Invalid target
         mock_ui.prompt_with_choice_dictionary.return_value = "Below issue"
         
         mock_issue = Mock()
         mock_issue.key = "TEST-VALID"
-        mock_ui.get_row.return_value = [0, mock_issue]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)

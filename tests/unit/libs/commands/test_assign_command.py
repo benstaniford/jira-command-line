@@ -13,8 +13,7 @@ def mock_issue():
 @pytest.fixture
 def assign_setup(mock_ui, mock_jira_api, mock_issue):
     """Common happy-path wiring: issue 1 selected, one discoverable user"""
-    mock_ui.prompt_get_string.return_value = "1"
-    mock_ui.get_row.return_value = [0, mock_issue]
+    mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
     mock_jira_api.get_assignable_users.return_value = [
         {"displayName": "Carol Danvers", "accountId": "acc-123"}
     ]
@@ -65,8 +64,7 @@ class TestAssignCommand:
 
     def test_execute_no_users_found(self, mock_ui, mock_view, mock_jira_api, mock_issue):
         """Test that an empty discovered user list aborts with a message"""
-        mock_ui.prompt_get_string.return_value = "1"
-        mock_ui.get_row.return_value = [0, mock_issue]
+        mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
         mock_jira_api.get_assignable_users.return_value = []
 
         command = AssignCommand()
@@ -100,7 +98,7 @@ class TestAssignCommand:
 
     def test_execute_non_numeric_selection_ignored(self, mock_ui, mock_view, mock_jira_api):
         """Test that non-numeric selections are ignored"""
-        mock_ui.prompt_get_string.return_value = "abc"
+        mock_ui.prompt_get_issue.return_value = ["abc", None, None]
 
         command = AssignCommand()
         command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -111,12 +109,12 @@ class TestAssignCommand:
 
     def test_execute_handles_exceptions(self, mock_ui, mock_view, mock_jira_api):
         """Test that exceptions are handled properly"""
-        mock_ui.prompt_get_string.side_effect = Exception("Test error")
+        mock_ui.prompt_get_issue.side_effect = Exception("Test error")
 
         command = AssignCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
 
-        mock_ui.error.assert_called_once_with("Assign to user", mock_ui.prompt_get_string.side_effect)
+        mock_ui.error.assert_called_once_with("Assign to user", mock_ui.prompt_get_issue.side_effect)
         assert result is None
 
     def test_execute_handles_jira_api_exceptions(self, mock_ui, mock_view, mock_jira_api, assign_setup):

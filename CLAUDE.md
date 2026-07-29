@@ -63,6 +63,24 @@ Commands are auto-discovered from `libs/commands/` directory. Each command:
 
 The command help display at the bottom of the UI is optimized for readability by preferring 3 lines of help text instead of cramming all commands into the minimum number of lines possible. The UI reserves 5 lines total at the bottom for the command prompt area. Help text lines are indented with 2 spaces for visual separation from the command line and instruction line.
 
+### Row Cursor and Implicit Selection
+No cursor is shown until the user presses up or down, at which point a
+reverse-video bar appears on the first row of the current page and the arrow keys
+move it (paging the table when it runs off either end). While a row is selected it
+is the implicit argument for every command that would otherwise prompt "Enter
+issue number" - those commands call `ui.prompt_get_issue()`
+(`libs/CursesTableView.py`) instead of pairing `prompt_get_string` with
+`get_row`, and it returns the cursor row without prompting at all. Enter opens the
+task view for the selected row and Escape clears the cursor; `prompt_get_string`
+grew an `escape_returns` argument so escape can be told apart from an empty enter.
+
+Two deliberate exceptions: `browse_command` still shows its prompt so the
+sprintboard/backlog/kanban options stay reachable (enter falls back to the cursor
+row), and the second prompt in `move_command` ("below which issue?") still asks,
+since the cursor is the issue being moved. The cursor is a screen position rather
+than a pinned issue - it is clamped when a filter shrinks the table and cleared by
+`ui.clear()`, so any view refresh drops it.
+
 ### View Modes
 The application supports multiple view modes:
 - **BACKLOG**: Team backlog issues

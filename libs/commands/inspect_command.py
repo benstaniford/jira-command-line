@@ -12,9 +12,8 @@ class InspectCommand(BaseCommand):
     
     def execute(self, ui, view, jira, **kwargs):
         try:
-            selection = ui.prompt_get_string("Enter issue number")
-            if selection.isdigit():
-                [row, issue] = ui.get_row(int(selection)-1)
+            [selection, row, issue] = ui.prompt_get_issue()
+            if issue:
                 inspect_issue(issue)
         except Exception as e:
             ui.error("Inspect issue", e)

@@ -12,9 +12,8 @@ class BranchCommand(BaseCommand):
     
     def execute(self, ui, view, jira, mygit=None, **kwargs):
         try:
-            selection = ui.prompt_get_string("Enter issue number")
-            if selection.isdigit():
-                [row, issue] = ui.get_row(int(selection)-1)
+            [selection, row, issue] = ui.prompt_get_issue()
+            if issue:
                 summary = ui.prompt_get_string("Enter a branch summary (default is issue summary)")
                 ui.prompt(f"Creating branch for {issue.key} (long titles are shortened by Claude)...")
                 branch = mygit.create_branch_for_issue(issue.key, summary if summary != "" else issue.fields.summary)

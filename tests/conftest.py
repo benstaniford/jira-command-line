@@ -115,6 +115,9 @@ def mock_ui():
     mock_ui.prompt.return_value = None
     mock_ui.error.return_value = None
     mock_ui.get_row.return_value = [Mock(), Mock()]
+    mock_ui.prompt_get_issue.return_value = ["1", Mock(), Mock()]
+    mock_ui.get_selected_row.return_value = None
+    mock_ui.has_selection.return_value = False
     return mock_ui
 
 @pytest.fixture

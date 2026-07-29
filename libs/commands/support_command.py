@@ -13,9 +13,8 @@ class SupportCommand(BaseCommand):
     
     def execute(self, ui, view, jira, mygit=None, **kwargs):
         try:
-            selection = ui.prompt_get_string("Enter issue number")
-            if selection.isdigit():
-                [row, issue] = ui.get_row(int(selection)-1)
+            [selection, row, issue] = ui.prompt_get_issue()
+            if issue:
                 yesno = "n"
                 folder_name = ""
                 try:

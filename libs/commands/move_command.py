@@ -13,9 +13,8 @@ class MoveCommand(BaseCommand):
         from ..ViewMode import ViewMode
         
         try:
-            selection = ui.prompt_get_string("Move which issue?")
-            if selection.isdigit():
-                [row, issue] = ui.get_row(int(selection)-1)
+            [selection, row, issue] = ui.prompt_get_issue()
+            if issue:
                 moveOptions = { 't': 'To top', 'b': 'To bottom', 'i': 'Below issue' }
                 if view.mode == ViewMode.SPRINT:
                     moveOptions['l'] = 'To backlog'

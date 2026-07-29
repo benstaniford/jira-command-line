@@ -11,9 +11,8 @@ class AssignCommand(BaseCommand):
     
     def execute(self, ui, view, jira, **kwargs):
         try:
-            selection = ui.prompt_get_string("Enter issue number")
-            if selection.isdigit():
-                [row, issue] = ui.get_row(int(selection)-1)
+            [selection, row, issue] = ui.prompt_get_issue()
+            if issue:
                 users = jira.get_assignable_users()
                 if not users:
                     ui.prompt("No assignable users found for this project...")
