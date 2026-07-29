@@ -31,11 +31,7 @@ class MyGit:
         repo = Repo('.', search_parent_directories=True)
         return repo.active_branch.name
 
-    def create_branch_for_issue(self, issue_number, summary):
-        repo = Repo('.', search_parent_directories=True)
-        if repo.is_dirty():
-            raise Exception("Repo is dirty")
-
+    def branch_name_for_issue(self, issue_number, summary):
         # Make a valid branch name
         summary = "".join(c for c in summary if c.isalnum() or c == " ")
         summary = summary.strip()
@@ -44,7 +40,14 @@ class MyGit:
         summary = summary.replace("--", "-")
         summary = summary.lower()
         issue_number = issue_number.lower()
-        branch_name = f"{self.initials}/{issue_number}/{summary}"
+        return f"{self.initials}/{issue_number}/{summary}"
+
+    def create_branch_for_issue(self, issue_number, summary):
+        repo = Repo('.', search_parent_directories=True)
+        if repo.is_dirty():
+            raise Exception("Repo is dirty")
+
+        branch_name = self.branch_name_for_issue(issue_number, summary)
 
         # Create the branch (all BeyondTrust repos use 'main' as the default branch)
         repo.git.checkout('main')
@@ -54,6 +57,25 @@ class MyGit:
         repo.git.push("--set-upstream", "origin", branch_name)
 
         return branch_name
+
+    def create_worktree_for_issue(self, issue_number, summary):
+        """Create a new branch off main and check it out into a sibling worktree.
+        Returns (branch_name, worktree_path)."""
+        repo = Repo('.', search_parent_directories=True)
+        branch_name = self.branch_name_for_issue(issue_number, summary)
+
+        # Worktrees live alongside the repo in <repo>-worktrees/<branch-dirname>
+        repo_root = repo.working_tree_dir
+        worktree_dir = f"{repo_root}-worktrees"
+        worktree_path = os.path.join(worktree_dir, branch_name.replace("/", "-"))
+        if os.path.exists(worktree_path):
+            raise Exception(f"Worktree already exists: {worktree_path}")
+        os.makedirs(worktree_dir, exist_ok=True)
+
+        # Branch from main without disturbing the current checkout
+        repo.git.worktree('add', worktree_path, '-b', branch_name, 'main')
+
+        return branch_name, worktree_path
 
     def create_support_folder(self, desired_id, title, url):
         folder_name = title

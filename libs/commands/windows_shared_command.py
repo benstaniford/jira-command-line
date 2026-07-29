@@ -4,7 +4,7 @@ from ..ViewMode import ViewMode
 class WindowsSharedCommand(BaseCommand):
     @property
     def shortcut(self):
-        return "w"
+        return "W"
     
     @property
     def description(self):
