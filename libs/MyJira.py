@@ -287,6 +287,14 @@ class MyJira:
             summary = summary[0:30] + "..."
         return summary
 
+    # /search/jql is token-paginated and silently caps a page at 100 issues no
+    # matter what maxResults asks for, so every search has to follow
+    # nextPageToken to the end. The issue cap is a runaway guard for an
+    # accidentally unscoped JQL, not a display limit; teams whose queries are
+    # scoped to a project and team come in far below it.
+    SEARCH_PAGE_SIZE = 100
+    SEARCH_MAX_ISSUES = 2000
+
     def _search_issues_new_api(self, search_text: str, changelog: bool = False) -> Any:
         """
         Search for issues using the new /rest/api/3/search/jql endpoint directly.
@@ -299,41 +307,49 @@ class MyJira:
         """
         # Construct the new API endpoint URL
         url = f"{self.url}/rest/api/3/search/jql"
-        
-        # Prepare request parameters
+
+        # Prepare request parameters. startAt is not supported by this endpoint
+        # (it is ignored), pagination is by nextPageToken alone
         params = {
             "jql": search_text,
-            "startAt": 0,
-            "maxResults": 400,
+            "maxResults": self.SEARCH_PAGE_SIZE,
             "fields": "*all"
         }
-        
+
         if changelog:
             params["expand"] = "changelog"
-        
+
         # Make the request using the same authentication as the JIRA client
         auth = (self.username, self.password)
         headers = {"Accept": "application/json"}
-        
+
+        # Convert the raw issue data to JIRA issue objects
+        # Use the jira library's method to create issue objects from raw data
+        from jira.resources import Issue
+        issues = []
+        next_page_token = None
+
         try:
-            response = requests.get(url, params=params, auth=auth, headers=headers)
-            response.raise_for_status()
-            
-            # Parse the response
-            data = response.json()
-            issues_data = data.get("issues", [])
-            
-            # Convert the raw issue data to JIRA issue objects
-            # Use the jira library's method to create issue objects from raw data
-            issues = []
-            for issue_data in issues_data:
-                # Create issue object directly from the response data (no additional API calls)
-                from jira.resources import Issue
-                issue = Issue(self.jira._options, self.jira._session, issue_data)
-                issues.append(issue)
-            
+            while True:
+                page_params = dict(params)
+                if next_page_token:
+                    page_params["nextPageToken"] = next_page_token
+
+                response = requests.get(url, params=page_params, auth=auth, headers=headers)
+                response.raise_for_status()
+
+                # Parse the response
+                data = response.json()
+                for issue_data in data.get("issues", []):
+                    # Create issue object directly from the response data (no additional API calls)
+                    issues.append(Issue(self.jira._options, self.jira._session, issue_data))
+
+                next_page_token = data.get("nextPageToken")
+                if data.get("isLast") or not next_page_token or len(issues) >= self.SEARCH_MAX_ISSUES:
+                    break
+
             return issues
-            
+
         except requests.RequestException as e:
             # If the new API fails, raise the error since the old API is deprecated
             raise RuntimeError(f"New API search failed and old API is deprecated: {e}")

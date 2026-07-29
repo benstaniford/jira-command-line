@@ -463,3 +463,66 @@ class TestAssignableUsersDiskCache:
 
     def test_cache_dir_none_disables_disk(self, jira):
         assert jira._assignable_users_cache_path() is None
+
+
+class TestSearchPagination:
+    """/search/jql caps a page at 100 issues, so the search has to follow
+    nextPageToken or long backlogs get silently truncated."""
+
+    def _page(self, keys, next_page_token=None):
+        response = Mock()
+        response.json.return_value = {
+            "issues": [{"key": key, "id": key, "fields": {}} for key in keys],
+            "nextPageToken": next_page_token,
+            "isLast": next_page_token is None,
+        }
+        return response
+
+    def _search(self, jira, pages):
+        with patch('libs.MyJira.requests.get', side_effect=pages) as get:
+            issues = jira._search_issues_new_api("project = AIDR")
+        return issues, get
+
+    def test_follows_next_page_token_to_the_end(self, jira):
+        pages = [
+            self._page(["AIDR-1"], next_page_token="tok1"),
+            self._page(["AIDR-2"], next_page_token="tok2"),
+            self._page(["AIDR-3"]),
+        ]
+
+        issues, get = self._search(jira, pages)
+
+        assert [issue.key for issue in issues] == ["AIDR-1", "AIDR-2", "AIDR-3"]
+        assert get.call_count == 3
+        assert "nextPageToken" not in get.call_args_list[0].kwargs["params"]
+        assert get.call_args_list[1].kwargs["params"]["nextPageToken"] == "tok1"
+        assert get.call_args_list[2].kwargs["params"]["nextPageToken"] == "tok2"
+
+    def test_single_page_makes_one_request(self, jira):
+        issues, get = self._search(jira, [self._page(["AIDR-1"])])
+
+        assert [issue.key for issue in issues] == ["AIDR-1"]
+        assert get.call_count == 1
+
+    def test_is_last_stops_paging_despite_token(self, jira):
+        response = self._page(["AIDR-1"], next_page_token="tok1")
+        response.json.return_value["isLast"] = True
+
+        issues, get = self._search(jira, [response])
+
+        assert get.call_count == 1
+
+    def test_startat_is_not_sent(self, jira):
+        """The endpoint ignores startAt; sending it hid the truncation."""
+        _, get = self._search(jira, [self._page(["AIDR-1"])])
+
+        assert "startAt" not in get.call_args.kwargs["params"]
+
+    def test_runaway_query_stops_at_cap(self, jira):
+        jira.SEARCH_MAX_ISSUES = 3
+        pages = [self._page([f"AIDR-{i}"], next_page_token=f"tok{i}") for i in range(10)]
+
+        issues, get = self._search(jira, pages)
+
+        assert len(issues) == 3
+        assert get.call_count == 3
