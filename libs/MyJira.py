@@ -51,6 +51,9 @@ class MyJira:
         self._closed_sprints_cache_timestamp = None
         self._closed_sprints_cache_duration = 3600  # Cache for 1 hour
 
+        # Cache of assignable users, project-scoped, session lifetime
+        self._assignable_users_cache = None
+
     def set_team(self, team_name: str) -> None:
         """
         Set the current team context and update related properties.
@@ -88,6 +91,8 @@ class MyJira:
         # Clear closed sprints cache when switching teams
         self._closed_sprints_cache = None
         self._closed_sprints_cache_timestamp = None
+        # Assignable users are project-scoped, so refetch for the new team
+        self._assignable_users_cache = None
 
     def _team_clause(self) -> str:
         """
@@ -135,6 +140,7 @@ class MyJira:
         self._active_sprint_cache_timestamp = None
         self._closed_sprints_cache = None
         self._closed_sprints_cache_timestamp = None
+        self._assignable_users_cache = None
         # Also clear the MyJiraIssue class-level caches
         MyJiraIssue._field_mapping_cache = None
         MyJiraIssue._jira_fields_cache = None
@@ -1061,6 +1067,68 @@ class MyJira:
         if username == "":
             username = None
         self.jira.assign_issue(issue, username)
+
+    def assign_to_account_id(self, issue: Any, account_id: Optional[str]) -> None:
+        """
+        Assign the issue to a user by Jira Cloud accountId.
+        Args:
+            issue: Jira issue object.
+            account_id: The user's accountId, or None to unassign.
+        """
+        response = requests.put(
+            f"{self.url}/rest/api/3/issue/{issue.key}/assignee",
+            json={"accountId": account_id},
+            auth=(self.username, self.password),
+            headers={"Accept": "application/json"},
+        )
+        response.raise_for_status()
+
+    def get_assignable_users(self) -> List[Dict[str, str]]:
+        """
+        Get the users assignable to issues in the current project, discovered
+        from Jira. Cached per project for the lifetime of the session.
+        Returns:
+            List of {"displayName": ..., "accountId": ...} dicts sorted by display name.
+        """
+        if self._assignable_users_cache is not None:
+            return self._assignable_users_cache
+
+        users: List[Dict[str, str]] = []
+        url = f"{self.url}/rest/api/3/user/assignable/search"
+        auth = (self.username, self.password)
+        headers = {"Accept": "application/json"}
+        start_at = 0
+        max_results = 200
+
+        try:
+            while True:
+                response = requests.get(
+                    url,
+                    params={"project": self.project_name, "startAt": start_at, "maxResults": max_results},
+                    auth=auth,
+                    headers=headers,
+                )
+                response.raise_for_status()
+                # Unlike most list endpoints this one returns a bare JSON array,
+                # so paginate until a page comes back short
+                page = response.json()
+                users.extend(
+                    {"displayName": user.get("displayName", ""), "accountId": user["accountId"]}
+                    for user in page
+                    if user.get("accountType") == "atlassian" and user.get("active")
+                )
+                if len(page) < max_results:
+                    break
+                start_at += max_results
+        except requests.RequestException:
+            # Fall back to whatever we managed to gather rather than failing the prompt
+            pass
+
+        users.sort(key=lambda user: user["displayName"])
+        if users:
+            # Only cache success so a transient failure retries on the next keypress
+            self._assignable_users_cache = users
+        return users
 
     # Returns a dictionary of keypresses to shortnames
     def get_user_shortnames(self) -> Any:

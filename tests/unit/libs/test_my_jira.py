@@ -142,3 +142,130 @@ class TestGetActiveSprintId:
 
         with pytest.raises(Exception, match="No active sprint found"):
             jira._get_active_sprint_id()
+
+
+def _user(display_name, account_id, account_type="atlassian", active=True):
+    return {
+        "displayName": display_name,
+        "accountId": account_id,
+        "accountType": account_type,
+        "active": active,
+    }
+
+
+def _response(payload):
+    response = Mock()
+    response.json.return_value = payload
+    return response
+
+
+class TestGetAssignableUsers:
+    @patch('libs.MyJira.requests.get')
+    def test_filters_and_sorts_users(self, mock_get, jira):
+        mock_get.return_value = _response([
+            _user("Zoe", "acc-zoe"),
+            _user("A Bot", "acc-bot", account_type="app"),
+            _user("Gone Person", "acc-gone", active=False),
+            _user("Alice", "acc-alice"),
+        ])
+
+        users = jira.get_assignable_users()
+
+        assert users == [
+            {"displayName": "Alice", "accountId": "acc-alice"},
+            {"displayName": "Zoe", "accountId": "acc-zoe"},
+        ]
+        params = mock_get.call_args[1]['params']
+        assert params['project'] == "TEST"
+
+    @patch('libs.MyJira.requests.get')
+    def test_paginates_until_short_page(self, mock_get, jira):
+        full_page = [_user(f"User {i:03}", f"acc-{i}") for i in range(200)]
+        mock_get.side_effect = [
+            _response(full_page),
+            _response([_user("Last User", "acc-last")]),
+        ]
+
+        users = jira.get_assignable_users()
+
+        assert len(users) == 201
+        assert mock_get.call_count == 2
+        assert mock_get.call_args_list[0][1]['params']['startAt'] == 0
+        assert mock_get.call_args_list[1][1]['params']['startAt'] == 200
+
+    @patch('libs.MyJira.requests.get')
+    def test_result_is_cached(self, mock_get, jira):
+        mock_get.return_value = _response([_user("Alice", "acc-alice")])
+
+        first = jira.get_assignable_users()
+        second = jira.get_assignable_users()
+
+        assert first == second
+        mock_get.assert_called_once()
+
+    @patch('libs.MyJira.requests.get')
+    def test_set_team_invalidates_cache(self, mock_get, jira):
+        mock_get.return_value = _response([_user("Alice", "acc-alice")])
+        jira.get_assignable_users()
+
+        jira.set_team("NoBoards")
+        jira.get_assignable_users()
+
+        assert mock_get.call_count == 2
+        assert mock_get.call_args[1]['params']['project'] == "AIDR"
+
+    @patch('libs.MyJira.requests.get')
+    def test_clear_caches_invalidates_cache(self, mock_get, jira):
+        mock_get.return_value = _response([_user("Alice", "acc-alice")])
+        jira.get_assignable_users()
+
+        jira.clear_caches()
+        jira.get_assignable_users()
+
+        assert mock_get.call_count == 2
+
+    @patch('libs.MyJira.requests.get')
+    def test_request_failure_returns_empty_and_retries(self, mock_get, jira):
+        import requests
+        mock_get.side_effect = requests.RequestException("boom")
+
+        assert jira.get_assignable_users() == []
+
+        # Failures are not cached, so the next call fetches again
+        mock_get.side_effect = None
+        mock_get.return_value = _response([_user("Alice", "acc-alice")])
+        assert jira.get_assignable_users() == [{"displayName": "Alice", "accountId": "acc-alice"}]
+
+
+class TestAssignToAccountId:
+    @patch('libs.MyJira.requests.put')
+    def test_assigns_by_account_id(self, mock_put, jira):
+        issue = Mock()
+        issue.key = "TEST-123"
+
+        jira.assign_to_account_id(issue, "acc-123")
+
+        url = mock_put.call_args[0][0]
+        assert url.endswith("/rest/api/3/issue/TEST-123/assignee")
+        assert mock_put.call_args[1]['json'] == {"accountId": "acc-123"}
+        assert mock_put.call_args[1]['auth'] == ("test@example.com", "test-token")
+        mock_put.return_value.raise_for_status.assert_called_once()
+
+    @patch('libs.MyJira.requests.put')
+    def test_none_unassigns(self, mock_put, jira):
+        issue = Mock()
+        issue.key = "TEST-123"
+
+        jira.assign_to_account_id(issue, None)
+
+        assert mock_put.call_args[1]['json'] == {"accountId": None}
+
+    @patch('libs.MyJira.requests.put')
+    def test_http_error_propagates(self, mock_put, jira):
+        import requests
+        mock_put.return_value.raise_for_status.side_effect = requests.HTTPError("403")
+        issue = Mock()
+        issue.key = "TEST-123"
+
+        with pytest.raises(requests.HTTPError):
+            jira.assign_to_account_id(issue, "acc-123")
