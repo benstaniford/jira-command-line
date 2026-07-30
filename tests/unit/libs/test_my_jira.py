@@ -1,5 +1,9 @@
 import copy
+import math
+import threading
+import time
 import pytest
+import requests
 from unittest.mock import Mock, patch
 from libs.MyJira import MyJira
 
@@ -465,64 +469,211 @@ class TestAssignableUsersDiskCache:
         assert jira._assignable_users_cache_path() is None
 
 
-class TestSearchPagination:
-    """/search/jql caps a page at 100 issues, so the search has to follow
-    nextPageToken or long backlogs get silently truncated."""
+class FakeJqlEndpoint:
+    """A stand-in for /search/jql that reproduces the two behaviours the search
+    is built around: a page carrying real fields is capped at 100 issues however
+    large maxResults is, while a key-only page is not."""
 
-    def _page(self, keys, next_page_token=None):
+    def __init__(self, keys, field_page_cap=100):
+        self.keys = list(keys)
+        self.field_page_cap = field_page_cap
+        self.calls = []
+        self._lock = threading.Lock()
+        self._in_flight = 0
+        self.max_in_flight = 0
+
+    def __call__(self, url, params=None, **kwargs):
+        params = params or {}
+        with self._lock:
+            self.calls.append(params)
+            self._in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self._in_flight)
+        try:
+            # Let siblings pile up so concurrency is observable rather than
+            # accidentally serialised by how fast the fake returns
+            time.sleep(0.01)
+            return self._respond(params)
+        finally:
+            with self._lock:
+                self._in_flight -= 1
+
+    def _respond(self, params):
+        jql = params["jql"]
+        keys_only = params.get("fields") == "key"
+
+        if jql.startswith("key in ("):
+            matched = jql[len("key in ("):-1].split(",")
+            available = [key for key in self.keys if key in matched]
+        else:
+            available = list(self.keys)
+
+        start = int(params.get("nextPageToken") or 0)
+        cap = params["maxResults"] if keys_only else min(params["maxResults"], self.field_page_cap)
+        page = available[start:start + cap]
+        end = start + len(page)
+
         response = Mock()
         response.json.return_value = {
-            "issues": [{"key": key, "id": key, "fields": {}} for key in keys],
-            "nextPageToken": next_page_token,
-            "isLast": next_page_token is None,
+            "issues": [{"key": key, "id": key, "fields": {}} for key in page],
+            "nextPageToken": str(end) if end < len(available) else None,
+            "isLast": end >= len(available),
         }
         return response
 
-    def _search(self, jira, pages):
-        with patch('libs.MyJira.requests.get', side_effect=pages) as get:
-            issues = jira._search_issues_new_api("project = AIDR")
-        return issues, get
+    @property
+    def field_calls(self):
+        return [call for call in self.calls if call.get("fields") == "*all"]
 
-    def test_follows_next_page_token_to_the_end(self, jira):
-        pages = [
-            self._page(["AIDR-1"], next_page_token="tok1"),
-            self._page(["AIDR-2"], next_page_token="tok2"),
-            self._page(["AIDR-3"]),
-        ]
+    @property
+    def key_calls(self):
+        return [call for call in self.calls if call.get("fields") == "key"]
 
-        issues, get = self._search(jira, pages)
 
-        assert [issue.key for issue in issues] == ["AIDR-1", "AIDR-2", "AIDR-3"]
-        assert get.call_count == 3
-        assert "nextPageToken" not in get.call_args_list[0].kwargs["params"]
-        assert get.call_args_list[1].kwargs["params"]["nextPageToken"] == "tok1"
-        assert get.call_args_list[2].kwargs["params"]["nextPageToken"] == "tok2"
+class TestSearchPagination:
+    """A page carrying fields is capped at 100 issues, so anything longer used to
+    mean a chain of sequential round trips. Key-only pages are not capped, so the
+    result set is enumerated in one cheap request and the expensive field fetches
+    are then issued by key, in parallel."""
 
-    def test_single_page_makes_one_request(self, jira):
-        issues, get = self._search(jira, [self._page(["AIDR-1"])])
+    def _search(self, jira, endpoint, changelog=False):
+        with patch('libs.MyJira.requests.get', side_effect=endpoint):
+            return jira._search_issues_new_api("project = AIDR", changelog)
 
-        assert [issue.key for issue in issues] == ["AIDR-1"]
-        assert get.call_count == 1
+    def test_single_page_still_makes_one_request(self, jira):
+        """The common team-scoped query fits one page, and that page is already
+        the whole answer - it must not pay for a key enumeration to prove it."""
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(40)])
 
-    def test_is_last_stops_paging_despite_token(self, jira):
-        response = self._page(["AIDR-1"], next_page_token="tok1")
-        response.json.return_value["isLast"] = True
+        issues = self._search(jira, endpoint)
 
-        issues, get = self._search(jira, [response])
+        assert [issue.key for issue in issues] == endpoint.keys
+        assert len(endpoint.calls) == 1
+        assert endpoint.key_calls == []
 
-        assert get.call_count == 1
+    def test_multi_page_returns_every_issue_in_order(self, jira):
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(450)])
+
+        issues = self._search(jira, endpoint)
+
+        assert [issue.key for issue in issues] == endpoint.keys
+
+    def test_multi_page_enumerates_keys_once_then_fans_out(self, jira):
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(450)])
+
+        self._search(jira, endpoint)
+
+        # One key-only request covers all 450 keys, because that page is uncapped
+        assert len(endpoint.key_calls) == 1
+        assert endpoint.key_calls[0]["maxResults"] == jira.SEARCH_KEY_PAGE_SIZE
+        # The remaining 350 are split one request per chunk. 350 spread over 16
+        # workers is under the chunk floor, so chunks are SEARCH_MIN_CHUNK wide.
+        by_key_calls = [call for call in endpoint.field_calls
+                        if call["jql"].startswith("key in (")]
+        assert len(by_key_calls) == math.ceil(350 / jira.SEARCH_MIN_CHUNK)
+
+    def test_remaining_pages_are_fetched_concurrently(self, jira):
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(450)])
+
+        self._search(jira, endpoint)
+
+        assert endpoint.max_in_flight > 1
+
+    def test_no_issue_is_fetched_twice(self, jira):
+        """The first page is kept, so the fan-out only asks for what is missing."""
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(250)])
+
+        issues = self._search(jira, endpoint)
+
+        requested = []
+        for call in endpoint.field_calls:
+            if call["jql"].startswith("key in ("):
+                requested += call["jql"][len("key in ("):-1].split(",")
+        assert sorted(requested) == sorted(endpoint.keys[100:])
+        assert len(issues) == 250
+
+    def test_worker_count_is_bounded(self, jira):
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(1500)])
+
+        self._search(jira, endpoint)
+
+        assert endpoint.max_in_flight <= jira.SEARCH_MAX_WORKERS
+
+    def test_chunks_stay_within_the_page_cap(self, jira):
+        """A chunk is fetched in one request, so it must not ask for more issues
+        than a field page can return."""
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(1500)])
+
+        self._search(jira, endpoint)
+
+        for call in endpoint.field_calls:
+            if call["jql"].startswith("key in ("):
+                keys = call["jql"][len("key in ("):-1].split(",")
+                assert jira.SEARCH_MIN_CHUNK <= len(keys) <= jira.SEARCH_MAX_CHUNK
 
     def test_startat_is_not_sent(self, jira):
         """The endpoint ignores startAt; sending it hid the truncation."""
-        _, get = self._search(jira, [self._page(["AIDR-1"])])
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(250)])
 
-        assert "startAt" not in get.call_args.kwargs["params"]
+        self._search(jira, endpoint)
+
+        assert all("startAt" not in call for call in endpoint.calls)
+
+    def test_is_last_stops_paging_despite_a_token(self, jira):
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(250)])
+        real_respond = endpoint._respond
+
+        def always_last(params):
+            response = real_respond(params)
+            response.json.return_value["isLast"] = True
+            return response
+
+        endpoint._respond = always_last
+        issues = self._search(jira, endpoint)
+
+        assert len(endpoint.calls) == 1
+        assert len(issues) == 100
 
     def test_runaway_query_stops_at_cap(self, jira):
-        jira.SEARCH_MAX_ISSUES = 3
-        pages = [self._page([f"AIDR-{i}"], next_page_token=f"tok{i}") for i in range(10)]
+        jira.SEARCH_MAX_ISSUES = 150
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(5000)])
 
-        issues, get = self._search(jira, pages)
+        issues = self._search(jira, endpoint)
 
-        assert len(issues) == 3
-        assert get.call_count == 3
+        assert [issue.key for issue in issues] == endpoint.keys[:150]
+
+    def test_changelog_expands_only_the_field_requests(self, jira):
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(250)])
+
+        self._search(jira, endpoint, changelog=True)
+
+        assert all(call.get("expand") == "changelog" for call in endpoint.field_calls)
+        assert all("expand" not in call for call in endpoint.key_calls)
+
+    def test_issue_that_vanishes_mid_search_is_dropped(self, jira):
+        """The key pass and the field pass are separate queries, so an issue can
+        disappear between them."""
+        endpoint = FakeJqlEndpoint([f"AIDR-{i}" for i in range(250)])
+        real_respond = endpoint._respond
+
+        def dropping(params):
+            response = real_respond(params)
+            if params.get("fields") == "*all" and params["jql"].startswith("key in ("):
+                response.json.return_value["issues"] = [
+                    issue for issue in response.json.return_value["issues"]
+                    if issue["key"] != "AIDR-200"
+                ]
+            return response
+
+        endpoint._respond = dropping
+        issues = self._search(jira, endpoint)
+
+        assert "AIDR-200" not in [issue.key for issue in issues]
+        assert len(issues) == 249
+
+    def test_request_failure_is_reported(self, jira):
+        def boom(url, params=None, **kwargs):
+            raise requests.RequestException("nope")
+
+        with patch('libs.MyJira.requests.get', side_effect=boom):
+            with pytest.raises(RuntimeError, match="New API search failed"):
+                jira._search_issues_new_api("project = AIDR")

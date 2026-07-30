@@ -7,8 +7,10 @@ from .JiraIssueMarkdownFormatter import JiraIssueMarkdownFormatter
 import os
 import datetime
 import json
+import math
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 import webbrowser
 import requests
 import subprocess
@@ -295,6 +297,135 @@ class MyJira:
     SEARCH_PAGE_SIZE = 100
     SEARCH_MAX_ISSUES = 2000
 
+    # The 100 cap only bites once real fields are asked for. A key-only search
+    # honours maxResults up to 1000, which is what makes the parallel path
+    # below possible: one cheap request enumerates the whole result set, and
+    # the expensive "*all" fetches can then be issued by key, all at once,
+    # instead of being chained one nextPageToken at a time.
+    SEARCH_KEY_PAGE_SIZE = 1000
+    SEARCH_MAX_WORKERS = 16
+    # A chunk of keys costs one request, so chunks want to be big enough not to
+    # multiply round trips and small enough to keep every worker busy
+    SEARCH_MIN_CHUNK = 25
+    SEARCH_MAX_CHUNK = 50
+
+    def _search_request(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Issue one /search/jql request.
+        Args:
+            params: Query parameters for the request.
+        Returns:
+            Parsed JSON body.
+        """
+        response = requests.get(
+            f"{self.url}/rest/api/3/search/jql",
+            params=params,
+            auth=(self.username, self.password),
+            headers={"Accept": "application/json"},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def _search_field_params(self, jql: str, changelog: bool) -> Dict[str, Any]:
+        """
+        Request parameters for a full-field page. startAt is not supported by
+        this endpoint (it is ignored), pagination is by nextPageToken alone.
+        """
+        params: Dict[str, Any] = {
+            "jql": jql,
+            "maxResults": self.SEARCH_PAGE_SIZE,
+            "fields": "*all",
+        }
+        if changelog:
+            params["expand"] = "changelog"
+        return params
+
+    def _search_all_keys(self, search_text: str) -> List[str]:
+        """
+        Enumerate every key the JQL matches, in the query's own ORDER BY order.
+        Args:
+            search_text: JQL query string.
+        Returns:
+            List of issue keys, truncated to SEARCH_MAX_ISSUES.
+        """
+        keys: List[str] = []
+        next_page_token = None
+        while True:
+            params: Dict[str, Any] = {
+                "jql": search_text,
+                "maxResults": self.SEARCH_KEY_PAGE_SIZE,
+                "fields": "key",
+            }
+            if next_page_token:
+                params["nextPageToken"] = next_page_token
+
+            data = self._search_request(params)
+            keys.extend(issue["key"] for issue in data.get("issues", []))
+
+            next_page_token = data.get("nextPageToken")
+            if data.get("isLast") or not next_page_token or len(keys) >= self.SEARCH_MAX_ISSUES:
+                break
+
+        return keys[:self.SEARCH_MAX_ISSUES]
+
+    def _search_issues_by_keys(self, keys: List[str], changelog: bool = False) -> List[Dict[str, Any]]:
+        """
+        Fetch full field data for a chunk of keys. Still paged, because a chunk
+        can exceed the response cap once the changelog is expanded.
+        Args:
+            keys: Issue keys to fetch.
+            changelog: Whether to expand changelog.
+        Returns:
+            List of raw issue dictionaries.
+        """
+        params = self._search_field_params("key in (%s)" % ",".join(keys), changelog)
+        issues: List[Dict[str, Any]] = []
+        next_page_token = None
+        while True:
+            page_params = dict(params)
+            if next_page_token:
+                page_params["nextPageToken"] = next_page_token
+
+            data = self._search_request(page_params)
+            issues.extend(data.get("issues", []))
+
+            next_page_token = data.get("nextPageToken")
+            if data.get("isLast") or not next_page_token:
+                break
+
+        return issues
+
+    def _search_remainder_in_parallel(self, search_text: str, first_page: List[Dict[str, Any]],
+                                      changelog: bool = False) -> List[Dict[str, Any]]:
+        """
+        Fetch everything the first page did not cover, all chunks at once.
+        Args:
+            search_text: JQL query string.
+            first_page: Raw issues already retrieved by the first page.
+            changelog: Whether to expand changelog.
+        Returns:
+            Raw issues for the whole result set, in the query's order.
+        """
+        keys = self._search_all_keys(search_text)
+        by_key = {issue["key"]: issue for issue in first_page}
+        missing = [key for key in keys if key not in by_key]
+
+        chunk_size = max(self.SEARCH_MIN_CHUNK,
+                         min(self.SEARCH_MAX_CHUNK,
+                             math.ceil(len(missing) / self.SEARCH_MAX_WORKERS)))
+        chunks = [missing[i:i + chunk_size] for i in range(0, len(missing), chunk_size)]
+
+        if chunks:
+            with ThreadPoolExecutor(max_workers=min(self.SEARCH_MAX_WORKERS, len(chunks))) as pool:
+                for page in pool.map(lambda chunk: self._search_issues_by_keys(chunk, changelog), chunks):
+                    for issue in page:
+                        by_key[issue["key"]] = issue
+
+        # The key enumeration ran the same JQL, so its order is the query's
+        # ORDER BY. Anything that moved out of the result set between the two
+        # passes simply drops out.
+        return [by_key[key] for key in keys if key in by_key]
+
     def _search_issues_new_api(self, search_text: str, changelog: bool = False) -> Any:
         """
         Search for issues using the new /rest/api/3/search/jql endpoint directly.
@@ -305,50 +436,23 @@ class MyJira:
         Returns:
             List of issue objects.
         """
-        # Construct the new API endpoint URL
-        url = f"{self.url}/rest/api/3/search/jql"
-
-        # Prepare request parameters. startAt is not supported by this endpoint
-        # (it is ignored), pagination is by nextPageToken alone
-        params = {
-            "jql": search_text,
-            "maxResults": self.SEARCH_PAGE_SIZE,
-            "fields": "*all"
-        }
-
-        if changelog:
-            params["expand"] = "changelog"
-
-        # Make the request using the same authentication as the JIRA client
-        auth = (self.username, self.password)
-        headers = {"Accept": "application/json"}
-
         # Convert the raw issue data to JIRA issue objects
         # Use the jira library's method to create issue objects from raw data
         from jira.resources import Issue
-        issues = []
-        next_page_token = None
 
         try:
-            while True:
-                page_params = dict(params)
-                if next_page_token:
-                    page_params["nextPageToken"] = next_page_token
+            data = self._search_request(self._search_field_params(search_text, changelog))
+            issues_data = data.get("issues", [])
 
-                response = requests.get(url, params=page_params, auth=auth, headers=headers)
-                response.raise_for_status()
+            # A team-scoped query usually fits in one page, and that page is
+            # already the complete answer - don't spend a second round trip
+            # enumerating keys just to confirm it.
+            if not data.get("isLast") and data.get("nextPageToken"):
+                issues_data = self._search_remainder_in_parallel(search_text, issues_data, changelog)
 
-                # Parse the response
-                data = response.json()
-                for issue_data in data.get("issues", []):
-                    # Create issue object directly from the response data (no additional API calls)
-                    issues.append(Issue(self.jira._options, self.jira._session, issue_data))
-
-                next_page_token = data.get("nextPageToken")
-                if data.get("isLast") or not next_page_token or len(issues) >= self.SEARCH_MAX_ISSUES:
-                    break
-
-            return issues
+            # Create issue objects directly from the response data (no additional API calls)
+            return [Issue(self.jira._options, self.jira._session, issue_data)
+                    for issue_data in issues_data]
 
         except requests.RequestException as e:
             # If the new API fails, raise the error since the old API is deprecated

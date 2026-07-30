@@ -98,6 +98,34 @@ current level without pushing, and switching to any other view clears the stack.
 Inside an epic, `c` (create) prompts for an issue type and parents the new issue to
 the epic instead of creating a sub-task, since epics cannot have sub-tasks.
 
+### Searching and Pagination
+`MyJira._search_issues_new_api` talks to `/rest/api/3/search/jql` directly. That
+endpoint is token-paginated (`startAt` is ignored) and caps a page at 100 issues
+however large `maxResults` is - but *only once real fields are requested*. A
+key-only page is uncapped and honours `maxResults` up to 1000, and it is cheap:
+`fields=*all` returns ~475 fields per issue, so a page of 100 is several MB while
+the same 100 keys are a few KB.
+
+Searches exploit that asymmetry. The first request is an ordinary `*all` page, and
+if it comes back `isLast` - the common case for a team-scoped query - that is the
+whole answer and nothing else is fetched, so short searches and drill-downs cost
+exactly one round trip as before. Otherwise `_search_all_keys` enumerates the
+entire result set in one key-only request, and `_search_remainder_in_parallel`
+fetches everything the first page missed as `key in (...)` chunks, all at once on
+a `ThreadPoolExecutor`. Chunk width is `ceil(missing / SEARCH_MAX_WORKERS)`
+clamped to `SEARCH_MIN_CHUNK..SEARCH_MAX_CHUNK`, so chunks stay inside the 100
+page cap and every worker gets work.
+
+The key pass runs the same JQL, so its order *is* the query's `ORDER BY` and the
+results are reassembled into it; the sequential version's ordering is preserved
+exactly. An issue that leaves the result set between the two passes simply drops
+out. `SEARCH_MAX_ISSUES` remains a runaway guard for an accidentally unscoped JQL,
+applied to the key enumeration.
+
+Pagination is no longer the dominant cost for a single-page view - `fields=*all`
+is. Narrowing the requested field set is the remaining lever, and would help every
+search rather than just the paginated ones.
+
 ### View Modes
 The application supports multiple view modes:
 - **BACKLOG**: Team backlog issues
