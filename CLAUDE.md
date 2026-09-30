@@ -37,6 +37,7 @@ python jira -l                 # Backlog mode
 python jira -B <board_index>   # Specific board mode
 python jira -z                 # Escalations mode
 python jira -w                 # Windows-shared mode
+python jira -q "<text>"        # Start with a search, like "?" in the UI
 ```
 
 ## Architecture Overview
