@@ -42,7 +42,8 @@
       "Bash(.venv/bin/python3 *)",
       "Bash(/Users/bstaniford/jira-command-line/.venv/bin/python3 *)",
       "Bash(git *)",
-      "mcp__claude_ai_Atlassian__getJiraIssue"
+      "mcp__claude_ai_Atlassian__getJiraIssue",
+      "Bash(echo \"exit code: $?\")"
     ],
     "deny": [],
     "ask": [],
