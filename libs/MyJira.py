@@ -89,6 +89,9 @@ class MyJira:
         # product dropdown or scrum/kanban boards simply omit those keys
         self.team_id = current_team.get("team_id")
         self.project_name = current_team["project_name"]
+        # Further projects whose issues belong to this team, e.g. EPM bugs are
+        # now raised in EPMO. Searches span them all; creation stays in project_name
+        self.extra_projects = current_team.get("extra_projects", [])
         self.product_name = current_team.get("product_name")
         self.short_names_to_ids = current_team.get("short_names_to_ids", {})
         self.kanban_board_id = current_team.get("kanban_board_id")
@@ -119,6 +122,21 @@ class MyJira:
         """
         return f' AND "Team[Team]"={self.team_id}' if self.team_id not in (None, "") else ''
 
+    def _project_names(self) -> List[str]:
+        """
+        The team's main project followed by any extra projects.
+        """
+        return [self.project_name] + [p for p in self.extra_projects if p != self.project_name]
+
+    def _project_clause(self) -> str:
+        """
+        JQL fragment matching any of the team's projects.
+        """
+        names = self._project_names()
+        if len(names) == 1:
+            return f'project = {names[0]}'
+        return f'project in ({", ".join(names)})'
+
     def _search_scope(self) -> str:
         """
         JQL fragment scoping searches to the current project/product. Without a
@@ -126,8 +144,8 @@ class MyJira:
         scope to the project alone.
         """
         if self.product_name:
-            return f'(project = {self.project_name} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}")'
-        return f'project = {self.project_name}'
+            return f'({self._project_clause()} OR project = HELP) AND "Product[Dropdown]" in ("{self.product_name}")'
+        return self._project_clause()
 
     def find_team_for_github_repo(self, repo_name: str) -> Optional[str]:
         """
@@ -486,7 +504,7 @@ class MyJira:
         Returns:
             List of test plan issues.
         """
-        return self.search_issues(f'project = {self.project_name} AND issuetype = "Test Plan" AND summary ~ "{name}" ORDER BY Rank ASC')
+        return self.search_issues(f'{self._project_clause()} AND issuetype = "Test Plan" AND summary ~ "{name}" ORDER BY Rank ASC')
 
     def get_backlog_issues(self) -> Any:
         """
@@ -494,7 +512,7 @@ class MyJira:
         Returns:
             List of backlog issues.
         """
-        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.backlog_issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        return self.search_issues(f'{self._project_clause()}{self._team_clause()} AND issuetype in {self.backlog_issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
     def get_sprints_issues(self) -> Any:
         """
@@ -504,7 +522,7 @@ class MyJira:
             List of issues ordered by sprint assignment.
         """
         # Get issues without sprint-based ordering since we'll sort them ourselves
-        issues = self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.backlog_issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        issues = self.search_issues(f'{self._project_clause()}{self._team_clause()} AND issuetype in {self.backlog_issue_filter} AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
         
         # Sort issues by latest sprint ID, with "No sprint" items at the end
         def get_sort_key(issue):
@@ -527,7 +545,7 @@ class MyJira:
         Returns:
             List of backlog issues.
         """
-        return self.search_issues(f'project = {self.project_name} AND "Team[Team]" is EMPTY AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+        return self.search_issues(f'{self._project_clause()} AND "Team[Team]" is EMPTY AND issuetype in {self.issue_filter} AND (sprint is EMPTY or sprint not in openSprints()) AND statuscategory not in (Done) AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
 
     def get_sprint_issues(self, changelog: bool = False) -> Any:
         """
@@ -537,7 +555,7 @@ class MyJira:
         Returns:
             List of sprint issues.
         """
-        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
+        return self.search_issues(f'{self._project_clause()}{self._team_clause()} AND issuetype in {self.issue_filter} AND sprint in openSprints() AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
     def get_sprint_by_name(self, name: str, changelog: bool = False) -> Any:
         """
@@ -548,7 +566,7 @@ class MyJira:
         Returns:
             List of sprint issues.
         """
-        return self.search_issues(f'project = {self.project_name}{self._team_clause()} AND issuetype in {self.issue_filter} AND sprint="{name}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
+        return self.search_issues(f'{self._project_clause()}{self._team_clause()} AND issuetype in {self.issue_filter} AND sprint="{name}" AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC', changelog)
 
     def list_closed_sprints(self) -> Any:
         """
@@ -814,8 +832,18 @@ class MyJira:
                 # If direct lookup fails, try broader search across all projects
                 issues = self.search_issues(f'key = "{search_text}" ORDER BY Rank ASC')
         elif (search_text.isdigit()):
-            # For pure numbers, default to current project prefix (existing behavior)
-            issues = self.search_issues(f'{self._search_scope()} AND id = \'{self.project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+            # For pure numbers, try the number under each of the team's project
+            # prefixes. JQL rejects a key that doesn't exist outright, so each
+            # prefix is its own query; only fail if none of them exist
+            issues = []
+            error = None
+            for project_name in self._project_names():
+                try:
+                    issues += self.search_issues(f'{self._search_scope()} AND id = \'{project_name}-{search_text}\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
+                except Exception as e:
+                    error = e
+            if not issues and error is not None:
+                raise error
         else:
             # For text searches, search in summary (existing behavior)
             issues = self.search_issues(f'{self._search_scope()} AND summary ~ \'{search_text}*\' AND (issuetype != Sub-task AND issuetype != "Sub-task Bug") ORDER BY Rank ASC')
@@ -923,7 +951,7 @@ class MyJira:
             List of linked issues.
         """
         product_clause = f' AND "Product[Dropdown]" in ("{self.product_name}")' if self.product_name else ''
-        linked_issues = self.search_issues(f'project = {self.project_name}{product_clause} AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
+        linked_issues = self.search_issues(f'{self._project_clause()}{product_clause} AND issue in linkedIssues({issue.key}) AND issuetype = "{issue_type}" ORDER BY Rank ASC')
         return linked_issues
 
     def set_story_points(self, issue: Any, points: Union[int, float]) -> None:
@@ -947,7 +975,7 @@ class MyJira:
         Returns:
             List of child issues.
         """
-        children = self.search_issues(f'project = {self.project_name} AND parent={issue.key} ORDER BY Rank ASC')
+        children = self.search_issues(f'{self._project_clause()} AND parent={issue.key} ORDER BY Rank ASC')
         return children
 
     @staticmethod

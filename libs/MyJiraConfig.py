@@ -9,7 +9,7 @@ class MyJiraConfig:
     
     def generate_template(self):
         config_data = {
-            "version": 1.2,
+            "version": 1.3,
             "jira": {
                 "url": "https://mycorp.atlassian.net",
                 "password": "",
@@ -20,6 +20,7 @@ class MyJiraConfig:
                     "Sparklemuffin": {
                         "team_id": 34,
                         "project_name": "EPM",
+                        "extra_projects": ["EPMO"],
                         "product_name": "PM Windows",
                         "github_repos": ["epm-windows"],
                         "short_names_to_ids": {
@@ -39,6 +40,7 @@ class MyJiraConfig:
                     "Red Panda": {
                         "team_id": "e4e9e450-7523-478b-bccd-06ce6f7419ec-30",
                         "project_name": "EPM",
+                        "extra_projects": ["EPMO"],
                         "product_name": "PM Windows",
                         "short_names_to_ids": {
                             "Jack": "jlawless@mycorp.com"
@@ -50,6 +52,7 @@ class MyJiraConfig:
                     "Viscacha": {
                         "team_id": 33,
                         "project_name": "EPM",
+                        "extra_projects": ["EPMO"],
                         "product_name": "PM Windows",
                         "short_names_to_ids": {
                             "Richard": "rpittello@mycorp.com"
@@ -61,6 +64,7 @@ class MyJiraConfig:
                     "Mac": {
                         "team_id": 14,
                         "project_name": "EPM",
+                        "extra_projects": ["EPMO"],
                         "product_name": "PM Mac",
                         "short_names_to_ids": {
                             "Omar": "oikram@mycorp.com"
@@ -181,6 +185,16 @@ class MyJiraConfig:
                 git_config.setdefault('branch_name_model', 'haiku')
                 git_config.setdefault('max_branch_summary_length', 40)
                 config['version'] = 1.2
+
+            # 1.3: EPM bugs are now raised in the EPMO project, so EPM teams
+            # search both
+            if config['version'] < 1.3:
+                for team in config['jira']['teams'].values():
+                    if team.get('project_name') == 'EPM':
+                        extra_projects = team.setdefault('extra_projects', [])
+                        if 'EPMO' not in extra_projects:
+                            extra_projects.append('EPMO')
+                config['version'] = 1.3
 
             with open(self.config_file_path, "w") as config_file:
                 json.dump(config, config_file, indent=4)

@@ -102,6 +102,32 @@ class TestJqlFallbacks:
         assert 'HELP' not in jql
         assert 'labels = "mylabel"' in jql
 
+    def test_extra_projects_widen_every_scope(self, jira):
+        jira.extra_projects = ["TESTO"]
+        assert 'project in (TEST, TESTO)' in self._captured_jql(jira, 'get_backlog_issues')
+        assert 'project in (TEST, TESTO)' in self._captured_jql(jira, 'get_sprint_issues')
+        assert 'project in (TEST, TESTO)' in self._captured_jql(jira, 'get_child_issues', Mock(key="TEST-1"))
+        assert '(project in (TEST, TESTO) OR project = HELP)' in self._captured_jql(jira, 'search_for_issue', 'some text')
+
+    def test_issue_number_is_tried_under_every_project(self, jira):
+        jira.extra_projects = ["TESTO"]
+        found = Mock()
+        # TEST-7 doesn't exist, so Jira rejects that JQL
+        jira.search_issues = Mock(side_effect=[RuntimeError("no such issue"), [found]])
+        jira.set_reference_issue = Mock()
+
+        assert jira.search_for_issue('7') == [found]
+        queried = [call[0][0] for call in jira.search_issues.call_args_list]
+        assert "'TEST-7'" in queried[0]
+        assert "'TESTO-7'" in queried[1]
+
+    def test_issue_number_raises_when_no_project_has_it(self, jira):
+        jira.extra_projects = ["TESTO"]
+        jira.search_issues = Mock(side_effect=RuntimeError("no such issue"))
+
+        with pytest.raises(RuntimeError):
+            jira.search_for_issue('7')
+
     def test_child_issues_are_not_restricted_by_type(self, jira):
         # An epic's children are stories and bugs, not sub-tasks
         jql = self._captured_jql(jira, 'get_child_issues', Mock(key="TEST-1"))

@@ -161,7 +161,7 @@ class TestUpgradeV11:
     def test_upgrade_adds_github_repos_and_maps_flat_repo_to_default_team(self, mock_jira_config):
         upgraded = self._upgrade(mock_jira_config, self._v10_config())
 
-        assert upgraded['version'] == 1.2
+        assert upgraded['version'] == 1.3
         assert upgraded['jira']['teams']['TestTeam']['github_repos'] == ["test-repo"]
         assert upgraded['jira']['teams']['OtherTeam']['github_repos'] == []
 
@@ -203,3 +203,13 @@ class TestUpgradeV11:
 
         assert upgraded['git']['branch_name_model'] == ""
         assert upgraded['git']['initials'] == "js"
+    def test_upgrade_adds_epmo_to_epm_teams_only(self, mock_jira_config):
+        config_data = self._v10_config()
+        config_data['version'] = 1.2
+        config_data['jira']['teams']['TestTeam']['project_name'] = "EPM"
+
+        upgraded = self._upgrade(mock_jira_config, config_data)
+
+        assert upgraded['version'] == 1.3
+        assert upgraded['jira']['teams']['TestTeam']['extra_projects'] == ["EPMO"]
+        assert 'extra_projects' not in upgraded['jira']['teams']['OtherTeam']
