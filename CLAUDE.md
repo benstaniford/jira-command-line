@@ -34,7 +34,8 @@ The main entry point is the `jira` script in the root directory:
 python jira                    # Default backlog mode
 python jira -s                 # Sprint mode
 python jira -l                 # Backlog mode
-python jira -B <board_index>   # Specific board mode
+python jira -B <n>             # Board <n>, numbered as the "B" command lists them
+python jira -B                 # List the boards to stdout and exit
 python jira -z                 # Escalations mode
 python jira -w                 # Windows-shared mode
 python jira -q "<text>"        # Start with a search, like "?" in the UI

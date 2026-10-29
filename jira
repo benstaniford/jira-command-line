@@ -23,7 +23,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("-s", "--sprint", help="Start in sprint mode", action="store_true")
     parser.add_argument("-l", "--backlog", help="Start in backlog mode", action="store_true")
     parser.add_argument("-L", "--sprints", help="Start in sprints mode (backlog ordered by sprint)", action="store_true")
-    parser.add_argument("-B", "--board", help="Start in board mode, takes an index of the board to show", type=int)
+    parser.add_argument("-B", "--board", help="Start in board mode on the given board number, as 'B' does in the UI; with no number, list the boards and exit", type=int, nargs="?", const=0, metavar="N")
     parser.add_argument("-z", "--escalations", help="Start in escalations mode", action="store_true")
     parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
     parser.add_argument("-q", "--query", help="Start with a search for the given text, as '?' does in the UI", type=str)
@@ -66,6 +66,20 @@ args = build_arg_parser().parse_args()
 if args.team:
     jira.set_team(args.team)
 
+# -B on its own lists the boards, numbered as the 'B' command numbers them, so
+# the number can be passed back to -B
+if args.board is not None:
+    boards: List[str] = jira.get_boards()
+    if args.board == 0:
+        if len(boards) == 0:
+            print("No boards configured in config")
+        for i, board_name in enumerate(boards):
+            print(f"{i+1}: {board_name}")
+        quit()
+    if not 1 <= args.board <= len(boards):
+        print(f"No board {args.board}, run with -B to list the boards")
+        quit(1)
+
 # Warm the assignable-users cache now the team is final; never blocks, at most
 # spawns a background refresh that races the initial view load
 jira.warm_assignable_users_cache()
@@ -88,7 +102,7 @@ def main(stdscr: Any) -> Optional[None]:
 
     board: Optional[Any] = None
     if args.board:
-        board = jira.get_boards()[args.board]
+        board = jira.get_boards()[args.board - 1]
 
     # Get the initial issues, a search taking precedence over any start mode
     if args.query:
