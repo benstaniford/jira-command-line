@@ -39,7 +39,22 @@ python jira -B                 # List the boards to stdout and exit
 python jira -z                 # Escalations mode
 python jira -w                 # Windows-shared mode
 python jira -q "<text>"        # Start with a search, like "?" in the UI
+python jira --test             # Read-only self test for the current repo's team, then exit
 ```
+
+### Self Test (`--test`)
+`libs/SelfTest.py` checks the client against the live Jira, git and github for the
+repository in the current directory, without a terminal UI and without writing
+anything. It drives the real command classes and `JiraTableView` through
+`HeadlessTableView`, a stand-in for `CursesTableView` that answers prompts from a
+script and refuses every y/n confirmation. It covers every view (including each
+configured board, searches and nested drill-downs), every F-key column over every
+issue the views returned, and the read-only groundwork of the commands that write
+(e.g. `a` fetches assignable users, `h` computes a branch name, `p` checks repo
+access). Commands that can only be tested by writing are listed in
+`UNTESTED_COMMANDS` and reported as SKIP. A newly added command that the self test
+neither checks nor lists there is reported as a coverage WARN. The exit code is 1
+if any check FAILs. Set `JIRA_TEST_TRACEBACK=1` to print tracebacks for failures.
 
 ## Architecture Overview
 

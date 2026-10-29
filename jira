@@ -28,6 +28,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("-w", "--windows-shared", help="Start in windows-shared mode", action="store_true")
     parser.add_argument("-q", "--query", help="Start with a search for the given text, as '?' does in the UI", type=str)
     parser.add_argument("-t", "--team", help="Start with the given team, overriding auto-detection from the git remote", type=str)
+    parser.add_argument("--test", help="Check that every view, column and read-only command works for the repository in the current directory, then exit; nothing is written", action="store_true")
     return parser
 
 def load_config() -> MyJiraConfig:
@@ -79,6 +80,11 @@ if args.board is not None:
     if not 1 <= args.board <= len(boards):
         print(f"No board {args.board}, run with -B to list the boards")
         quit(1)
+
+# --test runs headless against the live Jira and exits non-zero if any check fails
+if args.test:
+    from libs.SelfTest import SelfTest
+    quit(SelfTest(jira, mygit, mygithub, config, origin).run())
 
 # Warm the assignable-users cache now the team is final; never blocks, at most
 # spawns a background refresh that races the initial view load
