@@ -474,16 +474,27 @@ class SelfTest:
     def check_column(self, column: Callable[[Any], Any]) -> str:
         if not self.seen:
             raise CheckSkipped("no issues to show")
-        values = set()
+        # (issues, issues with a value) per project
+        counts: Dict[str, List[int]] = {}
         for issue in self.seen.values():
             try:
                 value = column(issue)
             except Exception as e:
                 raise AssertionError(f"{issue.key} ({issue.fields.issuetype}): {type(e).__name__}: {e}")
             self.require(isinstance(value, str), f"{issue.key} gave {type(value).__name__} {value!r}, not text")
-            values.add(value)
-        filled = len([value for value in values if value not in ("", "None")])
-        return f"{len(self.seen)} issues, {filled} distinct values"
+            project = counts.setdefault(issue.key.split("-")[0], [0, 0])
+            project[0] += 1
+            project[1] += value not in ("", "None")
+        detail = ", ".join(f"{name} {filled}/{total}" for name, (total, filled) in sorted(counts.items()))
+        # A column that renders but is blank everywhere is usually a field the
+        # project doesn't use, or one we're reading from the wrong place. Boards
+        # and shared views pull in other teams' projects, so the team's own
+        # projects are judged on their own rather than lost in the pool
+        team_projects = [name for name in self.jira._project_names() if name in counts] or list(counts)
+        blank = [name for name in team_projects if counts[name][1] == 0]
+        if blank:
+            raise CheckWarning(f"blank for every {', '.join(blank)} issue ({detail})")
+        return f"with values: {detail}"
 
     def check_all_columns(self) -> str:
         self.run_command("l")

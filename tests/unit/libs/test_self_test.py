@@ -106,3 +106,26 @@ class TestSelfTestChecks:
 
     def test_untested_commands_exist(self, self_test):
         assert set(UNTESTED_COMMANDS) <= set(self_test.registry.commands)
+
+    def test_column_blank_for_a_team_project_warns(self, self_test):
+        # Values in another team's project mustn't hide a blank in our own
+        self_test.jira._project_names.return_value = ["AIDR"]
+        self_test.seen = {"AIDR-1": make_issue("AIDR-1"), "EPM-1": make_issue("EPM-1")}
+        with pytest.raises(CheckWarning, match=r"blank for every AIDR issue \(AIDR 0/1, EPM 1/1\)"):
+            self_test.check_column(lambda issue: "3" if issue.key == "EPM-1" else "")
+
+    def test_column_counts_values_per_project(self, self_test):
+        self_test.jira._project_names.return_value = ["EPM"]
+        self_test.seen = {"EPM-1": make_issue("EPM-1"), "EPM-2": make_issue("EPM-2")}
+        assert self_test.check_column(lambda issue: "7" if issue.key == "EPM-1" else "None") == "with values: EPM 1/2"
+
+    def test_column_judged_on_all_projects_without_team_issues(self, self_test):
+        self_test.jira._project_names.return_value = ["EPM"]
+        self_test.seen = {"HELP-1": make_issue("HELP-1")}
+        with pytest.raises(CheckWarning, match="blank for every HELP issue"):
+            self_test.check_column(lambda issue: "")
+
+    def test_column_that_raises_fails(self, self_test):
+        self_test.seen = {"EPM-1": make_issue("EPM-1")}
+        with pytest.raises(AssertionError, match="EPM-1"):
+            self_test.check_column(lambda issue: 1 / 0)
