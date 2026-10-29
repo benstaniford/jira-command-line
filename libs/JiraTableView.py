@@ -6,6 +6,9 @@ class JiraTableView:
         self.jira = jira
         self.parent_issue = ()
         self.mode = ViewMode.BACKLOG
+        # The board name or search text the current view was built from, so an
+        # argument-less refresh can re-run it
+        self.params = None
         # One (mode, issues, parent_issue) frame per level drilled into, so
         # epic -> story -> sub-tasks can be unwound a level at a time
         self.__stack = []
@@ -41,6 +44,10 @@ class JiraTableView:
 
         self.parent_issue = parent_issue if parent_issue != None or self.mode != ViewMode.TASKVIEW else self.parent_issue
         self.mode = new_mode if new_mode != None else self.mode
+        if new_mode != None and new_mode != ViewMode.TASKVIEW:
+            self.params = params
+        elif params == None:
+            params = self.params
 
         self.ui.prompt("Fetching issues...", "")
         jira = self.jira
