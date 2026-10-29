@@ -185,6 +185,27 @@ class TestGetActiveSprintId:
             jira._get_active_sprint_id()
 
 
+class TestGetPriorityScore:
+    def _issue(self, priority_name):
+        issue = Mock()
+        issue.fields.priority = Mock() if priority_name else None
+        if priority_name:
+            issue.fields.priority.name = priority_name
+        return issue
+
+    @pytest.mark.parametrize("score, priority, expected", [
+        (65.0, "High", "65.0"),      # the score takes precedence
+        (0, "High", "0"),            # a zero score is still a score
+        (None, "Medium", "Medium"),  # no score, e.g. AIDR, so fall back
+        ("", "Lowest", "Lowest"),    # unmapped score field reads as ""
+        (None, None, ""),            # neither set
+    ])
+    @patch('libs.MyJira.MyJiraIssue')
+    def test_falls_back_to_priority(self, mock_issue_class, jira, score, priority, expected):
+        mock_issue_class.return_value.priority_score = score
+        assert jira.get_priority_score(self._issue(priority)) == expected
+
+
 def _user(display_name, account_id, account_type="atlassian", active=True):
     return {
         "displayName": display_name,

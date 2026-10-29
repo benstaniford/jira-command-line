@@ -1212,14 +1212,19 @@ class MyJira:
 
     def get_priority_score(self, issue: Any) -> str:
         """
-        Get the priority score for an issue as a string.
+        Get the priority score for an issue as a string. Projects without the
+        numeric Priority Score custom field (e.g. AIDR) fall back to the built-in
+        priority, Highest..Lowest; the score wins when an issue has both.
         Args:
             issue: Jira issue object.
         Returns:
-            Priority score as a string.
+            Priority score, else priority name, as a string; "" if neither is set.
         """
         ps = MyJiraIssue(issue, self.jira).priority_score
-        return str(ps) if ps != None else ""
+        if ps not in (None, ""):
+            return str(ps)
+        priority = getattr(issue.fields, "priority", None)
+        return priority.name if priority is not None else ""
 
     def get_assignee(self, issue: Any) -> str:
         """
