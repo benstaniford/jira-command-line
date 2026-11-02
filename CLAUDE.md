@@ -27,6 +27,12 @@ On first run, the tool generates a template configuration file at `~/.jira-confi
 - GitHub PAT tokens from https://github.com/settings/tokens (classic token with repo scope)
 - Team configurations, board IDs, and user mappings
 
+Any string value may reference an environment variable as `$(VAR)` or `${VAR}`,
+whole or embedded (e.g. `"password": "$(JIRA_PAT)"`), so tokens can stay in the
+shell environment instead of the file. `MyJiraConfig.load()` resolves them after
+`upgrade()` (which rewrites the file) so the references, not the secrets, are what
+get saved. An unset variable fails the load with an error naming the key and variable.
+
 ## Running the Application
 
 The main entry point is the `jira` script in the root directory:

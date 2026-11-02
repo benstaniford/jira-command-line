@@ -213,3 +213,42 @@ class TestUpgradeV11:
         assert upgraded['version'] == 1.3
         assert upgraded['jira']['teams']['TestTeam']['extra_projects'] == ["EPMO"]
         assert 'extra_projects' not in upgraded['jira']['teams']['OtherTeam']
+
+
+class TestEnvExpansion:
+    def test_whole_and_embedded_references(self, mock_jira_config, monkeypatch):
+        monkeypatch.setenv("JCL_TOKEN", "secret")
+        monkeypatch.setenv("JCL_HOST", "example.com")
+        config = {"a": "$(JCL_TOKEN)", "b": "https://${JCL_HOST}/x", "c": ["$(JCL_TOKEN)", {"d": "$(JCL_HOST)"}]}
+
+        assert mock_jira_config.expand_env(config) == {
+            "a": "secret", "b": "https://example.com/x", "c": ["secret", {"d": "example.com"}]}
+
+    def test_plain_values_untouched(self, mock_jira_config):
+        config = {"a": "plain", "b": 42, "c": None, "d": True, "e": 1.3, "f": "$notref"}
+        assert mock_jira_config.expand_env(config) == config
+
+    def test_unset_variable_names_key_and_var(self, mock_jira_config, monkeypatch):
+        monkeypatch.delenv("JCL_MISSING", raising=False)
+        with pytest.raises(ValueError, match=r"jira\.password references \$\(JCL_MISSING\)"):
+            mock_jira_config.expand_env({"jira": {"password": "$(JCL_MISSING)"}})
+
+    def test_load_expands_but_file_keeps_references(self, mock_jira_config, monkeypatch):
+        monkeypatch.setenv("JCL_PAT", "the-pat")
+        config_data = {
+            "version": 1.3,
+            "jira": {"url": "https://test.atlassian.net", "password": "$(JCL_PAT)",
+                     "username": "test@example.com", "fullname": "Test User",
+                     "default_team": "T", "teams": {"T": {"github_repos": []}}},
+            "git": {"branch_name_model": "haiku", "max_branch_summary_length": 40},
+            "xray": {},
+        }
+        os.makedirs(mock_jira_config.config_dir, exist_ok=True)
+        with open(mock_jira_config.config_file_path, "w") as config_file:
+            json.dump(config_data, config_file)
+
+        loaded = mock_jira_config.load()
+
+        assert loaded['jira']['password'] == "the-pat"
+        with open(mock_jira_config.config_file_path) as config_file:
+            assert json.load(config_file)['jira']['password'] == "$(JCL_PAT)"

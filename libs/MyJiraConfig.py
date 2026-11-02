@@ -1,5 +1,10 @@
 import os
+import re
 import json
+
+# A config string may reference an environment variable as $(VAR) or ${VAR},
+# so secrets can live in the shell environment rather than in the file
+_ENV_REF = re.compile(r"\$(?:\((\w+)\)|\{(\w+)\})")
 
 class MyJiraConfig:
     def __init__(self):
@@ -202,9 +207,32 @@ class MyJiraConfig:
         except:
             raise ValueError("Failed to upgrade config file")
 
+    def expand_env(self, node, path=""):
+        """Return a copy of node with $(VAR) / ${VAR} references in every
+        string replaced by the environment variable's value."""
+        if isinstance(node, dict):
+            return {key: self.expand_env(value, f"{path}.{key}" if path else key)
+                    for key, value in node.items()}
+        if isinstance(node, list):
+            return [self.expand_env(value, f"{path}[{i}]") for i, value in enumerate(node)]
+        if not isinstance(node, str):
+            return node
+
+        def substitute(match):
+            name = match.group(1) or match.group(2)
+            value = os.environ.get(name)
+            if value is None:
+                raise ValueError(f"Config {path} references {match.group(0)}, "
+                                 "which is not set in the environment")
+            return value
+        return _ENV_REF.sub(substitute, node)
+
     def load(self):
         with open(self.config_file_path, 'r') as json_file:
             config = json.load(json_file)
-            config = self.upgrade(config)
-            self.validate(config)
-            return config
+        # Upgrade the raw config: upgrade() rewrites the file, and it must keep
+        # the $(VAR) references rather than the secrets they resolve to
+        config = self.upgrade(config)
+        config = self.expand_env(config)
+        self.validate(config)
+        return config
