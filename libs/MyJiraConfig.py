@@ -34,7 +34,6 @@ class MyJiraConfig:
                             "Dimi": "dbostock@mycorp.com",
                             "Connor": "cflynn@mycorp.com",
                             "Neil": "nwicker@mycorp.com",
-                            "Nick": "ncrowley@mycorp.com",
                             "Tamas": "tvarady@mycorp.com",
                             "Unassigned": ""
                         },
