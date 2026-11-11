@@ -1,7 +1,7 @@
 #scriptdoc: title="My shortcuts for doing stuff with the local repo", tags="bt,work,git"
 
 # pip install gitpython
-from git import Repo
+from git import Repo, InvalidGitRepositoryError, NoSuchPathError
 import os
 import re
 
@@ -30,8 +30,18 @@ class MyGit:
         match = self.GITHUB_REMOTE_RE.match(url.strip())
         return (match.group('owner'), match.group('repo')) if match else None
 
+    @staticmethod
+    def _local_repo():
+        """Open the git repo containing the current directory, with a clear
+        error when jira is run from outside a checkout."""
+        try:
+            return Repo('.', search_parent_directories=True)
+        except (InvalidGitRepositoryError, NoSuchPathError):
+            raise Exception(f"Not inside a git repository ({os.getcwd()}). "
+                            "cd into the repo you want the worktree for and run jira from there.") from None
+
     def current_branch(self):
-        repo = Repo('.', search_parent_directories=True)
+        repo = self._local_repo()
         return repo.active_branch.name
 
     def branch_name_for_issue(self, issue_number, summary):
@@ -50,7 +60,7 @@ class MyGit:
         return f"{self.initials}/{issue_number}/{summary}"
 
     def create_branch_for_issue(self, issue_number, summary):
-        repo = Repo('.', search_parent_directories=True)
+        repo = self._local_repo()
         if repo.is_dirty():
             raise Exception("Repo is dirty")
 
@@ -68,7 +78,7 @@ class MyGit:
     def create_worktree_for_issue(self, issue_number, summary):
         """Create a new branch off main and check it out into a sibling worktree.
         Returns (branch_name, worktree_path)."""
-        repo = Repo('.', search_parent_directories=True)
+        repo = self._local_repo()
         branch_name = self.branch_name_for_issue(issue_number, summary)
 
         # Worktrees live alongside the repo in <repo>-worktrees/<branch-dirname>
