@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from git import Repo
 
+from .Claudeck import Claudeck
 from .CommandRegistry import CommandRegistry
 from .CursesTableView import CursesTableView
 from .commands.base_command import BaseCommand
@@ -597,9 +598,20 @@ class SelfTest:
 
     def check_worktree(self) -> str:
         self.check_git_repo()
+        claudeck = Claudeck()
+        status = claudeck.status()
+        if status is not None:
+            session = status.get("sessionId", "?")
+            if status.get("mayStartSessions"):
+                return f"under Claudeck as {session}, w would start a Claudeck session; none started"
+            detail = f"under Claudeck as {session}, but starting sessions is off so w runs claude here"
+        elif claudeck.installed():
+            detail = "claudeck installed but not running under it, so w runs claude here"
+        else:
+            detail = "claude found"
         if shutil.which("claude") is None:
             raise CheckWarning("claude is not on the PATH, so w cannot start it")
-        return "claude found, worktree not created"
+        return f"{detail}, worktree not created"
 
     def check_pr(self) -> str:
         if self.mygithub is None:

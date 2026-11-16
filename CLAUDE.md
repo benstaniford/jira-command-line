@@ -207,6 +207,15 @@ Claude not installed, a non-zero exit, a timeout, or a reply that doesn't look
 like a branch fragment - falls back to the full title, i.e. the old behaviour.
 Set `git.branch_name_model` to `""` to switch shortening off entirely.
 
+### `w` Under Claudeck
+Claudeck puts a `claudeck` CLI on the PATH of every session it runs. `libs/Claudeck.py`
+wraps it: `w` calls `claudeck status --json`, and when that says we are inside Claudeck
+with `mayStartSessions` on, it runs `claudeck session new --worktree --focus --dir
+<repo root> --name <key>` instead of cutting the worktree and running `claude` itself.
+Claudeck names that worktree's branch itself, so the session's first prompt (sent over
+stdin) tells it to `git branch -m` to our `<initials>/<key>/<summary>` name. If claudeck is
+missing, we're not inside it, or session starts are switched off, `w` behaves as before.
+
 ### Testing Framework
 The project now includes a comprehensive test suite using pytest:
 

@@ -40,6 +40,9 @@ class MyGit:
             raise Exception(f"Not inside a git repository ({os.getcwd()}). "
                             "cd into the repo you want the worktree for and run jira from there.") from None
 
+    def repo_root(self):
+        return self._local_repo().working_tree_dir
+
     def current_branch(self):
         repo = self._local_repo()
         return repo.active_branch.name
