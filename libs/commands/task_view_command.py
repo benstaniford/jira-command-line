@@ -12,8 +12,8 @@ class TaskViewCommand(BaseCommand):
     
     def execute(self, ui, view, jira, selection=None, **kwargs):
         try:
-            if selection and selection.isdigit():
-                [row, issue] = ui.get_row(int(selection)-1)
+            if selection and ui.is_row_label(selection):
+                [row, issue] = ui.get_row_by_label(selection)
                 view.refresh(ViewMode.TASKVIEW, parent_issue=issue)
         except Exception as e:
             ui.error("Show task view", e)

@@ -14,6 +14,11 @@ class JiraTableView:
         self.__stack = []
         self.__current_issues = ()
         self.extra_columns = {}
+        # The columns the current table was built with, so children loaded later match
+        self.__row_columns = {}
+        # Keys of the issues expanded in place, so a rebuild re-expands them
+        self.expanded_keys = set()
+        ui.set_child_loader(self.__load_children, self.__load_children_of_many)
 
     # Rebuilds the view based, adding any extra columns
     def rebuild(self, extra_columns={}):
@@ -72,6 +77,7 @@ class JiraTableView:
 
     # Clear the UI and rebuild the view based on the specified issues list, can optionally enable extra columns
     def __build(self, issues):
+        self.__remember_expansions()
         self.ui.clear()
         optional_fields = self.jira.get_optional_fields()
         extra_columns = self.extra_columns.copy()
@@ -90,20 +96,47 @@ class JiraTableView:
             header.extend(extra_columns.keys())
         self.ui.add_header(header)
 
+        self.__row_columns = extra_columns
         for issue in issues:
-            added_fields = []
-            if len(extra_columns) > 0:
-                for col_lambda in extra_columns.values():
-                    added_fields.append(col_lambda(issue))
-            cells = [issue.key, issue.fields.summary, issue.fields.status.name]
-            cells.extend(added_fields)
-            subtasks = issue.fields.subtasks
-            subtask_list = []
-            for subtask in subtasks:
-                subcells = [subtask.key, subtask.fields.summary, subtask.fields.status.name]
-                subtask_list.append((subcells, subtask))
-            self.ui.add_row(cells, issue, subtask_list)
+            cells, data, subrows, expandable = self.__row_entry(issue)
+            self.ui.add_row(cells, data, subrows, expandable=expandable)
+        if self.expanded_keys:
+            self.ui.expand_where(lambda data: getattr(data, "key", None) in self.expanded_keys)
 
         self.ui.draw()
 
         return issues
+
+    # Records which rows of the outgoing table were expanded or collapsed in place
+    def __remember_expansions(self):
+        for data, expanded in self.ui.get_expansion_state():
+            key = getattr(data, "key", None)
+            if key is None:
+                continue
+            if expanded:
+                self.expanded_keys.add(key)
+            else:
+                self.expanded_keys.discard(key)
+
+    # A row for an issue: its cells, and either its sub-tasks, which arrive with the
+    # issue, or for an epic a flag saying its children can be fetched on expand
+    def __row_entry(self, issue):
+        cells = [issue.key, issue.fields.summary, issue.fields.status.name]
+        cells.extend(col_lambda(issue) for col_lambda in self.__row_columns.values())
+        subtasks = [([subtask.key, subtask.fields.summary, subtask.fields.status.name], subtask)
+                    for subtask in issue.fields.subtasks]
+        return cells, issue, subtasks, self.jira.is_epic(issue)
+
+    # Child loaders for the table: only epics get here, as sub-tasks are supplied up front
+    def __load_children(self, issue):
+        self.ui.prompt(f"Fetching children of {issue.key}...", "")
+        children = self.jira.get_child_issues(issue)
+        if not children:
+            # Epics are marked expandable before anyone asks Jira, so say why nothing appeared
+            self.ui.set_status(f"{issue.key} has no child issues")
+        return [self.__row_entry(child) for child in children]
+
+    def __load_children_of_many(self, issues):
+        self.ui.prompt(f"Fetching children of {len(issues)} issues...", "")
+        children = self.jira.get_children_of_many(issues)
+        return [[self.__row_entry(child) for child in children.get(issue.key, [])] for issue in issues]

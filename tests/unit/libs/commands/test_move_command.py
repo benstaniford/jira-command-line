@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 from libs.commands.move_command import MoveCommand
 from libs.ViewMode import ViewMode
+from libs.CursesTableView import CursesTableView, RowContainer
 
 
 class TestMoveCommand:
@@ -54,7 +55,11 @@ class TestMoveCommand:
         mock_bottom_issue.key = "TEST-BOTTOM"
         
         mock_ui.prompt_get_issue.return_value = ["2", 1, mock_issue]
-        mock_ui.get_row.return_value = [-1, mock_bottom_issue]
+        # The bottom is the last top level row, not an expanded child shown beneath it
+        top_row = RowContainer(["TEST-TOP"], Mock())
+        bottom_row = RowContainer(["TEST-BOTTOM"], mock_bottom_issue)
+        child_row = RowContainer(["TEST-CHILD"], Mock(), child_of=bottom_row)
+        mock_ui.get_rows.return_value = [top_row, bottom_row, child_row]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
@@ -79,13 +84,15 @@ class TestMoveCommand:
         mock_target_issue.key = "TEST-TARGET"
         
         mock_ui.prompt_get_issue.return_value = ["1", 0, mock_issue]
-        mock_ui.get_row.return_value = [2, mock_target_issue]
+        mock_ui.is_row_label.side_effect = CursesTableView.is_row_label
+        mock_ui.get_row_by_label.return_value = [2, mock_target_issue]
         
         command = MoveCommand()
         result = command.execute(ui=mock_ui, view=mock_view, jira=mock_jira_api)
         
         # Verify the ranking operation
         mock_jira_api.set_rank_below.assert_called_once_with(mock_issue, mock_target_issue)
+        mock_ui.get_row_by_label.assert_called_once_with("3")
         mock_ui.prompt.assert_called_with("Moved TEST-MOVE below TEST-TARGET...")
         mock_view.refresh.assert_called_once()
     

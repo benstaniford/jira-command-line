@@ -27,14 +27,15 @@ class MoveCommand(BaseCommand):
                     ui.prompt(f"Moved {issue.key} to top...")
                     view.refresh()
                 elif selection == 'To bottom':
-                    [row, bottomIssue] = ui.get_row(-1)
+                    # The last top level row, not an expanded child that may be drawn below it
+                    bottomIssue = [row_container for row_container in ui.get_rows() if not row_container.is_subrow()][-1].data
                     jira.set_rank_below(issue, bottomIssue)
                     ui.prompt(f"Moved {issue.key} to bottom...")
                     view.refresh()
                 elif selection == 'Below issue':
                     selection = ui.prompt_get_string("Enter issue number")
-                    if selection.isdigit():
-                        [row, otherIssue] = ui.get_row(int(selection)-1)
+                    if ui.is_row_label(selection):
+                        [row, otherIssue] = ui.get_row_by_label(selection)
                         jira.set_rank_below(issue, otherIssue)
                         ui.prompt(f"Moved {issue.key} below {otherIssue.key}...")
                         view.refresh()

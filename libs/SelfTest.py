@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 from git import Repo
 
 from .CommandRegistry import CommandRegistry
+from .CursesTableView import CursesTableView
 from .commands.base_command import BaseCommand
 from .JiraTableView import JiraTableView
 from .MyJiraIssue import MyJiraIssue
@@ -33,59 +34,21 @@ class CheckSkipped(Exception):
 class CheckWarning(Exception):
     pass
 
-class HeadlessTableView:
+class HeadlessTableView(CursesTableView):
     """
     Stands in for CursesTableView so the real commands and JiraTableView run
-    unchanged without a terminal. Prompts are answered from a script, every
-    y/n confirmation is refused, and errors are recorded rather than shown.
+    unchanged without a terminal. The table itself - rows, expansion, outline
+    numbers and the cursor - is the real thing; only drawing and prompting are
+    replaced. Prompts are answered from a script, every y/n confirmation is
+    refused, and errors are recorded rather than shown.
     """
     def __init__(self) -> None:
-        self.header: List[str] = []
-        self.rows: List[tuple] = []  # (cells, data, is_subrow)
+        super().__init__(None)
         self.errors: List[tuple] = []
         self.answers: List[Any] = []
-        self.subrows_enabled = False
-        self.cursor: Optional[int] = None
 
     def _next_answer(self) -> Any:
         return self.answers.pop(0) if self.answers else ""
-
-    def active_rows(self) -> List[tuple]:
-        return [r for r in self.rows if self.subrows_enabled or not r[2]]
-
-    # Table
-    def clear(self) -> None:
-        self.header = []
-        self.rows = []
-        self.cursor = None
-
-    def add_header(self, header: List[str]) -> None:
-        self.header = list(header)
-
-    def add_row(self, row, data=None, subrows=None, row_index=None, parent_row=None) -> None:
-        self.rows.append((list(row), data, parent_row is not None))
-        for subrow, subrow_data in subrows or []:
-            self.add_row(subrow, subrow_data, parent_row=row)
-
-    def get_row(self, row_index: int):
-        cells, data, _ = self.active_rows()[row_index]
-        return cells, data
-
-    def get_rows(self) -> List[tuple]:
-        return self.active_rows()
-
-    def toggle_subrows(self) -> None:
-        self.subrows_enabled = not self.subrows_enabled
-
-    # Row cursor
-    def has_selection(self) -> bool:
-        return self.cursor is not None
-
-    def clear_selection(self) -> None:
-        self.cursor = None
-
-    def get_selected_row(self):
-        return self.get_row(self.cursor) if self.cursor is not None else None
 
     # Prompts
     def prompt(self, prompt_text, prompt_suffix=" >", color=None) -> None:
@@ -180,7 +143,8 @@ class SelfTest:
         for board in boards:
             self.check(f"B: board {board}", lambda board=board: self.check_view_command("B", ViewMode.BOARD, answers=[board]), "B")
         self.check("r: refresh", self.check_refresh, "r")
-        self.check("T: sub-tasks", self.check_toggle_subtasks, "T")
+        self.check("T: expand all", self.check_expand_all, "T")
+        self.check("right arrow: expand epic in place", self.check_expand_epic)
         self.check("digit: story sub-tasks", self.check_story_drilldown, "digit")
         self.check("digit: epic children", self.check_epic_drilldown, "digit")
         self.check("?: text search", self.check_text_search, "?")
@@ -284,9 +248,11 @@ class SelfTest:
         for header in extra_headers or []:
             self.require(header in self.ui.header, f"{header} column missing from {self.ui.header}")
         issues = subtasks = 0
-        for cells, data, is_subrow in self.ui.rows:
-            width = 3 if is_subrow else len(self.ui.header)
-            self.require(len(cells) == width, f"{data.key} has {len(cells)} cells, expected {width}")
+        for row_container in self.ui.rows:
+            cells, data, is_subrow = row_container.row, row_container.data, row_container.is_subrow()
+            # Sub-tasks carry the three cells they arrive with, an epic's children every column
+            widths = (3, len(self.ui.header)) if is_subrow else (len(self.ui.header),)
+            self.require(len(cells) in widths, f"{data.key} has {len(cells)} cells, expected {' or '.join(map(str, widths))}")
             bad = [c for c in cells if not isinstance(c, str)]
             self.require(not bad, f"{data.key} has non-text cells {bad}")
             if is_subrow:
@@ -297,8 +263,8 @@ class SelfTest:
         return f"{issues} issues, {subtasks} sub-tasks"
 
     def find_row(self, predicate: Callable[[Any], bool]) -> Optional[int]:
-        for index, (cells, data, is_subrow) in enumerate(self.ui.active_rows()):
-            if predicate(data):
+        for index, row_container in enumerate(self.ui.get_rows()):
+            if predicate(row_container.data):
                 return index
         return None
 
@@ -358,23 +324,59 @@ class SelfTest:
     # is rarely empty
     def check_refresh(self) -> str:
         self.run_command("l")
-        before = [data.key for _, data, _ in self.ui.rows]
+        before = [row_container.data.key for row_container in self.ui.rows]
         self.run_command("r")
         self.check_table(ViewMode.BACKLOG)
-        after = [data.key for _, data, _ in self.ui.rows]
+        after = [row_container.data.key for row_container in self.ui.rows]
         self.require(len(after) == len(before), f"backlog had {len(before)} rows, {len(after)} after refresh")
         return f"backlog re-queried, {len(after)} rows"
 
-    def check_toggle_subtasks(self) -> str:
+    def check_expand_all(self) -> str:
         self.run_command("l")
-        parents = len(self.ui.active_rows())
+        top_level = len(self.ui.get_rows())
         self.run_command("T")
         try:
-            self.require(len(self.ui.active_rows()) == len(self.ui.rows), "sub-tasks still hidden after toggling on")
+            hidden = len(self.ui.rows) - len(self.ui.get_rows())
+            self.require(hidden == 0, f"{hidden} rows still hidden after expanding all")
+            children = len(self.ui.rows) - top_level
         finally:
             self.run_command("T")
-        self.require(len(self.ui.active_rows()) == parents, "sub-tasks still shown after toggling off")
-        return f"{len(self.ui.rows) - parents} sub-tasks shown and hidden"
+        self.require(len(self.ui.get_rows()) == top_level, "children still shown after collapsing all")
+        return f"{children} sub-items under {top_level} issues shown and hidden"
+
+    # Expands an epic with the cursor, as the right arrow does, and checks its
+    # children appear beneath it with outline numbers that typed input resolves
+    def check_expand_epic(self) -> str:
+        self.run_command("l")
+        index = self.find_row(self.jira.is_epic)
+        if index is None:
+            raise CheckSkipped("no epic in the backlog")
+        epic_row = self.ui.get_rows()[index]
+        epic = epic_row.data
+        self.ui.cursor_index = index
+        self.ui.errors = []
+        expanded = self.ui.expand_row()
+        if self.ui.errors:
+            msg, exception = self.ui.errors[0]
+            raise RuntimeError(f"{msg}: {exception}")
+        expected = [child.key for child in self.jira.get_child_issues(epic)]
+        if not expanded:
+            self.require(not expected, f"{epic.key} has {len(expected)} children but did not expand")
+            raise CheckSkipped(f"{epic.key} has no children to expand")
+        try:
+            children = [row_container for row_container in self.ui.get_rows() if row_container.child_of is epic_row]
+            shown = [row_container.data.key for row_container in children]
+            self.require(shown == expected, f"{epic.key} expanded to {shown}, expected {expected}")
+            label = f"{epic_row.label}.1"
+            self.require(self.ui.get_row_by_label(label)[1].key == expected[0], f"row {label} is not {expected[0]}")
+            self.require(self.ui.cursor_index == index, "the cursor moved off the expanded epic")
+        finally:
+            self.ui.cursor_index = index + 1
+            self.ui.collapse_row()
+        self.require(self.ui.cursor_index == index, "collapsing from a child did not return the cursor to the epic")
+        self.require(not any(row_container.child_of is epic_row for row_container in self.ui.get_rows()), "children still shown after collapsing")
+        self.ui.clear_selection()
+        return f"{epic.key}: {len(shown)} children as {label}..{epic_row.label}.{len(shown)}"
 
     # Drills into a row of the given view via a row number, as typing it would
     def drill_into(self, shortcut: str, predicate: Callable[[Any], bool], what: str) -> Any:
@@ -383,7 +385,7 @@ class SelfTest:
         if index is None:
             raise CheckSkipped(f"no {what} in the {self.describe(shortcut)} view")
         parent = self.ui.get_row(index)[1]
-        self.run_command("digit", selection=str(index + 1))
+        self.run_command("digit", selection=self.ui.get_rows()[index].label)
         return parent
 
     def check_story_drilldown(self) -> str:
@@ -406,7 +408,7 @@ class SelfTest:
         index = self.find_row(lambda issue: len(issue.fields.subtasks) > 0)
         if index is not None:
             child = self.ui.get_row(index)[1]
-            self.run_command("digit", selection=str(index + 1))
+            self.run_command("digit", selection=self.ui.get_rows()[index].label)
             self.check_table(ViewMode.TASKVIEW, ["Assignee"])
             self.require(self.view.parent_issue.key == child.key, f"drilled into {self.view.parent_issue.key}, expected {child.key}")
             self.view.previous()
@@ -419,7 +421,7 @@ class SelfTest:
     def search(self, answers: List[Any], mode: int = ViewMode.SEARCH) -> List[str]:
         self.run_command("?", answers)
         self.check_table(mode)
-        return [data.key for _, data, is_subrow in self.ui.rows if not is_subrow]
+        return [row_container.data.key for row_container in self.ui.rows if not row_container.is_subrow()]
 
     def check_text_search(self) -> str:
         issue = self.sample(lambda issue: re.search(r"[A-Za-z]{4,}", issue.fields.summary or ""), "issue with a worded summary")

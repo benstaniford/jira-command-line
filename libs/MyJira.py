@@ -975,8 +975,46 @@ class MyJira:
         Returns:
             List of child issues.
         """
-        children = self.search_issues(f'{self._project_clause()} AND parent={issue.key} ORDER BY Rank ASC')
+        # Not scoped to the team's projects: the parent key already pins the children down,
+        # and an issue found via a search or board may belong to another team's project
+        children = self.search_issues(f'parent={issue.key} ORDER BY Rank ASC')
         return children
+
+    # Keys per "parent in (...)" query, keeping the JQL a sensible length
+    CHILDREN_QUERY_MAX_PARENTS = 100
+
+    def get_children_of_many(self, issues: Any) -> Dict[str, List[Any]]:
+        """
+        Get the children of several issues with one query per CHILDREN_QUERY_MAX_PARENTS
+        parents, rather than one per parent.
+        Args:
+            issues: Jira issue objects.
+        Returns:
+            Parent key -> its children in rank order. Parents without children are absent.
+        """
+        keys = [issue.key for issue in issues]
+        children: Dict[str, List[Any]] = {}
+        for start in range(0, len(keys), self.CHILDREN_QUERY_MAX_PARENTS):
+            self._add_children_of(keys[start:start + self.CHILDREN_QUERY_MAX_PARENTS], children)
+        return children
+
+    def _add_children_of(self, keys: List[str], children: Dict[str, List[Any]]) -> None:
+        """
+        Adds the children of keys to children. A search stops at SEARCH_MAX_ISSUES, so a
+        result that reaches it may be missing children: the parents are split in half and
+        each half asked again, down to a single parent if need be.
+        """
+        jql = f'parent in ({", ".join(keys)}) ORDER BY Rank ASC'
+        found = self.search_issues(jql)
+        if len(found) >= self.SEARCH_MAX_ISSUES and len(keys) > 1:
+            middle = len(keys) // 2
+            self._add_children_of(keys[:middle], children)
+            self._add_children_of(keys[middle:], children)
+            return
+        for child in found:
+            parent = getattr(child.fields, "parent", None)
+            if parent is not None:
+                children.setdefault(parent.key, []).append(child)
 
     @staticmethod
     def is_epic(issue: Any) -> bool:
