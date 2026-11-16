@@ -33,9 +33,9 @@ class TestHeadlessTableView:
     def test_subrows_hidden_until_toggled(self):
         ui = HeadlessTableView()
         ui.add_row(["TEST-1"], "parent", [(["TEST-2"], "child")])
-        assert [data for _, data, _ in ui.active_rows()] == ["parent"]
-        ui.toggle_subrows()
-        assert [data for _, data, _ in ui.active_rows()] == ["parent", "child"]
+        assert [row.data for row in ui.get_rows()] == ["parent"]
+        ui.toggle_expand_all()
+        assert [row.data for row in ui.get_rows()] == ["parent", "child"]
 
     def test_choice_list_answers_from_script(self):
         ui = HeadlessTableView()
@@ -47,14 +47,14 @@ class TestHeadlessTableView:
         ui = HeadlessTableView()
         ui.add_row(["TEST-1"], "issue")
         assert ui.prompt_get_issue() == ["", None, None]
-        ui.cursor = 0
+        ui.cursor_index = 0
         assert ui.prompt_get_issue()[2] == "issue"
 
     @pytest.mark.parametrize("command", [AssignCommand(), StatusCommand()])
     def test_writing_commands_stop_at_confirmation(self, command):
         ui = HeadlessTableView()
         ui.add_row(["TEST-1"], make_issue())
-        ui.cursor = 0
+        ui.cursor_index = 0
         ui.answers = ["Alice"]
         jira = Mock()
         jira.get_assignable_users.return_value = [{"displayName": "Alice", "accountId": "a1"}]

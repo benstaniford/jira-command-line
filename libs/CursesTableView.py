@@ -3,7 +3,13 @@
 # pip install windows-curses
 # docs: https://docs.python.org/3/howto/curses.html
 import curses
+import re
 from typing import Any
+
+ROW_LABEL_PATTERN = re.compile(r"\d+(\.\d+)*")
+EXPANDED_MARKER = "\u25be "   # down-pointing small triangle
+COLLAPSED_MARKER = "\u25b8 "  # right-pointing small triangle
+LEAF_MARKER = "  "
 
 class KeyCode:
     ESCAPE = 27
@@ -19,23 +25,45 @@ class RowContainer:
     """
     Initializes a RowContainer object, which is used to store the row number, data, and parent RowContainer object for a given row.
 
+    Rows form a tree: a row's children follow it (and their own children) in the table's flat
+    list of rows, and are only shown while every row above them in the tree is expanded.
+
     Args:
         row (list): The list of strings that make up a row
         data (Any, optional): The data associated with the row. Defaults to None.
         child_of (RowContainer, optional): The parent RowContainer object. Defaults to None.
+        expandable (bool, optional): Whether the row has, or may lazily load, children. Defaults to False.
     """
-    def __init__(self, row, data=None, row_index=None, child_of=None):
+    def __init__(self, row, data=None, row_index=None, child_of=None, expandable=False):
         self.row = row
         self.data = data
         self.child_of = child_of
         # The original order of either the row, or the subrow in the row
         self.row_index = row_index
+        self.depth = child_of.depth + 1 if child_of is not None else 0
+        self.expandable = expandable
+        self.expanded = False
+        # Children supplied up front count as loaded, otherwise the child loader is asked on first expand
+        self.children_loaded = False
+        # The outline number shown in the # column, e.g. "3" or "3.1"
+        self.label = ""
 
     def is_subrow(self):
         """
         Returns True if the row is a subrow, False otherwise.
         """
         return self.child_of is not None
+
+    def is_visible(self):
+        """
+        Returns True if every row above this one in the tree is expanded.
+        """
+        parent = self.child_of
+        while parent is not None:
+            if not parent.expanded:
+                return False
+            parent = parent.child_of
+        return True
 
 class CursesTableView:
     def __init__(self, stdscr):
@@ -53,7 +81,12 @@ class CursesTableView:
         self.rows = []
         self.cursor_index = None
         self.stdscr = stdscr
-        self.subrows_enabled = False
+        # Called with a row's data the first time it is expanded, see set_child_loader
+        self.child_loader = None
+        self.batch_child_loader = None
+        self.has_tree = False
+        # A one-off message for the prompt to show on its next redraw, see set_status
+        self.status_message = None
 
     def set_column_colors(self, colors):
         """
@@ -90,7 +123,7 @@ class CursesTableView:
         Enable row numbers for the table.
 
         This method adds a row number column to the table by inserting "#" at the beginning of the header
-        and inserting the row numbers at the beginning of each row.
+        and inserting the outline numbers (1, 2, 2.1, ...) at the beginning of each row.
 
         Args: None
 
@@ -99,35 +132,138 @@ class CursesTableView:
         if not self.row_numbers:
             self.row_numbers = True
             self.header.insert(0, "#")
-            if self.subrows_enabled:
-                for row_index, row_container in enumerate(self.rows):
-                    row_container.row.insert(0, str(row_index + 1))
-            else:
-                for row_index, row_container in enumerate(self.__get_parent_rows()):
-                    row_container.row.insert(0, str(row_index + 1))
-                for row_index, row_container in enumerate(self.__get_subrows()):
-                    row_container.row.insert(0, "")
+            for row_container in self.rows:
+                row_container.row.insert(0, "")
+            self.__get_active_rows()
 
-    def toggle_subrows(self):
+    def set_child_loader(self, loader, batch_loader=None):
         """
-        Toggle subrows for the table.
+        Set the callbacks that fetch a row's children the first time it is expanded.
 
-        This method toggles whether or not subrows are shown for the table. 
-
-        Args: None
+        Parameters:
+        - loader (callable): Called with a row's data, returns a list of child entries, each either
+          (row, data) or (row, data, subrows, expandable) - the same shape add_row takes.
+        - batch_loader (callable, optional): Called with a list of row datas, returns a list of child
+          entry lists in the same order. Used when many rows expand at once.
 
         Returns: None
         """
-        self.subrows_enabled = not self.subrows_enabled
-        if self.row_numbers:
-            if self.subrows_enabled:
-                for row_index, row_container in enumerate(self.rows):
-                    row_container.row[0] = str(row_index + 1)
-            else:
-                for row_index, row_container in enumerate(self.__get_parent_rows()):
-                    row_container.row[0] = str(row_index + 1)
-                for row_index, row_container in enumerate(self.__get_subrows()):
-                    row_container.row[0] = ""
+        self.child_loader = loader
+        self.batch_child_loader = batch_loader
+
+    def expand_row(self, row_index=None):
+        """
+        Expand a row to show its children, loading them on first expand.
+
+        Parameters:
+        - row_index (int, optional): Index into the active rows, defaults to the cursor row.
+
+        Returns: True if the row is now expanded
+        """
+        row_container = self.__get_active_row_or_cursor(row_index)
+        if row_container is None or not row_container.expandable:
+            return False
+        self.__expand_containers([row_container])
+        self.draw()
+        return row_container.expanded
+
+    def collapse_row(self, row_index=None):
+        """
+        Collapse a row, or the row above it in the tree if it is a child that has nothing to collapse.
+        The cursor, if shown, moves to the row that collapsed.
+
+        Parameters:
+        - row_index (int, optional): Index into the active rows, defaults to the cursor row.
+
+        Returns: True if a row was collapsed
+        """
+        row_container = self.__get_active_row_or_cursor(row_index)
+        if row_container is None:
+            return False
+        target = row_container if row_container.expanded else row_container.child_of
+        if target is None:
+            return False
+        target.expanded = False
+        if self.cursor_index is not None:
+            self.cursor_index = self.__get_active_rows().index(target)
+            self.__page_to_cursor()
+        self.draw()
+        return True
+
+    def toggle_expand_all(self):
+        """
+        Expand every row that has children, or collapse them all if they are already expanded.
+
+        Returns: True if the rows were expanded, False if they were collapsed
+        """
+        expandable = [row_container for row_container in self.rows if row_container.expandable]
+        if expandable and all(row_container.expanded for row_container in expandable):
+            for row_container in expandable:
+                row_container.expanded = False
+            expanded = False
+        else:
+            self.expand_where(lambda data: True)
+            expanded = True
+        self.draw()
+        return expanded
+
+    def expand_where(self, predicate):
+        """
+        Expand every row whose data matches predicate, including rows that only appear once
+        their parent has been expanded, loading children in batches. Does not redraw.
+
+        Parameters:
+        - predicate (callable): Called with a row's data, returns True to expand the row.
+
+        Returns: None
+        """
+        attempted = set()
+        while True:
+            pending = [row_container for row_container in self.rows
+                       if row_container.expandable and not row_container.expanded
+                       and id(row_container) not in attempted and predicate(row_container.data)]
+            if not pending:
+                return
+            attempted.update(id(row_container) for row_container in pending)
+            self.__expand_containers(pending)
+
+    def get_expansion_state(self):
+        """
+        Returns (data, expanded) for every row that has children, so a rebuilt table can be re-expanded.
+        """
+        return [(row_container.data, row_container.expanded) for row_container in self.rows if row_container.expandable]
+
+    def set_status(self, message):
+        """
+        Leave a message for the prompt to show, e.g. why a row did not expand. Prompts built
+        from a callable pick it up with take_status on their next redraw.
+        """
+        self.status_message = message
+
+    def take_status(self):
+        """
+        Returns the pending status message, if any, and clears it so it is shown once.
+        """
+        message, self.status_message = self.status_message, None
+        return message
+
+    @staticmethod
+    def is_row_label(text):
+        """
+        Returns True if text looks like a row number, e.g. "3" or "3.1".
+        """
+        return bool(text) and ROW_LABEL_PATTERN.fullmatch(text) is not None
+
+    def get_row_by_label(self, label):
+        """
+        Return the row and its data for an outline row number as shown in the # column, e.g. "3.1".
+
+        Raises: IndexError if no shown row has that number
+        """
+        for row_container in self.__get_active_rows():
+            if row_container.label == label:
+                return row_container.row, row_container.data
+        raise IndexError(label)
 
     def disable_row_numbers(self):
         """
@@ -156,7 +292,7 @@ class CursesTableView:
         """
         self.header += header
 
-    def add_row(self, row, data=None, subrows=None, row_index=None, parent_row=None):
+    def add_row(self, row, data=None, subrows=None, row_index=None, parent_row=None, expandable=False):
         """
         Adds a row to the table, and optionally associates data with it, the data will remain associated even if the row is sorted.
         The table also has a concept of optional subrows, which are rows that are associated with another row, and are hidden until the parent row is expanded.
@@ -164,27 +300,84 @@ class CursesTableView:
         Parameters:
         row (list): The row to be added to the table
         data (Any, optional): Data to be associated with the row (default is None)
-        subrows (list, optional): List of tuples, (subrow, data) to be associated with the row (default is None).
-        parent_row (list, optional): The row that the subrows are associated with (default is None).
+        subrows (list, optional): List of tuples, (subrow, data) or (subrow, data, subrows, expandable), to be associated with the row (default is None).
+        parent_row (RowContainer, optional): The row that the subrows are associated with (default is None).
+        expandable (bool, optional): Whether the row may have children that the child loader fetches on first expand (default is False).
 
         Raises: None
 
         Returns: None 
         """
-        row_container = RowContainer(row, data, row_index if row_index else len(self.rows), parent_row)
-        if (self.row_numbers):
-            if (self.subrows_enabled):
-                row_container.row.insert(0, str(len(self.rows) + 1))
-            else:
-                # Only increment the row number if the row is not a subrow
-                if (parent_row is None):
-                    row_container.row.insert(0, str(len(self.__get_parent_rows()) + 1))
-                else:
-                    row_container.row.insert(0, "") 
+        self.rows.extend(self.__make_containers([(row, data, subrows, expandable)], parent_row))
 
-        self.rows.append(row_container)
-        for subrow_index, (subrow, subrow_data) in enumerate(subrows or []):
-            self.add_row(subrow, subrow_data, None, row_index, row_container)
+    def __make_containers(self, entries, parent_row):
+        """Builds the containers for entries and their subrows, flattened parent-first"""
+        containers = []
+        for entry in entries:
+            row, data = entry[0], entry[1]
+            subrows = entry[2] if len(entry) > 2 else None
+            expandable = entry[3] if len(entry) > 3 else False
+            row_container = RowContainer(row, data, len(self.rows) + len(containers), parent_row, bool(expandable or subrows))
+            row_container.children_loaded = bool(subrows)
+            if self.row_numbers:
+                row_container.row.insert(0, "")
+            containers.append(row_container)
+            containers.extend(self.__make_containers(subrows or [], row_container))
+        return containers
+
+    def __expand_containers(self, row_containers):
+        """Loads any children not yet loaded, then expands every row that turned out to have some"""
+        self.__load_children([row_container for row_container in row_containers if not row_container.children_loaded])
+        # A row whose children failed to load stays collapsed
+        for row_container in row_containers:
+            if row_container.expandable and row_container.children_loaded:
+                row_container.expanded = True
+
+    def __load_children(self, row_containers):
+        if not row_containers:
+            return
+        if self.child_loader is None and self.batch_child_loader is None:
+            results = [[] for _ in row_containers]
+        else:
+            try:
+                if self.batch_child_loader is not None and (len(row_containers) > 1 or self.child_loader is None):
+                    results = self.batch_child_loader([row_container.data for row_container in row_containers])
+                else:
+                    results = [self.child_loader(row_container.data) for row_container in row_containers]
+            except Exception as e:
+                self.error("Load child issues", e)
+                return
+        for row_container, children in zip(row_containers, results):
+            children = children or []
+            row_container.children_loaded = True
+            if not children:
+                row_container.expandable = False
+                continue
+            # Children go after the parent's existing descendants, which are contiguous
+            position = self.rows.index(row_container) + 1
+            while position < len(self.rows) and self.__is_descendant(self.rows[position], row_container):
+                position += 1
+            self.rows[position:position] = self.__make_containers(children, row_container)
+
+    @staticmethod
+    def __is_descendant(row_container, ancestor):
+        parent = row_container.child_of
+        while parent is not None:
+            if parent is ancestor:
+                return True
+            parent = parent.child_of
+        return False
+
+    def __get_active_row_or_cursor(self, row_index):
+        if row_index is None:
+            self.__clamp_cursor()
+            row_index = self.cursor_index
+        if row_index is None:
+            return None
+        active_rows = self.__get_active_rows()
+        if row_index < 0 or row_index >= len(active_rows):
+            return None
+        return active_rows[row_index]
 
     def get_row(self, row_index):
         """
@@ -253,6 +446,10 @@ class CursesTableView:
 
         Returns: None
         """
+        self.reset_table()
+
+    def reset_table(self):
+        """Empties the rows and header and drops any filter, search and cursor"""
         self.header = []
         if (self.row_numbers):
             self.header.insert(0, "#")
@@ -261,8 +458,6 @@ class CursesTableView:
         self.current_filter = None
         self.current_search = None
         self.cursor_index = None
-        if (self.row_numbers):
-            self.enable_row_numbers()
 
     def yield_screen(self):
         """
@@ -534,12 +729,9 @@ class CursesTableView:
             return ["", None, None]
         if selection == "" and selected is not None:
             return ["", selected[0], selected[1]]
-        if selection.isdigit():
-            row_index = int(selection) - 1
+        if self.is_row_label(selection):
             try:
-                if row_index < 0:
-                    raise IndexError(selection)
-                [row, data] = self.get_row(row_index)
+                [row, data] = self.get_row_by_label(selection)
                 return [selection, row, data]
             except IndexError:
                 return [selection, None, None]
@@ -550,7 +742,8 @@ class CursesTableView:
         Displays a prompt with colored help text and returns the string entered by the user, or the first keypress in keypresses.
 
         Args:
-            prompt (str|list): All lines in the prompt. If str, treated as simple text prompt.
+            prompt (str|list|callable): All lines in the prompt. If str, treated as simple text prompt.
+                              If callable, called with no arguments for the str or list each time the prompt is drawn.
                               If list, can contain:
                               - Strings for simple text lines
                               - Lists of (text, is_highlighted) tuples for colored lines
@@ -569,16 +762,20 @@ class CursesTableView:
             str: The string entered by the user or the first matching keypress, the sentinel "CTRL-<char>" if a
                  CTRL combination in ctrl_keys was pressed, or escape_returns if escape was pressed
         """
-        # Convert prompt to consistent format and extract last line
-        if isinstance(prompt, str):
-            lines = prompt.split("\n")
-            all_colored_lines = lines[:-1] if len(lines) > 1 else []
-            last_line = lines[-1] if lines else ""
-        else:
-            all_colored_lines = prompt[:-1] if len(prompt) > 1 else []
-            last_line = prompt[-1] if prompt else ""
-        
+        # A callable prompt is re-evaluated every time the prompt is redrawn, e.g. so its
+        # hint line can follow the row cursor
+        prompt_source = prompt
         while True:
+            prompt = prompt_source() if callable(prompt_source) else prompt_source
+            # Convert prompt to consistent format and extract last line
+            if isinstance(prompt, str):
+                lines = prompt.split("\n")
+                all_colored_lines = lines[:-1] if len(lines) > 1 else []
+                last_line = lines[-1] if lines else ""
+            else:
+                all_colored_lines = prompt[:-1] if len(prompt) > 1 else []
+                last_line = prompt[-1] if prompt else ""
+
             self.prompt_with_colored_help(prompt)
             # Count total lines for positioning
             total_lines = len(all_colored_lines) + 1
@@ -633,6 +830,23 @@ class CursesTableView:
                 elif typed_char == curses.KEY_UP:
                     self.__move_cursor(-1)
                     break
+                # Right/left (or +/- while a row is selected) expand and collapse the cursor
+                # row. With no cursor, right summons it as up/down do, so the key visibly does
+                # something; left is swallowed rather than typed as the character its key code
+                # happens to map to
+                elif typed_char in (curses.KEY_RIGHT, curses.KEY_LEFT) or \
+                        (typed_char in (ord('+'), ord('-')) and self.cursor_index is not None and answer == ""):
+                    if self.cursor_index is None:
+                        if typed_char == curses.KEY_RIGHT:
+                            self.__move_cursor(0)
+                            break
+                        continue
+                    if typed_char in (curses.KEY_RIGHT, ord('+')):
+                        if not self.expand_row():
+                            curses.beep()
+                    elif not self.collapse_row():
+                        curses.beep()
+                    break
                 elif chr(typed_char).isprintable():
                     answer += chr(typed_char)
                     self.stdscr.addstr(last_line_pos, prompt_with_padding + len(answer) - 1, chr(typed_char))
@@ -652,22 +866,26 @@ class CursesTableView:
 
         Raises: None
         """
-        for row_container in self.rows:
-            try:
-                self.__get_column_as_numeric(row_container.row, column_index)
-            except Exception as e:
-                return self.__sort_alpha(column_index, reverse)
         try:
-            def FnNumericColumnSortPreserveSubrows(row_container):
-                if (row_container.is_subrow()):
-                    parent_row = row_container.child_of
-                    parent_number_val = self.__get_column_as_numeric(parent_row.row, column_index)
-                    return (parent_number_val, parent_row.row_index, row_container.row_index + 1)
-                return (self.__get_column_as_numeric(row_container.row, column_index), row_container.row_index, 0)
-            self.rows.sort(key=FnNumericColumnSortPreserveSubrows, reverse=reverse)
-        except Exception as e:
-            return
+            for row_container in self.rows:
+                self.__get_column_as_numeric(row_container.row, column_index)
+        except Exception:
+            return self.__sort_alpha(column_index, reverse)
+        self.__sort_tree(lambda row_container: self.__get_column_as_numeric(row_container.row, column_index), reverse)
         self.draw()
+
+    def __sort_tree(self, key, reverse):
+        """Sorts each set of siblings by key, keeping every row's children directly beneath it"""
+        children = {}
+        for row_container in self.rows:
+            children.setdefault(id(row_container.child_of), []).append(row_container)
+        sorted_rows = []
+        def add_sorted(parent_id):
+            for row_container in sorted(children.get(parent_id, []), key=key, reverse=reverse):
+                sorted_rows.append(row_container)
+                add_sorted(id(row_container))
+        add_sorted(id(None))
+        self.rows = sorted_rows
 
     def close(self):
         """ Close the curses window and clean up resources.  """
@@ -688,6 +906,8 @@ class CursesTableView:
         if (self.row_numbers):
             self.__renumber_active_rows()
         self.__clamp_cursor()
+        # Decided once per draw, as every cell drawn consults it
+        self.has_tree = any(row_container.expandable or row_container.is_subrow() for row_container in self.rows)
         self.stdscr.clear()
         rows_per_page = self.__calc_rows_per_page()
         self.__initialize_color_pairs()
@@ -718,7 +938,7 @@ class CursesTableView:
                 continue
             if row_index >= self.current_page * rows_per_page:
                 break
-            for col_index, col_text in enumerate(row_container.row):
+            for col_index, col_text in enumerate(self.__display_cells(row_container)):
                 txt = self.__apply_max_col_width(col_text)
                 str_justified = f"{txt}".ljust(column_lengths[col_index] + self.padding)
 
@@ -757,12 +977,28 @@ class CursesTableView:
                 column_lengths += (0,)
             column_lengths = column_lengths[:col_index] + (max(column_lengths[col_index], len(cell_text)),) + column_lengths[col_index+1:]
         for row_container in self.rows:
-            for col_index, col_text in enumerate(row_container.row):
+            for col_index, col_text in enumerate(self.__display_cells(row_container)):
                 if col_index >= len(column_lengths):
                     column_lengths += (0,)
                 txt = self.__apply_max_col_width(col_text)
                 column_lengths = column_lengths[:col_index] + (max(column_lengths[col_index], len(txt)),) + column_lengths[col_index+1:]
         return column_lengths
+
+    def __display_cells(self, row_container):
+        """
+        The row's cells as drawn: once any row has children, the first data column is indented
+        by depth and carries an expanded/collapsed marker.
+        """
+        if not self.has_tree:
+            return row_container.row
+        key_column = 1 if self.row_numbers else 0
+        cells = list(row_container.row)
+        if key_column < len(cells):
+            marker = LEAF_MARKER
+            if row_container.expandable:
+                marker = EXPANDED_MARKER if row_container.expanded else COLLAPSED_MARKER
+            cells[key_column] = "  " * row_container.depth + marker + cells[key_column]
+        return cells
 
     def __calc_rows_per_page(self):
         curses.update_lines_cols()
@@ -853,17 +1089,12 @@ class CursesTableView:
         return float(value)
 
     def __sort_alpha(self, column_index, reverse=False):
-        def FnColumnSortPreserveSubrows(row_container):
-            if (row_container.is_subrow()):
-                parent_row = row_container.child_of
-                return (parent_row.row[column_index], parent_row.row_index, row_container.row_index + 1)
-            return (row_container.row[column_index], row_container.row_index, 0)
-        self.rows.sort(key=FnColumnSortPreserveSubrows, reverse=reverse)
+        self.__sort_tree(lambda row_container: self.__get_column_safe(row_container.row, column_index), reverse)
         self.draw()
 
     def __renumber_active_rows(self):
-        for row_index, row_container in enumerate(self.__get_active_rows()):
-            row_container.row[0] = str(row_index + 1)
+        # Computing the active rows writes their outline numbers
+        self.__get_active_rows()
 
     def __move_page(self, increment):
         # Work out how many rows/pages we have
@@ -938,27 +1169,32 @@ class CursesTableView:
         return key_presses_to_names
 
     def __get_active_rows(self):
-        """Returns a list of rows that are active, i.e. potentially not subrows or rows that are filtered out"""
-        rows = self.rows if self.subrows_enabled else self.__get_parent_rows()
-        if (self.current_filter == None):
-            return rows
-        filtered_rows = []
-        row_index = 0
+        """
+        Returns the rows that are shown: those under expanded rows that pass the filter, plus the rows
+        above any that pass it so a matching child keeps its context. Also numbers them: top level rows
+        1, 2, 3 and children by position under their parent, 3.1, 3.2, 3.2.1.
+        """
+        rows = [row_container for row_container in self.rows if row_container.is_visible()]
+        if self.current_filter is not None:
+            term = self.current_filter.lower()
+            first_cell = 1 if self.row_numbers else 0
+            keep = set()
+            for row_container in rows:
+                if term in " ".join(row_container.row[first_cell:]).lower():
+                    parent = row_container
+                    while parent is not None and id(parent) not in keep:
+                        keep.add(id(parent))
+                        parent = parent.child_of
+            rows = [row_container for row_container in rows if id(row_container) in keep]
+        counters = {}
         for row_container in rows:
-            combined_row_text = " ".join(row_container.row)
-            if (self.current_filter.lower() in combined_row_text.lower()):
-                row_index += 1
-                if (self.row_numbers):
-                    row_container.row[0] = str(row_index)
-                filtered_rows.append(row_container)
-        return filtered_rows
-
-    def __get_parent_rows(self):
-        """Returns a list of rows that are not subrows"""
-        return [row_container for row_container in self.rows if not row_container.is_subrow()]
-
-    def __get_subrows(self):
-        return [row_container for row_container in self.rows if row_container.is_subrow()]
+            parent = row_container.child_of
+            counters[id(parent)] = counters.get(id(parent), 0) + 1
+            number = str(counters[id(parent)])
+            row_container.label = f"{parent.label}.{number}" if parent is not None else number
+            if self.row_numbers:
+                row_container.row[0] = row_container.label
+        return rows
 
     def prompt_fuzzy_find(self, prompt_text, choices, max_display=4):
         """

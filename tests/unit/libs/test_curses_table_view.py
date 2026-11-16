@@ -319,3 +319,243 @@ class TestCursorRendering:
         attrs = [call.args[1] for call in view.stdscr.addstr.call_args_list
                  if len(call.args) > 1 and isinstance(call.args[1], int)]
         assert not any(a & A_REVERSE for a in attrs)
+
+
+def build_tree_view(curses_mock, row_numbers=True):
+    """
+    Three top level rows: TEST-1, an epic EPIC-2 whose children are loaded on
+    expand, and TEST-3 with two sub-tasks supplied up front
+    """
+    view = CursesTableView(Mock())
+    view.header_color = 1
+    view.set_column_colors([1, 2, 3])
+    if row_numbers:
+        view.enable_row_numbers()
+    view.add_header(["Key", "Summary", "Status"])
+    view.add_row(["TEST-1", "Plain", "Open"], "TEST-1")
+    view.add_row(["EPIC-2", "Epic", "Open"], "EPIC-2", expandable=True)
+    view.add_row(["TEST-3", "Story", "Done"], "TEST-3", [(["SUB-1", "Sub one", "Open"], "SUB-1"),
+                                                          (["SUB-2", "Sub two", "Done"], "SUB-2")])
+    loads = []
+    def loader(data):
+        loads.append(data)
+        return [(["STORY-1", "Story one", "Open"], "STORY-1"),
+                (["STORY-2", "Story two", "Open"], "STORY-2", [(["SUB-9", "Deep", "Open"], "SUB-9")], False)]
+    view.set_child_loader(loader)
+    view.loads = loads
+    return view
+
+
+def shown(view):
+    return [(row.label, row.data) for row in view.get_rows()]
+
+
+class TestExpandableRows:
+    def test_children_hidden_until_expanded(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        assert shown(view) == [("1", "TEST-1"), ("2", "EPIC-2"), ("3", "TEST-3")]
+
+    def test_expanding_numbers_children_under_the_parent(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_row(2)
+        assert shown(view) == [("1", "TEST-1"), ("2", "EPIC-2"), ("3", "TEST-3"),
+                               ("3.1", "SUB-1"), ("3.2", "SUB-2")]
+        assert view.get_rows()[3].row[0] == "3.1"
+
+    def test_top_level_numbers_do_not_move_when_a_row_above_expands(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_row(1)
+        assert ("3", "TEST-3") in shown(view)
+        assert view.get_row_by_label("3")[1] == "TEST-3"
+
+    def test_children_load_on_first_expand_only(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_row(1)
+        view.collapse_row(1)
+        view.expand_row(1)
+        assert view.loads == ["EPIC-2"]
+        assert shown(view)[1:4] == [("2", "EPIC-2"), ("2.1", "STORY-1"), ("2.2", "STORY-2")]
+
+    def test_loaded_children_can_nest(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_row(1)
+        view.expand_row(3)
+        assert view.get_row_by_label("2.2.1")[1] == "SUB-9"
+
+    def test_row_with_no_children_stops_being_expandable(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.set_child_loader(lambda data: [])
+        assert view.expand_row(1) is False
+        assert view.rows[1].expandable is False
+
+    def test_loader_failure_is_reported_and_leaves_row_collapsed(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        def broken(data):
+            raise RuntimeError("down")
+        view.set_child_loader(broken)
+        view.error = Mock()
+        assert view.expand_row(1) is False
+        view.error.assert_called_once()
+        assert view.rows[1].children_loaded is False
+
+    def test_expand_defaults_to_cursor_row(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        move_cursor(view, 1)
+        move_cursor(view, 1)
+        move_cursor(view, 1)
+        assert view.expand_row() is True
+        assert view.get_selected_row()[1] == "TEST-3"
+
+    def test_collapsing_a_child_collapses_its_parent_and_moves_the_cursor(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_row(2)
+        view.cursor_index = 4  # SUB-2
+        assert view.collapse_row() is True
+        assert view.get_selected_row()[1] == "TEST-3"
+        assert len(view.get_rows()) == 3
+
+    def test_collapsing_a_top_level_leaf_does_nothing(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        assert view.collapse_row(0) is False
+
+    def test_typed_label_resolves_through_prompt(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_row(2)
+        view.prompt_get_string = Mock(return_value="3.2")
+        assert view.prompt_get_issue()[2] == "SUB-2"
+
+    def test_unknown_label_resolves_to_nothing(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.prompt_get_string = Mock(return_value="3.1")
+        assert view.prompt_get_issue() == ["3.1", None, None]
+
+    @pytest.mark.parametrize("text,expected", [("3", True), ("3.1", True), ("12.3.4", True),
+                                               ("", False), ("3.", False), (".1", False), ("a", False)])
+    def test_is_row_label(self, text, expected):
+        assert CursesTableView.is_row_label(text) is expected
+
+
+class TestExpandAll:
+    def test_expand_all_then_collapse_all(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        assert view.toggle_expand_all() is True
+        assert [data for _, data in shown(view)] == ["TEST-1", "EPIC-2", "STORY-1", "STORY-2", "SUB-9",
+                                                     "TEST-3", "SUB-1", "SUB-2"]
+        assert view.toggle_expand_all() is False
+        assert len(view.get_rows()) == 3
+
+    def test_expand_all_uses_the_batch_loader(self, curses_mock):
+        view = CursesTableView(Mock())
+        view.header_color = 1
+        view.add_header(["Key"])
+        view.add_row(["EPIC-1"], "EPIC-1", expandable=True)
+        view.add_row(["EPIC-2"], "EPIC-2", expandable=True)
+        single, batch = Mock(), Mock(return_value=[[(["A"], "A")], []])
+        view.set_child_loader(single, batch)
+        view.toggle_expand_all()
+        batch.assert_called_once_with(["EPIC-1", "EPIC-2"])
+        single.assert_not_called()
+        assert [data for _, data in shown(view)] == ["EPIC-1", "A", "EPIC-2"]
+        assert view.rows[-1].expandable is False
+
+    def test_expand_where_only_expands_matches(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_where(lambda data: data == "TEST-3")
+        assert view.loads == []
+        assert len(view.get_rows()) == 5
+        assert view.get_expansion_state() == [("EPIC-2", False), ("TEST-3", True)]
+
+
+class TestTreeSortAndFilter:
+    def test_sort_keeps_children_under_their_parent(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.toggle_expand_all()
+        view.sort(3)  # Status, with the # column first
+        order = [data for _, data in shown(view)]
+        # TEST-3 is the only Done top level row; its Done sub-task now sorts above its Open one
+        assert order[:3] == ["TEST-3", "SUB-2", "SUB-1"]
+        assert order[order.index("EPIC-2") + 1:order.index("EPIC-2") + 4] == ["STORY-1", "STORY-2", "SUB-9"]
+
+    def test_filter_keeps_the_parents_of_a_matching_child(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.toggle_expand_all()
+        view.current_filter = "deep"
+        assert shown(view) == [("1", "EPIC-2"), ("1.1", "STORY-2"), ("1.1.1", "SUB-9")]
+
+    def test_filter_does_not_match_row_numbers(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.current_filter = "2"
+        assert [data for _, data in shown(view)] == ["EPIC-2"]
+
+
+class TestTreeDrawing:
+    def drawn_text(self, view):
+        view.stdscr.reset_mock()
+        view.draw()
+        return "".join(c.args[0] for c in view.stdscr.addstr.call_args_list if c.args)
+
+    def test_markers_and_indent(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        view.expand_row(2)
+        text = self.drawn_text(view)
+        assert "▸ EPIC-2" in text
+        assert "▾ TEST-3" in text
+        assert "    SUB-1" in text
+
+    def test_flat_table_has_no_markers(self, curses_mock):
+        view = build_view(curses_mock)
+        text = self.drawn_text(view)
+        assert "▸" not in text and "  TEST-1" not in text.split("TEST-1")[0][-3:]
+
+
+KEY_RIGHT = 261
+KEY_LEFT = 260
+ENTER = 10
+
+
+class TestExpandKeys:
+    """Drives the real prompt loop with scripted keypresses, ending each script with enter"""
+    def press(self, curses_mock, view, *keys):
+        curses_mock.KEY_RIGHT = KEY_RIGHT
+        curses_mock.KEY_LEFT = KEY_LEFT
+        view.stdscr.getch.side_effect = list(keys) + [ENTER]
+        return view.prompt_get_string("prompt >")
+
+    def test_right_without_a_cursor_summons_it(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        self.press(curses_mock, view, KEY_RIGHT)
+        assert view.cursor_index == 0
+        assert len(view.get_rows()) == 3
+
+    def test_right_expands_and_left_collapses_the_cursor_row(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        self.press(curses_mock, view, KEY_DOWN, KEY_DOWN, KEY_DOWN, KEY_RIGHT)
+        assert view.get_row_by_label("3.2")[1] == "SUB-2"
+        self.press(curses_mock, view, KEY_LEFT)
+        assert len(view.get_rows()) == 3
+
+    def test_plus_and_minus_work_while_a_row_is_selected(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        answer = self.press(curses_mock, view, KEY_DOWN, KEY_DOWN, ord('+'))
+        assert answer == ""
+        assert view.get_row_by_label("2.1")[1] == "STORY-1"
+        self.press(curses_mock, view, ord('-'))
+        assert len(view.get_rows()) == 3
+
+    def test_plus_is_typed_without_a_cursor(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        assert self.press(curses_mock, view, ord('+')) == "+"
+
+    def test_right_on_a_row_that_cannot_expand_beeps(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        self.press(curses_mock, view, KEY_DOWN, KEY_RIGHT)
+        curses_mock.beep.assert_called_once()
+
+    def test_callable_prompt_is_redrawn_after_each_key(self, curses_mock):
+        view = build_tree_view(curses_mock)
+        prompt = Mock(return_value="prompt >")
+        curses_mock.KEY_RIGHT = KEY_RIGHT
+        curses_mock.KEY_LEFT = KEY_LEFT
+        view.stdscr.getch.side_effect = [KEY_DOWN, KEY_DOWN, ENTER]
+        view.prompt_get_string(prompt)
+        assert prompt.call_count == 3

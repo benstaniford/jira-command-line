@@ -52,8 +52,9 @@ python jira --test             # Read-only self test for the current repo's team
 `libs/SelfTest.py` checks the client against the live Jira, git and github for the
 repository in the current directory, without a terminal UI and without writing
 anything. It drives the real command classes and `JiraTableView` through
-`HeadlessTableView`, a stand-in for `CursesTableView` that answers prompts from a
-script and refuses every y/n confirmation. It covers every view (including each
+`HeadlessTableView`, a subclass of `CursesTableView` that keeps the real table model
+(rows, expansion, outline numbers, cursor) but replaces drawing and prompting: it
+answers prompts from a script and refuses every y/n confirmation. It covers every view (including each
 configured board, searches and nested drill-downs), every F-key column over every
 issue the views returned, and the read-only groundwork of the commands that write
 (e.g. `a` fetches assignable users, `h` computes a branch name, `p` checks repo
@@ -103,6 +104,30 @@ row), and the second prompt in `move_command` ("below which issue?") still asks,
 since the cursor is the issue being moved. The cursor is a screen position rather
 than a pinned issue - it is clamped when a filter shrinks the table and cleared by
 `ui.clear()`, so any view refresh drops it.
+
+### Expanding Rows In Place
+Rows form a tree. `CursesTableView.rows` stays a flat, parent-first list of
+`RowContainer`s; each knows its `child_of`, `depth`, and whether it is `expandable`
+and `expanded`, and a row is shown only while every ancestor is expanded. With the
+cursor on a row, right arrow expands it and left arrow collapses it (or, on a child,
+collapses its parent and moves the cursor there). `T` expands or collapses everything.
+
+A story's sub-tasks arrive with it (`fields.subtasks`) and are added up front. An
+epic's children are not, so `JiraTableView` marks epics `expandable` and registers
+child loaders with `ui.set_child_loader()`: a single expand calls
+`MyJira.get_child_issues`, while expand-all and re-expansion after a rebuild batch
+every pending epic into `MyJira.get_children_of_many` (`parent in (...)`). An epic
+that turns out to have no children stops being expandable. Loaded children are full
+issues and get the table's extra columns; sub-tasks keep their three cells.
+
+The `#` column holds outline numbers - `3`, `3.1`, `3.1.2` - computed in
+`__get_active_rows` by position among shown siblings, so expanding a row never
+renumbers the top level. Anything that turns typed text into a row uses
+`ui.is_row_label()` + `ui.get_row_by_label()` (the main loop, `prompt_get_issue`,
+the task-view and move commands); `get_row(index)` still indexes the shown rows.
+Sorting sorts each set of siblings and keeps children under their parent, and a
+filter keeps the ancestors of any matching child. The expanded keys are remembered
+by `JiraTableView.expanded_keys` across rebuilds, so a refresh keeps them open.
 
 ### Drilling Into Issues
 Enter on a row opens TASKVIEW, which lists the row's children via

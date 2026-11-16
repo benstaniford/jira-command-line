@@ -106,7 +106,6 @@ class TestJqlFallbacks:
         jira.extra_projects = ["TESTO"]
         assert 'project in (TEST, TESTO)' in self._captured_jql(jira, 'get_backlog_issues')
         assert 'project in (TEST, TESTO)' in self._captured_jql(jira, 'get_sprint_issues')
-        assert 'project in (TEST, TESTO)' in self._captured_jql(jira, 'get_child_issues', Mock(key="TEST-1"))
         assert '(project in (TEST, TESTO) OR project = HELP)' in self._captured_jql(jira, 'search_for_issue', 'some text')
 
     def test_issue_number_is_tried_under_every_project(self, jira):
@@ -132,7 +131,46 @@ class TestJqlFallbacks:
         # An epic's children are stories and bugs, not sub-tasks
         jql = self._captured_jql(jira, 'get_child_issues', Mock(key="TEST-1"))
         assert 'parent=TEST-1' in jql
+        # Nor by project: the parent may belong to another team's project
+        assert 'project' not in jql
         assert 'issuetype' not in jql
+
+    def test_children_of_many_is_one_query_grouped_by_parent(self, jira):
+        def child(key, parent_key):
+            issue = Mock(key=key)
+            issue.fields.parent.key = parent_key
+            return issue
+        jira.search_issues = Mock(return_value=[child("S-1", "E-1"), child("S-2", "E-2"), child("S-3", "E-1")])
+
+        children = jira.get_children_of_many([Mock(key="E-1"), Mock(key="E-2"), Mock(key="E-3")])
+
+        jira.search_issues.assert_called_once()
+        assert 'parent in (E-1, E-2, E-3)' in jira.search_issues.call_args[0][0]
+        assert 'project' not in jira.search_issues.call_args[0][0]
+        assert {k: [c.key for c in v] for k, v in children.items()} == {"E-1": ["S-1", "S-3"], "E-2": ["S-2"]}
+
+    def test_children_of_many_chunks_long_parent_lists(self, jira):
+        jira.search_issues = Mock(return_value=[])
+        jira.CHILDREN_QUERY_MAX_PARENTS = 2
+        jira.get_children_of_many([Mock(key=f"E-{i}") for i in range(5)])
+        assert jira.search_issues.call_count == 3
+
+    def test_children_of_many_splits_a_query_that_hits_the_search_cap(self, jira):
+        def child(key, parent_key):
+            issue = Mock(key=key)
+            issue.fields.parent.key = parent_key
+            return issue
+        jira.SEARCH_MAX_ISSUES = 3
+        def search(jql):
+            parents = [p for p in ("E-1", "E-2") if p in jql]
+            result = [child(f"{p}-c{i}", p) for p in parents for i in range(2)]
+            return result[:jira.SEARCH_MAX_ISSUES]
+        jira.search_issues = Mock(side_effect=search)
+
+        children = jira.get_children_of_many([Mock(key="E-1"), Mock(key="E-2")])
+
+        assert jira.search_issues.call_count == 3
+        assert {k: len(v) for k, v in children.items()} == {"E-1": 2, "E-2": 2}
 
     def test_backlog_lists_epics_but_sprint_does_not(self, jira):
         assert 'Epic' in self._captured_jql(jira, 'get_backlog_issues')
